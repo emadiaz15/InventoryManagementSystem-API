@@ -1,9 +1,10 @@
 # Backend para Sistema de Gestión de Productos con Códigos QR
 
-Este proyecto es el backend de un sistema de gestión de productos que incluye la funcionalidad de generación y visualización de códigos QR. El backend está construido utilizando **Django** y **Django REST Framework (DRF)**. El sistema permite la creación, edición y eliminación de productos, así como la generación automática de códigos QR para cada producto. Los usuarios pueden escanear estos códigos QR para obtener información sobre los productos.
+Este proyecto es el backend de un sistema de gestión de productos orientado a la administración de inventarios, especializado en la gestión de un producto en particular (en esta versión, cables). El sistema permite a los administradores y operarios gestionar productos, monitorear niveles de stock, realizar seguimientos de órdenes de corte, y generar reportes. El backend está construido utilizando **Django** y **Django REST Framework (DRF)**, con generación automática de códigos QR para facilitar el acceso a la información de productos.
 
 ## **Índice**
 
+- [Descripcion del proyecto](#Descripcion-del-proyecto)
 - [Características](#características)
 - [Requisitos](#requisitos)
 - [Instalación](#instalación)
@@ -11,19 +12,24 @@ Este proyecto es el backend de un sistema de gestión de productos que incluye l
 - [Uso](#uso)
 - [API Endpoints](#api-endpoints)
 - [Pruebas](#pruebas)
-- [Contribuciones](#contribuciones)
-- [Licencia](#licencia)
 - [Arquitectura](#arquitectura)
-- [Cronograma de Desarrollo](#cronograma-de-desarrollo)
+
+## **Descripción del Proyecto**
+
+Nombre del Proyecto: Inventory Management System
+
+**Propósito**: Este sistema facilita la gestión de inventario y permite realizar un seguimiento detallado de productos dentro de una empresa o tienda. Inicialmente se centra en la gestión de cables, permitiendo a los administradores organizar productos, supervisar niveles de stock, manejar órdenes de corte, y generar reportes. Los operarios también pueden acceder a funciones como la consulta de productos y el cambio de estado de las órdenes de corte.
 
 ## **Características**
 
-- CRUD (Crear, Leer, Actualizar, Eliminar) para **productos**, **categorías** y **tipos**.
+- CRUD para productos, categorías, tipos y marcas.
+- Gestión de stock y visualización de la ubicación de productos en el depósito.
+- Generación automática y visualización de códigos QR para cada producto.
+- Sistema de autenticación y autorización basado en JWT.
+- Gestión de usuarios, roles y permisos.
+- Gestión de órdenes de corte con cambio de estado (pendiente, en proceso, finalizado).
+- Generación de reportes de inventarios, incluyendo órdenes de corte y productos faltantes.
 - Generación automática de **códigos QR** para cada producto.
-- Visualización del código QR en el front-end.
-- Sistema de **autenticación** y **autorización** basado en JWT.
-- Gestión de usuarios con diferentes permisos y roles.
-- Almacenamiento y visualización de imágenes para los productos.
 
 ## **Requisitos**
 
@@ -39,8 +45,8 @@ Antes de empezar, asegúrate de tener instalado lo siguiente en tu entorno:
 1. **Clonar el repositorio**:
 
    ```bash
-   git clone https://github.com/tu-usuario/nombre-repositorio.git
-   cd nombre-repositorio
+   git clone https://github.com/emadiaz15/InventoryManagementSystem-API.git
+   cd InventoryManagementSystem-API
    ```
 
 2. **Crear entorno virtual (opcional)**: Si usas pipenv, puedes crear un entorno virtual con el siguiente comando:
@@ -55,7 +61,7 @@ Antes de empezar, asegúrate de tener instalado lo siguiente en tu entorno:
    pip install -r requirements.txt
    ```
 
-4. **Configurar la base de datos**: Configura tu archivo `settings.py` para que apunte a tu base de datos PostgreSQL. Asegúrate de haber creado la base de datos localmente.
+4. **Configurar la base de datos**: Configura tu archivo `settings/local.py` para que apunte a tu base de datos PostgreSQL. Asegúrate de haber creado la base de datos localmente.
 
    ```python
    DATABASES = {
@@ -99,7 +105,7 @@ DATABASE_URL=postgres://tu_usuario:tu_contraseña@localhost:5432/nombre_base_dat
 
 ### Endpoints principales
 
-- **Autenticación**: `/api/auth/`
+- **Autenticación**: `/api/user/`
 - **Productos**: `/api/products/`
 - **Categorías**: `/api/categories/`
 - **Tipos**: `/api/types/`
@@ -139,32 +145,6 @@ La arquitectura de este proyecto sigue un patrón tradicional de MVC (Modelo-Vis
 - **Django REST Framework (DRF)** para la creación de la API.
 - **PostgreSQL** como base de datos relacional.
 - **QR Codes** generados automáticamente usando la librería `qrcode` de Python.
-
-### Diagrama de Arquitectura:
-
-```plaintext
-┌───────────┐      ┌───────────────┐      ┌───────────────┐
-│  Cliente  │      │   API Django  │      │  Base de      │
-│ (React)   │◄────►│  REST         │─────►│  Datos        │
-└───────────┘      └───────────────┘      └───────────────┘
-                           │
-                           ▼
-                    Generación de QR
-```
-
-- El cliente interactúa con el API de Django a través de peticiones HTTP.
-- El API maneja las solicitudes CRUD y la generación de códigos QR.
-- PostgreSQL almacena los productos, categorías y tipos.
-- Los códigos QR generados se almacenan en el servidor y pueden ser accesibles a través de endpoints específicos.
-
-## **Cronograma de Desarrollo**
-
-| Fase                            | Descripción                                                         | Duración Estimada |
-| ------------------------------- | ------------------------------------------------------------------- | ----------------- |
-| **Fase 1: Diseño**              | Definición de requerimientos, diseño de base de datos y wireframes. | 2 semanas         |
-| **Fase 2: Desarrollo Backend**  | Desarrollo de la API, autenticación, manejo de roles y endpoints.   | 3 semanas         |
-| **Fase 3: Desarrollo Frontend** | Desarrollo de las interfaces de usuario y conexión con la API.      | 3 semanas         |
-| **Fase 4: Implementación**      | Despliegue del sistema en ambiente productivo, pruebas finales.     | 1 semana          |
 
 ## **Tecnologías Utilizadas**
 
