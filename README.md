@@ -51,8 +51,8 @@ Antes de empezar, asegúrate de tener instalado lo siguiente en tu entorno:
 
 2. **Crear entorno virtual (opcional)**: Si usas pipenv, puedes crear un entorno virtual con el siguiente comando:
 
-   ```python3 -m venv env
-
+   ```bash
+   python3 -m venv env
    ```
 
 3. **Instalar dependencias**: Si no usas pipenv, instala las dependencias con:
