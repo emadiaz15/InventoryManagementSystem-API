@@ -55,41 +55,42 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """
     serializer_class = CustomTokenObtainPairSerializer
 
+
 @extend_schema(
     operation_id="logout_user",
-    description="Logout a user by blacklisting the refresh token",
+    description="Logout a user by invalidating the refresh token",
     request={"type": "object", "properties": {"refresh_token": {"type": "string"}}},
     responses={
-        205: "Token invalidated successfully",
+        205: "Token successfully invalidated",
         400: "Invalid token - Refresh token is required or invalid",
     },
 )
 class LogoutView(APIView):
     """
-    View to logout a user by blacklisting the refresh token.
+    View to log out a user by blacklisting the refresh token.
     Requires the refresh token to be provided, which will be invalidated.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        refresh_token = request.data.get("refresh_token")
-        
+        refresh_token = request.data.get("refresh_token")  # Se obtiene el refresh token
+
+        # Verificar si el token está presente
         if not refresh_token:
-            # Return error if refresh token is not provided
             return Response(
                 {"error": "Refresh token is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
+        # Intentar invalidar el token
         try:
             token = RefreshToken(refresh_token)
             token.blacklist()  # Blacklist the refresh token
             return Response(
-                {"message": "Token invalidated successfully"},
+                {"message": "Token successfully invalidated"},
                 status=status.HTTP_205_RESET_CONTENT
             )
         except Exception as e:
-            # Enhanced error handling: Provide specific error details
             return Response(
                 {"error": f"Failed to invalidate token: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST

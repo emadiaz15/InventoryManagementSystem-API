@@ -3,12 +3,9 @@ from rest_framework import serializers
 from apps.users.models import User
 
 class UserSerializer(serializers.ModelSerializer):
-    """
-    Serializador para el modelo User.
-    Maneja la conversión de los datos del modelo User a formato JSON y viceversa.
-    """
-    password = serializers.CharField(write_only=True, required=False, min_length=4)  # Cambiado a opcional para actualizar
-    image = serializers.ImageField(required=False, allow_null=True)  # Hacer opcional el campo de imagen
+    # Mantiene el UserSerializer sin cambios
+    password = serializers.CharField(write_only=True, required=False, min_length=4)
+    image = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
@@ -21,76 +18,62 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        """
-        Crea un nuevo usuario encriptando la contraseña antes de guardarlo.
-        """
         password = validated_data.pop('password', None)
         user = User(**validated_data)
         if password:
-            user.set_password(password)  # Encriptar la contraseña solo si es proporcionada
+            user.set_password(password)
         user.save()
         return user
 
     def update(self, instance, validated_data):
-        """
-        Actualiza un usuario. Encripta la contraseña si es proporcionada.
-        """
         password = validated_data.pop('password', None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         if password:
-            instance.set_password(password)  # Solo actualiza la contraseña si se proporciona
+            instance.set_password(password)
         instance.save()
         return instance
 
     def validate_password(self, value):
-        """
-        Validación adicional para la contraseña.
-        """
         if len(value) < 4:
-            raise serializers.ValidationError("La contraseña debe tener al menos 4 caracteres.")
+            raise serializers.ValidationError("Password must be at least 4 characters.")
         return value
 
     def validate_email(self, value):
-        """
-        Validación para asegurar que el email sea único.
-        """
-        # Comprobar si el email ya existe en otro usuario
         if User.objects.filter(email=value).exclude(id=getattr(self.instance, 'id', None)).exists():
-            raise serializers.ValidationError("Este correo electrónico ya está en uso.")
+            raise serializers.ValidationError("This email is already in use.")
         return value
 
     def validate_username(self, value):
-        """
-        Validación para asegurar que el username sea único.
-        """
-        # Comprobar si el username ya existe en otro usuario
         if User.objects.filter(username=value).exclude(id=getattr(self.instance, 'id', None)).exists():
-            raise serializers.ValidationError("Este nombre de usuario ya está en uso.")
+            raise serializers.ValidationError("This username is already in use.")
         return value
 
     def validate_dni(self, value):
-        """
-        Validación personalizada para el DNI (opcional).
-        """
-        if not value.isdigit():
-            raise serializers.ValidationError("El DNI debe contener solo números.")
-        if len(value) < 7 or len(value) > 10:
-            raise serializers.ValidationError("El DNI debe tener entre 7 y 10 dígitos.")
+        if not value.isdigit() or len(value) < 7 or len(value) > 10:
+            raise serializers.ValidationError("DNI must be 7 to 10 digits.")
         return value
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
-    Serializador personalizado para obtener pares de tokens JWT.
-    Añade claims personalizados al token.
+    Custom serializer to obtain JWT token pairs with renamed fields for tokens.
+    Adds custom claims to the token.
     """
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-
-        # Añadir claims personalizados al token
         token['name'] = user.name
         token['email'] = user.email
-
         return token
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        
+        # Rename the token keys
+        data = {
+            "refresh_token": data.pop("refresh"),
+            "access_token": data.pop("access"),
+        }
+        
+        return data
