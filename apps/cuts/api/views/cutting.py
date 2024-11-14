@@ -1,5 +1,5 @@
 # Este archivo define las vistas para manejar las órdenes de corte, incluyendo listar, crear, obtener, actualizar y eliminar de manera suave.
-# También se verifica el stock antes de crear o completar una orden.
+# También se verifica el stock antes de crear o completar una orden y se envían notificaciones por correo electrónico.
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -11,6 +11,7 @@ from apps.stocks.models import Stock
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from drf_spectacular.utils import extend_schema
+from apps.core.utils import send_assignment_notification  # Importa la función de notificación
 
 # Vista para listar órdenes de corte
 @extend_schema(
@@ -63,6 +64,10 @@ def cutting_order_create_view(request):
         try:
             # Guarda la orden y asigna el usuario que la crea
             order = serializer.save(assigned_by=request.user)
+            
+            # Enviar notificación de asignación de la orden
+            send_assignment_notification(order)
+            
             return Response(CuttingOrderSerializer(order).data, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -128,6 +133,9 @@ def update_cutting_order(request, order):
             # Si se completa la orden, ejecuta la lógica de corte
             if updated_order.status == 'completed':
                 complete_cutting(updated_order)
+            
+            # Enviar notificación de asignación de la orden actualizada
+            send_assignment_notification(updated_order)
 
             return Response(CuttingOrderSerializer(updated_order).data)
 

@@ -51,3 +51,12 @@ CORS_ALLOW_CREDENTIALS = True  # Permitir el uso de cookies/sesiones entre front
 #CORS_ALLOWED_ORIGINS = [
 #    "http://localhost:5173",  # Permitir solicitudes desde tu frontend de desarrollo
 #]
+
+# Configuración para el envío de correos electrónicos
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+DEFAULT_FROM_EMAIL = 'noreply@tuempresa.com'
+EMAIL_HOST = 'smtp.tuempresa.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'usuario@tuempresa.com'
+EMAIL_HOST_PASSWORD = 'contraseña'
