@@ -19,6 +19,3 @@ urlpatterns = [
     path('products/', product_list, name='product-list'),  # Ruta para listar productos
     path('products/<int:pk>/', product_detail, name='product-detail'),  # Ruta para detalles de un producto específico
 ]
-
-# Añadir soporte para sufijos de formatos (e.g., /products.json)
-urlpatterns = format_suffix_patterns(urlpatterns)
