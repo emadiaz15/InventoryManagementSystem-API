@@ -10,6 +10,18 @@ from drf_spectacular.utils import extend_schema
 import base64
 from django.core.files.base import ContentFile
 
+def decode_image_base64(image_data, name_prefix):
+    """
+    Decodifica una imagen en formato Base64 y la convierte en un archivo ContentFile.
+    """
+    try:
+        format, imgstr = image_data.split(';base64,')
+        ext = format.split('/')[-1]
+        return ContentFile(base64.b64decode(imgstr), name=f"{name_prefix}_tech_sheet.{ext}")
+    except Exception as e:
+        raise ValueError(f"Error al decodificar la imagen de la ficha técnica: {str(e)}")
+
+
 @extend_schema(
     methods=['GET'],
     operation_id="list_subproducts",
@@ -58,15 +70,12 @@ def create_subproduct(request, product_pk):
 
     serializer = SubProductSerializer(data=request.data)
     if serializer.is_valid():
-        # Decodifica la imagen de la ficha técnica si está en Base64 en los datos
         metadata = request.data.get('metadata', {})
         if 'technical_sheet_photo' in metadata:
             try:
-                format, imgstr = metadata['technical_sheet_photo'].split(';base64,')
-                ext = format.split('/')[-1]
-                serializer.validated_data['technical_sheet_photo'] = ContentFile(base64.b64decode(imgstr), name=f"{serializer.validated_data['name']}_tech_sheet.{ext}")
-            except Exception as e:
-                return Response({"detail": f"Error al decodificar la imagen de la ficha técnica: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+                serializer.validated_data['technical_sheet_photo'] = decode_image_base64(metadata['technical_sheet_photo'], serializer.validated_data['name'])
+            except ValueError as e:
+                return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
         # Asocia el subproducto al producto y lo guarda
         serializer.save(product=product)
@@ -113,29 +122,38 @@ def subproduct_detail(request, product_pk, pk):
         return Response({"detail": "SubProducto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
     
     if request.method == 'GET':
-        serializer = SubProductSerializer(subproduct)
+        return retrieve_subproduct(subproduct)
+    elif request.method == 'PUT':
+        return update_subproduct(request, subproduct)
+    elif request.method == 'DELETE':
+        return soft_delete_subproduct(subproduct)
+
+
+def retrieve_subproduct(subproduct):
+    """Obtiene los detalles del subproducto."""
+    serializer = SubProductSerializer(subproduct)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+def update_subproduct(request, subproduct):
+    """Actualiza los detalles del subproducto, incluyendo la decodificación de imágenes si es necesario."""
+    serializer = SubProductSerializer(subproduct, data=request.data, partial=True)
+    if serializer.is_valid():
+        metadata = request.data.get('metadata', {})
+        if 'technical_sheet_photo' in metadata:
+            try:
+                serializer.validated_data['technical_sheet_photo'] = decode_image_base64(metadata['technical_sheet_photo'], serializer.validated_data['name'])
+            except ValueError as e:
+                return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
     
-    elif request.method == 'PUT':
-        serializer = SubProductSerializer(subproduct, data=request.data, partial=True)
-        if serializer.is_valid():
-            # Decodifica la imagen de la ficha técnica si está en Base64 en los datos
-            metadata = request.data.get('metadata', {})
-            if 'technical_sheet_photo' in metadata:
-                try:
-                    format, imgstr = metadata['technical_sheet_photo'].split(';base64,')
-                    ext = format.split('/')[-1]
-                    serializer.validated_data['technical_sheet_photo'] = ContentFile(base64.b64decode(imgstr), name=f"{serializer.validated_data['name']}_tech_sheet.{ext}")
-                except Exception as e:
-                    return Response({"detail": f"Error al decodificar la imagen de la ficha técnica: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-            
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    elif request.method == 'DELETE':
-        # Marca el subproducto como inactivo en lugar de eliminarlo permanentemente
-        subproduct.is_active = False
-        subproduct.save()
-        return Response({"detail": "SubProducto eliminado (soft) correctamente."}, status=status.HTTP_204_NO_CONTENT)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+def soft_delete_subproduct(subproduct):
+    """Realiza un soft delete del subproducto, estableciendo `is_active` a False."""
+    subproduct.is_active = False
+    subproduct.save()
+    return Response({"detail": "SubProducto eliminado (soft) correctamente."}, status=status.HTTP_204_NO_CONTENT)

@@ -1,4 +1,4 @@
-# Este archivo define los endpoints para listar, crear, obtener, actualizar y eliminar (de manera suave) productos en la API.
+# Este archivo define los endpoints para listar, crear, obtener, actualizar y eliminar (de manera suave) productos, incluyendo manejo de stock y comentarios.
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -7,10 +7,14 @@ from rest_framework.permissions import IsAuthenticated
 from ...pagination import ProductPagination
 from ...models import Product
 from apps.stocks.models import Stock
+from apps.comments.models import Comment
+from apps.stocks.api.serializers import StockSerializer
+from apps.comments.api.serializers import CommentSerializer
 from ..serializers import ProductSerializer
 from drf_spectacular.utils import extend_schema
 import base64
 from django.core.files.base import ContentFile
+from django.contrib.contenttypes.models import ContentType
 
 # Vista para listar productos activos con filtros opcionales de categoría y tipo
 @extend_schema(
@@ -56,50 +60,45 @@ def product_list(request):
     operation_id="create_product",
     description="Crea un nuevo producto",
     request=ProductSerializer,
-    responses={
-        201: ProductSerializer,
-        400: "Solicitud Incorrecta - Datos inválidos",
-    },
+    responses={201: ProductSerializer, 400: "Solicitud Incorrecta - Datos inválidos"},
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_product(request):
     """
-    Endpoint para crear un nuevo producto.
+    Endpoint para crear un nuevo producto, opcionalmente con stock inicial.
     """
-    # Serializa los datos recibidos en la solicitud
     serializer = ProductSerializer(data=request.data)
+    
     if serializer.is_valid():
-        # Guarda el producto con el usuario autenticado como creador
+        # Guardar el producto con los datos válidos
         product = serializer.save(user=request.user)
 
-        # Procesa la imagen de ficha técnica si está en `metadata` y en formato Base64
+        # Si se proporciona metadata, actualiza los valores correspondientes
         metadata = request.data.get('metadata', {})
-        if 'technical_sheet_photo' in metadata:
-            try:
-                format, imgstr = metadata['technical_sheet_photo'].split(';base64,')
-                ext = format.split('/')[-1]
-                product.image = ContentFile(base64.b64decode(imgstr), name=f"{product.name}_tech_sheet.{ext}")
-            except Exception as e:
-                return Response({"detail": f"Error al decodificar la foto de la ficha técnica: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-        
+        for key, value in metadata.items():
+            product.metadata[key] = value
         product.save()
 
-        # Crea un stock inicial si se proporciona la cantidad
-        if 'stock_quantity' in request.data:
-            Stock.objects.create(product=product, quantity=request.data['stock_quantity'], user=request.user)
+        # Crear el stock inicial si se proporciona una cantidad de stock
+        stock_quantity = request.data.get('stock_quantity')
+        if stock_quantity is not None:
+            if stock_quantity < 0:
+                return Response({"detail": "La cantidad de stock no puede ser negativa."}, status=status.HTTP_400_BAD_REQUEST)
+            Stock.objects.create(product=product, quantity=stock_quantity, user=request.user)
         
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Devolver la respuesta con los datos del producto creado
+        return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
     
-    # Responde con errores de validación
+    # Si la validación falla, devolver los errores
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# Vista para obtener, actualizar o eliminar un producto específico
+# Vista para obtener, actualizar o eliminar un producto específico, incluyendo manejo de stock y comentarios
 @extend_schema(
     methods=['GET'],
     operation_id="retrieve_product",
-    description="Recupera detalles de un producto específico, incluyendo su stock",
+    description="Recupera detalles de un producto específico, incluyendo su stock y comentarios",
     responses={200: ProductSerializer, 404: "Producto no encontrado"},
 )
 @extend_schema(
@@ -119,36 +118,39 @@ def create_product(request):
 @permission_classes([IsAuthenticated])
 def product_detail(request, pk):
     """
-    Endpoint para obtener, actualizar o eliminar (suavemente) un producto específico.
+    Endpoint para obtener, actualizar o eliminar (suavemente) un producto específico, incluyendo su stock y comentarios.
     """
-    # Intenta obtener el producto por su clave primaria (pk); si no existe, responde con un error 404
     try:
         product = Product.objects.get(pk=pk)
     except Product.DoesNotExist:
         return Response({"detail": "Producto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
     
-    # Maneja la solicitud GET para obtener detalles del producto
+    # Obtener o crear stock asociado al producto
+    stock, created = Stock.objects.get_or_create(product=product, defaults={'quantity': 0, 'user': request.user})
+    stock_serializer = StockSerializer(stock)
+
+    # Obtener comentarios activos asociados al producto
+    content_type = ContentType.objects.get_for_model(Product)
+    comments = Comment.active_objects.filter(content_type=content_type, object_id=product.id)
+    comment_serializer = CommentSerializer(comments, many=True)
+
     if request.method == 'GET':
-        serializer = ProductSerializer(product)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # Serializa los datos del producto junto con el stock y comentarios
+        product_serializer = ProductSerializer(product)
+        return Response({
+            'product': product_serializer.data,
+            'stock': stock_serializer.data,
+            'comments': comment_serializer.data
+        }, status=status.HTTP_200_OK)
     
-    # Maneja la solicitud PUT para actualizar los detalles del producto
     elif request.method == 'PUT':
+        # Maneja la actualización de los detalles del producto
         serializer = ProductSerializer(product, data=request.data, partial=True)
         if serializer.is_valid():
             product = serializer.save()
 
-            # Procesa la imagen de ficha técnica si está en `metadata` y en formato Base64
-            metadata = request.data.get('metadata', {})
-            if 'technical_sheet_photo' in metadata:
-                try:
-                    format, imgstr = metadata['technical_sheet_photo'].split(';base64,')
-                    ext = format.split('/')[-1]
-                    product.image = ContentFile(base64.b64decode(imgstr), name=f"{product.name}_tech_sheet.{ext}")
-                except Exception as e:
-                    return Response({"detail": f"Error al decodificar la foto de la ficha técnica: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
-            
             # Actualiza valores en `metadata` si se proporcionan
+            metadata = request.data.get('metadata', {})
             for key, value in metadata.items():
                 product.metadata[key] = value
             product.save()
@@ -156,7 +158,8 @@ def product_detail(request, pk):
             # Actualiza el stock si se proporciona una nueva cantidad
             stock_quantity = request.data.get('stock_quantity')
             if stock_quantity is not None:
-                stock, _ = Stock.objects.get_or_create(product=product, defaults={'user': request.user, 'quantity': stock_quantity})
+                if stock_quantity < 0:
+                    return Response({"detail": "La cantidad de stock no puede ser negativa."}, status=status.HTTP_400_BAD_REQUEST)
                 stock.quantity = stock_quantity
                 stock.save()
                 
@@ -164,8 +167,8 @@ def product_detail(request, pk):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    # Maneja la solicitud DELETE para marcar el producto como inactivo
     elif request.method == 'DELETE':
+        # Marca el producto como inactivo
         product.is_active = False
         product.save()
         return Response({"detail": "Producto marcado como inactivo correctamente."}, status=status.HTTP_204_NO_CONTENT)
