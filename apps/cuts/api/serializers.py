@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from apps.cuts.models import CuttingOrder
+from apps.products.models import SubProduct
 from django.utils.timezone import now
 
 class CuttingOrderSerializer(serializers.ModelSerializer):
@@ -14,6 +15,9 @@ class CuttingOrderSerializer(serializers.ModelSerializer):
     created_at = serializers.DateTimeField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
     completed_at = serializers.DateTimeField(read_only=True)
+
+    # Campo para seleccionar subproducto (opcional)
+    subproduct = serializers.PrimaryKeyRelatedField(queryset=SubProduct.objects.all(), required=False)
 
     class Meta:
         model = CuttingOrder

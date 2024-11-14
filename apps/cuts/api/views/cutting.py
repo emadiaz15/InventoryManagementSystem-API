@@ -1,6 +1,3 @@
-# Este archivo define las vistas para manejar las órdenes de corte, incluyendo listar, crear, obtener, actualizar y eliminar de manera suave.
-# También se verifica el stock antes de crear o completar una orden y se envían notificaciones por correo electrónico.
-
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -26,7 +23,6 @@ def cutting_orders_list_view(request):
     """
     Endpoint para listar todas las órdenes de corte activas.
     """
-    # Recupera solo las órdenes de corte activas (no eliminadas)
     orders = CuttingOrder.objects.filter(deleted_at__isnull=True)
     serializer = CuttingOrderSerializer(orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -48,22 +44,10 @@ def cutting_order_create_view(request):
     """
     serializer = CuttingOrderSerializer(data=request.data)
     if serializer.is_valid():
-        product = serializer.validated_data['product']
-        cutting_quantity = serializer.validated_data['cutting_quantity']
-
-        # Verificar el stock más reciente del producto
-        latest_stock = Stock.objects.filter(product=product).order_by('-date').first()
-
-        # Verifica si hay stock suficiente
-        if latest_stock is None or latest_stock.quantity < cutting_quantity:
-            return Response(
-                {'detail': f'Stock insuficiente. Disponible: {latest_stock.quantity if latest_stock else 0}, Requerido: {cutting_quantity}'},
-                status=status.HTTP_409_CONFLICT
-            )
-
+        order = serializer.save(assigned_by=request.user)
         try:
-            # Guarda la orden y asigna el usuario que la crea
-            order = serializer.save(assigned_by=request.user)
+            # Verificar stock antes de guardar la orden
+            order.check_stock()
             
             # Enviar notificación de asignación de la orden
             send_assignment_notification(order)
@@ -72,7 +56,6 @@ def cutting_order_create_view(request):
         except ValidationError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Devuelve errores de validación
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -103,7 +86,9 @@ def cutting_order_detail_view(request, pk):
     Endpoint para obtener, actualizar o eliminar suavemente una orden de corte específica.
     """
     try:
-        order = CuttingOrder.objects.get(pk=pk, deleted_at__isnull=True)
+        order = CuttingOrder.objects.get(pk=pk)
+        if order.deleted_at:
+            return Response({'detail': 'Orden de corte eliminada'}, status=status.HTTP_410_GONE)
     except CuttingOrder.DoesNotExist:
         return Response({'detail': 'Orden de corte no encontrada'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -162,8 +147,11 @@ def complete_cutting(order):
     if order.status != 'in_process':
         raise ValueError("La operación debe estar en estado 'in_process' para completarse.")
 
+    if order.deleted_at:
+        raise ValidationError("No se puede completar una orden que ha sido eliminada.")
+
     # Obtener el último stock disponible
-    latest_stock = order.product.stocks.latest('date')
+    latest_stock = order.product.stocks.latest('date') if not order.subproduct else order.subproduct.stocks.latest('date')
 
     # Verificar si hay suficiente stock para completar el corte
     if latest_stock.quantity < order.cutting_quantity:
@@ -177,3 +165,17 @@ def complete_cutting(order):
     order.status = 'completed'
     order.completed_at = timezone.now()
     order.save()
+
+
+# Función para verificar el stock de la orden antes de ser creada
+def check_stock(self):
+    """Verifica si hay suficiente stock para la orden de corte."""
+    if self.subproduct:
+        latest_stock = Stock.objects.filter(subproduct=self.subproduct).order_by('-date').first()
+    else:
+        latest_stock = Stock.objects.filter(product=self.product).order_by('-date').first()
+
+    if not latest_stock or latest_stock.quantity < self.cutting_quantity:
+        raise ValidationError(
+            f'Stock insuficiente. Disponible: {latest_stock.quantity if latest_stock else 0}, Requerido: {self.cutting_quantity}'
+        )
