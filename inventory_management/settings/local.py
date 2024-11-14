@@ -26,7 +26,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=12),  # Puedes ajustar este valor
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=12),  # Tiempo corto para simular expiración rápida
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -38,6 +38,7 @@ SIMPLE_JWT = {
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
+
 
 
 # CORS Configuration
