@@ -57,14 +57,19 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """
-        Si el producto es de la categoría "Cables", verifica que tenga al menos un subproducto.
+        Si el producto es de la categoría "Cables", verifica que tenga al menos un subproducto activo.
         """
         # Verifica si el producto pertenece a la categoría "Cables"
         category = self.instance.category if self.instance else data.get('category')
         if category and category.name == "Cables":
-            # Verifica que el producto tenga subproductos en el caso de que se requiera
-            if not self.instance or not self.instance.subproducts.exists():
-                raise serializers.ValidationError(
-                    "Se requiere al menos un subproducto para productos de categoría 'Cables'."
-                )
+            # Si es una actualización, verifica si hay subproductos activos
+            if self.instance:
+                has_active_subproducts = self.instance.subproducts.filter(is_active=True).exists()
+                if not has_active_subproducts:
+                    raise serializers.ValidationError("Se requiere al menos un subproducto activo para productos de la categoría 'Cables'.")
+            else:
+                # En una creación, verifica que se incluya al menos un subproducto
+                if not data.get('subproducts'):
+                    raise serializers.ValidationError("Se requiere al menos un subproducto para productos de la categoría 'Cables'.")
+        
         return data
