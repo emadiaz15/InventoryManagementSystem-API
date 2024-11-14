@@ -1,5 +1,3 @@
-# Este archivo define los endpoints para listar, crear, obtener, actualizar y eliminar (de manera suave) subproductos asociados a productos en la API.
-
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -37,13 +35,11 @@ def subproduct_list(request, product_pk):
     """
     Endpoint para listar subproductos de un producto específico.
     """
-    # Verifica que el producto exista y esté activo
     try:
         product = Product.objects.get(pk=product_pk, is_active=True)
     except Product.DoesNotExist:
         return Response({"detail": "Producto no encontrado o inactivo."}, status=status.HTTP_404_NOT_FOUND)
     
-    # Filtra los subproductos activos asociados al producto
     subproducts = product.subproducts.filter(is_active=True)
     serializer = SubProductSerializer(subproducts, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -62,7 +58,6 @@ def create_subproduct(request, product_pk):
     """
     Endpoint para crear un nuevo subproducto asociado a un producto específico.
     """
-    # Verifica que el producto exista y esté activo
     try:
         product = Product.objects.get(pk=product_pk, is_active=True)
     except Product.DoesNotExist:
@@ -77,7 +72,6 @@ def create_subproduct(request, product_pk):
             except ValueError as e:
                 return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Asocia el subproducto al producto y lo guarda
         serializer.save(product=product)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
@@ -109,13 +103,11 @@ def subproduct_detail(request, product_pk, pk):
     """
     Endpoint para obtener, actualizar o eliminar suavemente un subproducto específico dentro de un producto.
     """
-    # Verifica que el producto exista y esté activo
     try:
         product = Product.objects.get(pk=product_pk, is_active=True)
     except Product.DoesNotExist:
         return Response({"detail": "Producto no encontrado o inactivo."}, status=status.HTTP_404_NOT_FOUND)
     
-    # Verifica que el subproducto específico exista y esté asociado al producto
     try:
         subproduct = SubProduct.objects.get(pk=pk, product=product)
     except SubProduct.DoesNotExist:

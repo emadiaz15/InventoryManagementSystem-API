@@ -3,6 +3,7 @@ from apps.users.models import User
 from apps.products.models import Product, SubProduct  # Importar los modelos de 'products'
 from django.core.exceptions import ValidationError
 from django.utils.timezone import now
+from apps.stocks.models import Stock
 
 class CuttingOrder(models.Model):
     STATUS_CHOICES = (
@@ -80,3 +81,17 @@ class CuttingOrder(models.Model):
             ("can_process_order", "Can process a cutting order"),
         ]
         ordering = ['-created_at']  # Ordena por fecha de creación descendente
+        
+    def clean(self):
+    # Intenta obtener el stock más reciente para el subproducto
+        try:
+            latest_stock = self.subproduct.stocks.latest('date')
+        except Stock.DoesNotExist:
+            # Si no existe ningún stock para este subproducto, puedes decidir qué hacer
+            # Podrías lanzar una excepción personalizada o simplemente asignar un valor predeterminado
+            latest_stock = None  # O maneja el caso según tu lógica
+
+        if latest_stock is None:
+            # Aquí puedes decidir cómo manejar el caso cuando no hay stock disponible
+            # Por ejemplo, lanzar una excepción con un mensaje descriptivo
+            raise ValidationError("No hay registros de stock para este subproducto.")

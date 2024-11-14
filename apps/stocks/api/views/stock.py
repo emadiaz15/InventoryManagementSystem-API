@@ -1,5 +1,3 @@
-# Este archivo define las vistas para manejar el stock, incluyendo listar, crear, obtener, actualizar y eliminar de manera suave los registros de stock.
-
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -61,7 +59,7 @@ def create_stock_view(request):
 @extend_schema(
     methods=['PUT'],
     operation_id="update_stock",
-    description="Actualiza los detalles de un registro de stock. También registra el cambio en el historial de stock.",
+    description="Actualiza los detalles de un registro de stock y registra el cambio en el historial de stock",
     request=StockSerializer,
     responses={
         200: StockSerializer,
@@ -99,19 +97,24 @@ def stock_detail_view(request, pk=None):
         if new_quantity is None:
             return Response({'detail': 'El campo cantidad es requerido'}, status=status.HTTP_400_BAD_REQUEST)
         
+        if new_quantity < 0:
+            return Response({'detail': 'La cantidad no puede ser negativa'}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             # Guarda la cantidad anterior para el historial y actualiza el stock
             stock_before = stock.quantity
             stock.quantity = new_quantity
             stock.save()
 
-            # Crea una entrada en el historial de stock
+            # Registra el cambio en el historial de stock
+            change_type = 'increase' if new_quantity > stock_before else 'decrease'
             StockHistory.objects.create(
                 product=stock.product,
                 subproduct=stock.subproduct,
                 stock_before=stock_before,
                 stock_after=new_quantity,
                 change_reason=change_reason,
+                change_type=change_type,
                 user=request.user
             )
             

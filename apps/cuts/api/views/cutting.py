@@ -2,15 +2,15 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from drf_spectacular.utils import extend_schema
 from apps.cuts.models import CuttingOrder
 from apps.cuts.api.serializers import CuttingOrderSerializer
 from apps.stocks.models import Stock
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-from drf_spectacular.utils import extend_schema
-from apps.core.utils import send_assignment_notification  # Importa la función de notificación
+from apps.core.utils import send_assignment_notification
 
-# Vista para listar órdenes de corte
+
 @extend_schema(
     methods=['GET'],
     operation_id="list_cutting_orders",
@@ -28,7 +28,6 @@ def cutting_orders_list_view(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-# Vista para crear una nueva orden de corte
 @extend_schema(
     methods=['POST'],
     operation_id="create_cutting_order",
@@ -42,16 +41,12 @@ def cutting_order_create_view(request):
     """
     Endpoint para crear una nueva orden de corte. Verifica el stock antes de crear la orden.
     """
-    serializer = CuttingOrderSerializer(data=request.data)
+    serializer = CuttingOrderSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         order = serializer.save(assigned_by=request.user)
         try:
-            # Verificar stock antes de guardar la orden
-            order.check_stock()
-            
-            # Enviar notificación de asignación de la orden
-            send_assignment_notification(order)
-            
+            check_stock(order)  # Verificación de stock antes de guardar la orden
+            send_assignment_notification(order)  # Enviar notificación
             return Response(CuttingOrderSerializer(order).data, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -59,7 +54,6 @@ def cutting_order_create_view(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# Vista para obtener, actualizar o eliminar suavemente una orden de corte específica
 @extend_schema(
     methods=['GET'],
     operation_id="retrieve_cutting_order",
@@ -77,7 +71,7 @@ def cutting_order_create_view(request):
     methods=['DELETE'],
     operation_id="delete_cutting_order",
     description="Elimina suavemente una orden de corte específica",
-    responses={204: "Orden de corte eliminada correctamente", 404: "Orden de corte no encontrada"},
+    responses={204: "Orden de corte eliminada (soft)", 404: "Orden de corte no encontrada"},
 )
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
@@ -86,96 +80,65 @@ def cutting_order_detail_view(request, pk):
     Endpoint para obtener, actualizar o eliminar suavemente una orden de corte específica.
     """
     try:
-        order = CuttingOrder.objects.get(pk=pk)
-        if order.deleted_at:
-            return Response({'detail': 'Orden de corte eliminada'}, status=status.HTTP_410_GONE)
+        order = CuttingOrder.objects.get(pk=pk, deleted_at__isnull=True)
     except CuttingOrder.DoesNotExist:
-        return Response({'detail': 'Orden de corte no encontrada'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": "Orden de corte no encontrada."}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
-        return get_cutting_order(order)
-
+        return retrieve_cutting_order(order)
     elif request.method in ['PUT', 'PATCH']:
         return update_cutting_order(request, order)
-
     elif request.method == 'DELETE':
         return soft_delete_cutting_order(order)
 
 
-def get_cutting_order(order):
-    """Obtener detalles de una orden de corte específica."""
+def retrieve_cutting_order(order):
+    """Obtiene los detalles de la orden de corte."""
     serializer = CuttingOrderSerializer(order)
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 def update_cutting_order(request, order):
-    """Actualizar una orden de corte, permitiendo actualizaciones parciales."""
+    """Actualiza una orden de corte existente."""
     serializer = CuttingOrderSerializer(order, data=request.data, partial=True)
     if serializer.is_valid():
-        try:
-            updated_order = serializer.save()
-
-            # Si se completa la orden, ejecuta la lógica de corte
-            if updated_order.status == 'completed':
-                complete_cutting(updated_order)
-            
-            # Enviar notificación de asignación de la orden actualizada
-            send_assignment_notification(updated_order)
-
-            return Response(CuttingOrderSerializer(updated_order).data)
-
-        except ValidationError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except ValueError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
+        order = serializer.save()
+        return Response(CuttingOrderSerializer(order).data, status=status.HTTP_200_OK)
+    
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 def soft_delete_cutting_order(order):
-    """Elimina suavemente una orden de corte, estableciendo deleted_at con la fecha actual."""
+    """Realiza un soft delete de la orden de corte."""
     order.deleted_at = timezone.now()
-    order.save(update_fields=['deleted_at'])
-    return Response({'message': 'Orden de corte eliminada correctamente (soft delete)'}, status=status.HTTP_204_NO_CONTENT)
-
-
-# Lógica para completar una orden de corte
-def complete_cutting(order):
-    """
-    Completa una orden de corte, actualizando el stock y marcando la orden como 'completed'.
-    """
-    if order.status != 'in_process':
-        raise ValueError("La operación debe estar en estado 'in_process' para completarse.")
-
-    if order.deleted_at:
-        raise ValidationError("No se puede completar una orden que ha sido eliminada.")
-
-    # Obtener el último stock disponible
-    latest_stock = order.product.stocks.latest('date') if not order.subproduct else order.subproduct.stocks.latest('date')
-
-    # Verificar si hay suficiente stock para completar el corte
-    if latest_stock.quantity < order.cutting_quantity:
-        raise ValidationError(f"La cantidad de corte ({order.cutting_quantity}) no puede exceder el stock disponible ({latest_stock.quantity}).")
-
-    # Actualizar el stock
-    latest_stock.quantity -= order.cutting_quantity
-    latest_stock.save()
-
-    # Marcar la orden como completada
-    order.status = 'completed'
-    order.completed_at = timezone.now()
     order.save()
+    return Response({"detail": "Orden de corte eliminada (soft) correctamente."}, status=status.HTTP_204_NO_CONTENT)
+
+def check_stock(order):
+    """
+    Método para verificar si hay suficiente stock para la orden de corte.
+    Verifica cada item en la orden para asegurar que haya suficiente stock.
+    """
+    for item in order.items.all():
+        # Intenta obtener el stock del producto
+        stock = Stock.objects.filter(product=item.product).first()
+        
+        if not stock:
+            raise ValidationError(f"No se encontró stock para el producto {item.product.name}.")
+        
+        if stock.quantity < item.quantity:
+            raise ValidationError(f"No hay suficiente stock para el producto {item.product.name}. Solo hay {stock.quantity} unidades disponibles.")
+    
+    return True
 
 
-# Función para verificar el stock de la orden antes de ser creada
-def check_stock(self):
-    """Verifica si hay suficiente stock para la orden de corte."""
-    if self.subproduct:
-        latest_stock = Stock.objects.filter(subproduct=self.subproduct).order_by('-date').first()
-    else:
-        latest_stock = Stock.objects.filter(product=self.product).order_by('-date').first()
-
-    if not latest_stock or latest_stock.quantity < self.cutting_quantity:
-        raise ValidationError(
-            f'Stock insuficiente. Disponible: {latest_stock.quantity if latest_stock else 0}, Requerido: {self.cutting_quantity}'
-        )
+def send_assignment_notification(order):
+    """
+    Envia una notificación cuando una orden de corte es asignada.
+    """
+    # Asumimos que `send_notification` es un método que envía un correo o notificación
+    # Puedes adaptarlo a tu propio sistema de notificaciones.
+    message = f"Una nueva orden de corte con ID {order.id} ha sido asignada."
+    # Se envía la notificación al usuario asignado (supuesto que 'assigned_to' es un campo en el modelo)
+    if order.assigned_to:
+        order.assigned_to.send_notification(message)
