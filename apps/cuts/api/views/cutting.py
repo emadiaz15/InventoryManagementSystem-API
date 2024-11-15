@@ -114,13 +114,16 @@ def soft_delete_cutting_order(order):
     order.save()
     return Response({"detail": "Orden de corte eliminada (soft) correctamente."}, status=status.HTTP_204_NO_CONTENT)
 
+
 def check_stock(order):
     """
     Método para verificar si hay suficiente stock para la orden de corte.
     Verifica cada item en la orden para asegurar que haya suficiente stock.
     """
-    for item in order.items.all():
-        # Intenta obtener el stock del producto
+    if not hasattr(order, 'items'):
+        raise ValidationError("La orden de corte no tiene items asociados.")
+    
+    for item in order.items.all():  # Accede a los items correctamente, asegúrate de que esta relación exista en el modelo
         stock = Stock.objects.filter(product=item.product).first()
         
         if not stock:

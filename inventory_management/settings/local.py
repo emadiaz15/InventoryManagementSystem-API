@@ -1,4 +1,8 @@
 from .base import *
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # Cargar las variables del archivo .env
 
 SECRET_KEY = 'django-insecure-j!9oi#6-*-vn*uk631lfs#wf9hj8wa4=-3!u6cim4zq66=@$gn'
 
@@ -53,11 +57,12 @@ CORS_ALLOW_CREDENTIALS = True  # Permitir el uso de cookies/sesiones entre front
 #    "http://localhost:5173",  # Permitir solicitudes desde tu frontend de desarrollo
 #]
 
-# Configuración para el envío de correos electrónicos
+
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 DEFAULT_FROM_EMAIL = 'noreply@tuempresa.com'
-EMAIL_HOST = 'smtp.tuempresa.com'
+EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'usuario@tuempresa.com'
-EMAIL_HOST_PASSWORD = 'contraseña'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')

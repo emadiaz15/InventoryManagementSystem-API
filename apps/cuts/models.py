@@ -5,22 +5,23 @@ from django.core.exceptions import ValidationError
 from django.utils.timezone import now
 from apps.stocks.models import Stock
 
+
 class CuttingOrder(models.Model):
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('in_process', 'In Process'),
         ('completed', 'Completed'),
     )
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='cutting_orders',null=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='cutting_orders', null=True)
     subproduct = models.ForeignKey(SubProduct, null=True, blank=True, on_delete=models.SET_NULL, related_name='cutting_orders')  # Subproducto opcional
     customer = models.CharField(max_length=255, help_text="Customer name for whom the cutting order is made")
     cutting_quantity = models.DecimalField(max_digits=10, decimal_places=2, help_text="Quantity in meters to cut")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    assigned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='assigned_cutting_orders')
-    operator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='cutting_operations')
-    completed_at = models.DateTimeField(null=True, blank=True)
+    assigned_by = models.ForeignKey(User, related_name='assigned_orders', on_delete=models.SET_NULL, null=True)
+    operator = models.ForeignKey(User, related_name='cutting_orders', on_delete=models.SET_NULL, null=True, blank=True)
+    items = models.ManyToManyField('Item')  # Relación con los items
     deleted_at = models.DateTimeField(null=True, blank=True)  # Campo para soft delete
 
     def __str__(self):
@@ -30,10 +31,17 @@ class CuttingOrder(models.Model):
         """
         Validación personalizada para asegurar que la cantidad a cortar no exceda el stock disponible del subproducto.
         """
+        # Validación de stock, si tiene subproducto o producto
         if self.subproduct:  # Si se seleccionó un subproducto
-            latest_stock = self.subproduct.stocks.latest('date')
+            try:
+                latest_stock = self.subproduct.stocks.latest('date')
+            except Stock.DoesNotExist:
+                raise ValidationError(f"No se encontró stock para el subproducto {self.subproduct.name}.")
         else:  # Si no se seleccionó un subproducto, usamos el producto
-            latest_stock = self.product.stocks.latest('date')
+            try:
+                latest_stock = self.product.stocks.latest('date')
+            except Stock.DoesNotExist:
+                raise ValidationError(f"No se encontró stock para el producto {self.product.name}.")
 
         if self.cutting_quantity > latest_stock.quantity:
             raise ValidationError(
@@ -41,10 +49,13 @@ class CuttingOrder(models.Model):
             )
 
     def save(self, *args, **kwargs):
-        self.clean()
+        self.clean()  # Llamamos a clean para validar antes de guardar
         super().save(*args, **kwargs)
 
     def start_cutting(self, operator):
+        """
+        Cambia el estado de la orden a 'in_process' y asigna un operador.
+        """
         if self.status != 'pending':
             raise ValueError("La operación no está en estado 'pending'.")
 
@@ -53,25 +64,33 @@ class CuttingOrder(models.Model):
         self.save()
 
     def complete_cutting(self):
+        """
+        Completa la operación de corte, actualiza el stock y cambia el estado de la orden.
+        """
         if self.status != 'in_process':
             raise ValueError("La operación debe estar en estado 'in_process' para ser completada.")
 
+        # Verificación de stock antes de realizar el corte
         if self.subproduct:
             latest_stock = self.subproduct.stocks.latest('date')
         else:
             latest_stock = self.product.stocks.latest('date')
-        
+
         if latest_stock.quantity < self.cutting_quantity:
             raise ValueError("No hay suficiente stock para completar la operación.")
 
         latest_stock.quantity -= self.cutting_quantity
         latest_stock.save()
 
+        # Completar la orden de corte
         self.status = 'completed'
         self.completed_at = now()
         self.save()
 
-    def delete(self, *args, **kwargs):
+    def soft_delete(self):
+        """
+        Marca la orden como eliminada (soft delete), estableciendo la fecha de eliminación.
+        """
         self.deleted_at = now()
         self.save(update_fields=['deleted_at'])
 
@@ -82,16 +101,11 @@ class CuttingOrder(models.Model):
         ]
         ordering = ['-created_at']  # Ordena por fecha de creación descendente
         
-    def clean(self):
-    # Intenta obtener el stock más reciente para el subproducto
-        try:
-            latest_stock = self.subproduct.stocks.latest('date')
-        except Stock.DoesNotExist:
-            # Si no existe ningún stock para este subproducto, puedes decidir qué hacer
-            # Podrías lanzar una excepción personalizada o simplemente asignar un valor predeterminado
-            latest_stock = None  # O maneja el caso según tu lógica
+        
+class Item(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    subproduct = models.ForeignKey(SubProduct, null=True, blank=True, on_delete=models.SET_NULL)
+    quantity = models.DecimalField(max_digits=10, decimal_places=2)
 
-        if latest_stock is None:
-            # Aquí puedes decidir cómo manejar el caso cuando no hay stock disponible
-            # Por ejemplo, lanzar una excepción con un mensaje descriptivo
-            raise ValidationError("No hay registros de stock para este subproducto.")
+    def __str__(self):
+        return f"{self.product.name} - {self.subproduct.name if self.subproduct else 'No Subproduct'}"

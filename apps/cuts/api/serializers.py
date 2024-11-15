@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.cuts.models import CuttingOrder
+from apps.cuts.models import CuttingOrder, Item
 from apps.products.models import SubProduct
 from django.utils.timezone import now
 
@@ -19,6 +19,9 @@ class CuttingOrderSerializer(serializers.ModelSerializer):
     # Campo para seleccionar subproducto (opcional)
     subproduct = serializers.PrimaryKeyRelatedField(queryset=SubProduct.objects.all(), required=False)
 
+    # Incluir el campo items como una lista de identificadores de Item
+    items = serializers.PrimaryKeyRelatedField(queryset=Item.objects.all(), many=True)
+
     class Meta:
         model = CuttingOrder
         fields = '__all__'
@@ -36,14 +39,36 @@ class CuttingOrderSerializer(serializers.ModelSerializer):
         """
         Crea una nueva orden de corte asignando el usuario que realiza la creación.
         """
+        # Obtener los items de la orden desde validated_data
+        items_data = validated_data.pop('items', [])
+        
+        # Asignar el usuario que crea la orden
         user = self.context['request'].user  # Usuario autenticado en el contexto
         validated_data['assigned_by'] = user
-        return super().create(validated_data)
+        
+        # Crear la orden de corte
+        cutting_order = super().create(validated_data)
+        
+        # Asignar los items a la nueva orden de corte
+        cutting_order.items.set(items_data)
+        
+        return cutting_order
 
     def update(self, instance, validated_data):
         """
         Controla la actualización de una orden de corte. Si se completa, asigna la fecha.
         """
+        # Obtener los items de la orden desde validated_data
+        items_data = validated_data.pop('items', [])
+        
         if validated_data.get('status') == 'completed' and instance.status != 'completed':
             instance.completed_at = now()  # Marca la fecha de finalización si se completa la orden
-        return super().update(instance, validated_data)
+        
+        # Actualizar la instancia de la orden de corte
+        instance = super().update(instance, validated_data)
+        
+        # Asignar los nuevos items (si se actualizan)
+        if items_data:
+            instance.items.set(items_data)
+        
+        return instance
