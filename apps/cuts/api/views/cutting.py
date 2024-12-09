@@ -6,9 +6,8 @@ from drf_spectacular.utils import extend_schema
 from apps.cuts.models import CuttingOrder
 from apps.cuts.api.serializers import CuttingOrderSerializer
 from apps.stocks.models import Stock
-from django.utils import timezone
+from django.utils.timezone import now
 from django.core.exceptions import ValidationError
-from apps.core.utils import send_assignment_notification
 
 
 @extend_schema(
@@ -46,11 +45,9 @@ def cutting_order_create_view(request):
         order = serializer.save(assigned_by=request.user)
         try:
             check_stock(order)  # Verificación de stock antes de guardar la orden
-            send_assignment_notification(order)  # Enviar notificación
             return Response(CuttingOrderSerializer(order).data, status=status.HTTP_201_CREATED)
         except ValidationError as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
+            return Response({'detail': str(e)}, status=status.HTTP_409_CONFLICT)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -102,15 +99,17 @@ def update_cutting_order(request, order):
     """Actualiza una orden de corte existente."""
     serializer = CuttingOrderSerializer(order, data=request.data, partial=True)
     if serializer.is_valid():
-        order = serializer.save()
+        if 'status' in serializer.validated_data and serializer.validated_data['status'] == 'completed':
+            order.complete_cutting()
+        else:
+            order = serializer.save()
         return Response(CuttingOrderSerializer(order).data, status=status.HTTP_200_OK)
-    
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 def soft_delete_cutting_order(order):
     """Realiza un soft delete de la orden de corte."""
-    order.deleted_at = timezone.now()
+    order.deleted_at = now()
     order.save()
     return Response({"detail": "Orden de corte eliminada (soft) correctamente."}, status=status.HTTP_204_NO_CONTENT)
 
@@ -118,30 +117,11 @@ def soft_delete_cutting_order(order):
 def check_stock(order):
     """
     Método para verificar si hay suficiente stock para la orden de corte.
-    Verifica cada item en la orden para asegurar que haya suficiente stock.
     """
-    if not hasattr(order, 'items'):
-        raise ValidationError("La orden de corte no tiene items asociados.")
-    
-    for item in order.items.all():  # Accede a los items correctamente, asegúrate de que esta relación exista en el modelo
-        stock = Stock.objects.filter(product=item.product).first()
-        
-        if not stock:
-            raise ValidationError(f"No se encontró stock para el producto {item.product.name}.")
-        
-        if stock.quantity < item.quantity:
-            raise ValidationError(f"No hay suficiente stock para el producto {item.product.name}. Solo hay {stock.quantity} unidades disponibles.")
-    
+    stock = Stock.objects.filter(subproduct=order.subproduct).first()
+    if not stock:
+        raise ValidationError(f"No stock found for subproduct {order.subproduct.name}.")
+
+    if stock.quantity < order.cutting_quantity:
+        raise ValidationError(f"Insufficient stock for {order.subproduct.name}. Available: {stock.quantity}")
     return True
-
-
-def send_assignment_notification(order):
-    """
-    Envia una notificación cuando una orden de corte es asignada.
-    """
-    # Asumimos que `send_notification` es un método que envía un correo o notificación
-    # Puedes adaptarlo a tu propio sistema de notificaciones.
-    message = f"Una nueva orden de corte con ID {order.id} ha sido asignada."
-    # Se envía la notificación al usuario asignado (supuesto que 'assigned_to' es un campo en el modelo)
-    if order.assigned_to:
-        order.assigned_to.send_notification(message)

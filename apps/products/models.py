@@ -31,7 +31,7 @@ class Product(models.Model):
 
 class SubProduct(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='subproducts')
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, null=True, blank=True)
     brand = models.CharField(max_length=100, null=True, blank=True)
     number_coil = models.PositiveIntegerField(null=True, blank=True)
     initial_length = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Ejemplo en metros

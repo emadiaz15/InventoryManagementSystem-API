@@ -18,8 +18,17 @@ def list_stocks_view(request):
     """
     Endpoint para listar todos los registros de stock activos.
     """
-    # Recupera todos los registros de stock activos
+    # Filtros opcionales desde los parámetros de consulta
+    product_id = request.query_params.get('product')
+    subproduct_id = request.query_params.get('subproduct')
+
+    # Construye el queryset dinámicamente según los filtros
     stocks = Stock.objects.filter(is_active=True)
+    if product_id:
+        stocks = stocks.filter(product_id=product_id)
+    if subproduct_id:
+        stocks = stocks.filter(subproduct_id=subproduct_id)
+
     serializer = StockSerializer(stocks, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -90,42 +99,32 @@ def stock_detail_view(request, pk=None):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'PUT':
-        # Obtiene la cantidad y la razón del cambio de stock de los datos de entrada
-        new_quantity = request.data.get('quantity')
-        change_reason = request.data.get('change_reason', 'Actualización de stock')
-        
-        if new_quantity is None:
-            return Response({'detail': 'El campo cantidad es requerido'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        if new_quantity < 0:
-            return Response({'detail': 'La cantidad no puede ser negativa'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
+        # Validar los datos usando el serializador
+        serializer = StockSerializer(stock, data=request.data, partial=True)
+        if serializer.is_valid():
             # Guarda la cantidad anterior para el historial y actualiza el stock
             stock_before = stock.quantity
-            stock.quantity = new_quantity
-            stock.save()
+            new_quantity = serializer.validated_data.get('quantity', stock_before)
 
             # Registra el cambio en el historial de stock
-            change_type = 'increase' if new_quantity > stock_before else 'decrease'
             StockHistory.objects.create(
                 product=stock.product,
                 subproduct=stock.subproduct,
                 stock_before=stock_before,
                 stock_after=new_quantity,
-                change_reason=change_reason,
-                change_type=change_type,
+                change_reason=serializer.validated_data.get('change_reason', 'Actualización de stock'),
                 user=request.user
             )
             
-            # Serializa y devuelve los datos actualizados
-            serializer = StockSerializer(stock)
+            # Actualiza el registro de stock
+            serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
-        except Exception as e:
-            # Devuelve un error si ocurre alguna excepción durante la actualización
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'DELETE':
+        if not stock.is_active:
+            return Response({'detail': 'El stock ya está inactivo'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Marca el registro de stock como inactivo en lugar de eliminarlo permanentemente
         stock.is_active = False
         stock.save()

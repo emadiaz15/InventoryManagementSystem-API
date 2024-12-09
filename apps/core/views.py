@@ -1,14 +1,14 @@
 from django.shortcuts import render
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import permission_classes
 from drf_spectacular.utils import extend_schema
+
 
 @extend_schema(
     operation_id="public_home_view",
     description="Public Home page for unauthenticated users",
-    responses={200: {"message": "Welcome to the public Home page!"}},
+    responses={200: {"type": "object", "properties": {"message": {"type": "string"}}}},
 )
 @api_view(['GET'])
 def public_home_view(request):
@@ -22,7 +22,7 @@ def public_home_view(request):
 @extend_schema(
     operation_id="dashboard_view",
     description="Dashboard for authenticated users",
-    responses={200: {"message": "Welcome to the Dashboard!"}},
+    responses={200: {"type": "object", "properties": {"message": {"type": "string"}}}},
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
