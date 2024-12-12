@@ -24,7 +24,7 @@ from django.contrib.contenttypes.models import ContentType
     parameters=[
         {'name': 'category', 'in': 'query', 'description': 'Filtra productos por ID de categoría', 'required': False, 'schema': {'type': 'integer'}},
         {'name': 'type', 'in': 'query', 'description': 'Filtra productos por ID de tipo', 'required': False, 'schema': {'type': 'integer'}},
-        {'name': 'is_active', 'in': 'query', 'description': 'Filtra productos activos', 'required': False, 'schema': {'type': 'boolean'}},
+        {'name': 'status', 'in': 'query', 'description': 'Filtra productos activos', 'required': False, 'schema': {'type': 'boolean'}},
     ],
     responses={200: ProductSerializer(many=True)},
 )
@@ -36,10 +36,10 @@ def product_list(request):
     """
     category_id = request.query_params.get('category')
     type_id = request.query_params.get('type')
-    is_active = request.query_params.get('is_active', 'true').lower() == 'true'
+    status = request.query_params.get('status', 'true').lower() == 'true'
 
     # Filtra los productos según el estado activo, categoría y tipo
-    products = Product.objects.filter(is_active=is_active)
+    products = Product.objects.filter(status=status)
     if category_id:
         products = products.filter(category_id=category_id)
     if type_id:
@@ -111,7 +111,7 @@ def create_product(request):
 @extend_schema(
     methods=['DELETE'],
     operation_id="delete_product",
-    description="Elimina suavemente un producto específico estableciendo is_active en False",
+    description="Elimina suavemente un producto específico estableciendo status en False",
     responses={204: "Producto marcado como inactivo", 404: "Producto no encontrado"},
 )
 @api_view(['GET', 'PUT', 'DELETE'])
@@ -169,6 +169,6 @@ def product_detail(request, pk):
     
     elif request.method == 'DELETE':
         # Marca el producto como inactivo
-        product.is_active = False
+        product.status = False
         product.save()
         return Response({"detail": "Producto marcado como inactivo correctamente."}, status=status.HTTP_204_NO_CONTENT)

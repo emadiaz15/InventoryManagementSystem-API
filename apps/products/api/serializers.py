@@ -26,10 +26,10 @@ class SubProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'product', 'name', 'brand', 'number_coil', 'initial_length', 
             'total_weight', 'coil_weight', 'technical_sheet_photo', 
-            'created_at', 'modified_at', 'deleted_at', 'is_active', 'comments'
+            'created_at', 'modified_at', 'deleted_at', 'status', 'comments'
         ]
         extra_kwargs = {
-            'is_active': {'required': False},
+            'status': {'required': False},
             'created_at': {'read_only': True},
             'modified_at': {'read_only': True},
             'deleted_at': {'read_only': True}
@@ -49,7 +49,7 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = '__all__'
         extra_kwargs = {
-            'is_active': {'required': False},
+            'status': {'required': False},
             'created_at': {'read_only': True},
             'modified_at': {'read_only': True},
             'deleted_at': {'read_only': True}
@@ -64,7 +64,7 @@ class ProductSerializer(serializers.ModelSerializer):
         if category and category.name == "Cables":
             # Si es una actualización, verifica si hay subproductos activos
             if self.instance:
-                has_active_subproducts = self.instance.subproducts.filter(is_active=True).exists()
+                has_active_subproducts = self.instance.subproducts.filter(status=True).exists()
                 if not has_active_subproducts:
                     raise serializers.ValidationError("Se requiere al menos un subproducto activo para productos de la categoría 'Cables'.")
             else:

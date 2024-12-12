@@ -17,13 +17,13 @@ class Product(models.Model):
     modified_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='products', null=True)
-    is_active = models.BooleanField(default=True)
+    status = models.BooleanField(default=True)
 
     def delete(self, *args, **kwargs):
         """Marca el producto como inactivo en lugar de eliminarlo."""
-        self.is_active = False
+        self.status = False
         self.deleted_at = timezone.now()
-        self.save(update_fields=['is_active', 'deleted_at'])
+        self.save(update_fields=['status', 'deleted_at'])
 
     def __str__(self):
         return self.name
@@ -41,7 +41,7 @@ class SubProduct(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
+    status = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
         # Procesar `technical_sheet_photo` si está en formato Base64 en lugar de imagen
@@ -54,9 +54,9 @@ class SubProduct(models.Model):
 
     def delete(self, *args, **kwargs):
         """Marca el subproducto como inactivo en lugar de eliminarlo."""
-        self.is_active = False
+        self.status = False
         self.deleted_at = timezone.now()
-        self.save(update_fields=['is_active', 'deleted_at'])
+        self.save(update_fields=['status', 'deleted_at'])
 
     def __str__(self):
         return f'{self.product.name} - {self.name}'
@@ -65,18 +65,17 @@ class SubProduct(models.Model):
 class Category(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(null=True, blank=True)
-    status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='categories', null=True)
-    is_active = models.BooleanField(default=True)
-
+    status = models.BooleanField(default=True)
+    
     def delete(self, *args, **kwargs):
         """Marca la categoría como inactiva en lugar de eliminarla."""
-        self.is_active = False
+        self.status = False
         self.deleted_at = timezone.now()
-        self.save(update_fields=['is_active', 'deleted_at'])
+        self.save(update_fields=['status', 'deleted_at'])
 
     def __str__(self):
         return self.name
@@ -85,19 +84,18 @@ class Category(models.Model):
 class Type(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(null=True, blank=True)
-    status = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     modified_at = models.DateTimeField(auto_now=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='types', null=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, related_name='types', null=True)
-    is_active = models.BooleanField(default=True)
-
+    status = models.BooleanField(default=True)
+    
     def delete(self, *args, **kwargs):
         """Marca el tipo como inactivo en lugar de eliminarlo."""
-        self.is_active = False
+        self.status = False
         self.deleted_at = timezone.now()
-        self.save(update_fields=['is_active', 'deleted_at'])
+        self.save(update_fields=['status', 'deleted_at'])
 
     def __str__(self):
         return self.name

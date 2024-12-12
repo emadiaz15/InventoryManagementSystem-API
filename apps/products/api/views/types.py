@@ -22,7 +22,7 @@ def type_list(request):
     Endpoint para listar solo los tipos activos.
     """
     # Filtra solo los tipos que están activos en la base de datos
-    types = Type.objects.filter(is_active=True)
+    types = Type.objects.filter(status=True)
     # Serializa los datos para enviarlos en la respuesta
     serializer = TypeSerializer(types, many=True)
     # Devuelve los datos serializados con un código de estado HTTP 200 OK

@@ -46,7 +46,7 @@ MIDDLEWARE = [
     'simple_history.middleware.HistoryRequestMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'apps.users.middlewares.BlacklistAccessTokenMiddleware',
+# 'apps.users.middlewares.BlacklistAccessTokenMiddleware',
 ]
 
 ROOT_URLCONF = 'inventory_management.urls'

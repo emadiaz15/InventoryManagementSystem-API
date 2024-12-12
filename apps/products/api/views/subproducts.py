@@ -36,11 +36,11 @@ def subproduct_list(request, product_pk):
     Endpoint para listar subproductos de un producto específico.
     """
     try:
-        product = Product.objects.get(pk=product_pk, is_active=True)
+        product = Product.objects.get(pk=product_pk, status=True)
     except Product.DoesNotExist:
         return Response({"detail": "Producto no encontrado o inactivo."}, status=status.HTTP_404_NOT_FOUND)
     
-    subproducts = product.subproducts.filter(is_active=True)
+    subproducts = product.subproducts.filter(status=True)
     serializer = SubProductSerializer(subproducts, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -59,7 +59,7 @@ def create_subproduct(request, product_pk):
     Endpoint para crear un nuevo subproducto asociado a un producto específico.
     """
     try:
-        product = Product.objects.get(pk=product_pk, is_active=True)
+        product = Product.objects.get(pk=product_pk, status=True)
     except Product.DoesNotExist:
         return Response({"detail": "Producto no encontrado o inactivo."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -94,7 +94,7 @@ def create_subproduct(request, product_pk):
 @extend_schema(
     methods=['DELETE'],
     operation_id="delete_subproduct",
-    description="Elimina suavemente un subproducto específico dentro de un producto, estableciendo is_active en False",
+    description="Elimina suavemente un subproducto específico dentro de un producto, estableciendo status en False",
     responses={204: "SubProducto eliminado (soft)", 404: "SubProducto no encontrado"},
 )
 @api_view(['GET', 'PUT', 'DELETE'])
@@ -104,7 +104,7 @@ def subproduct_detail(request, product_pk, pk):
     Endpoint para obtener, actualizar o eliminar suavemente un subproducto específico dentro de un producto.
     """
     try:
-        product = Product.objects.get(pk=product_pk, is_active=True)
+        product = Product.objects.get(pk=product_pk, status=True)
     except Product.DoesNotExist:
         return Response({"detail": "Producto no encontrado o inactivo."}, status=status.HTTP_404_NOT_FOUND)
     
@@ -145,7 +145,7 @@ def update_subproduct(request, subproduct):
 
 
 def soft_delete_subproduct(subproduct):
-    """Realiza un soft delete del subproducto, estableciendo `is_active` a False."""
-    subproduct.is_active = False
+    """Realiza un soft delete del subproducto, estableciendo `status` a False."""
+    subproduct.status = False
     subproduct.save()
     return Response({"detail": "SubProducto eliminado (soft) correctamente."}, status=status.HTTP_204_NO_CONTENT)

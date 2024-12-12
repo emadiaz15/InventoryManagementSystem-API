@@ -22,7 +22,7 @@ def category_list(request):
     Endpoint para listar solo las categorías activas.
     """
     # Recupera todas las categorías activas de la base de datos
-    categories = Category.objects.filter(is_active=True)
+    categories = Category.objects.filter(status=True)
     # Serializa los datos para enviarlos en la respuesta
     serializer = CategorySerializer(categories, many=True)
     # Devuelve los datos serializados con un código de estado HTTP 200 OK
