@@ -1,10 +1,9 @@
 from django.db import models
 from apps.users.models import User
-from apps.products.models import SubProduct
+from apps.products.models import Product
 from apps.stocks.models import Stock
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
-
 
 class CuttingOrder(models.Model):
     STATUS_CHOICES = (
@@ -13,8 +12,9 @@ class CuttingOrder(models.Model):
         ('completed', 'Completed'),
     )
 
-    subproduct = models.ForeignKey(
-        SubProduct, null=True, blank=True, on_delete=models.SET_NULL, related_name='cutting_orders'
+    # Cambiado SubProduct a Product
+    product = models.ForeignKey(
+        Product, null=True, blank=True, on_delete=models.SET_NULL, related_name='cutting_orders'
     )
     customer = models.CharField(max_length=255, help_text="Customer for whom the cutting order is made")
     cutting_quantity = models.DecimalField(max_digits=10, decimal_places=2, help_text="Quantity to cut in meters")
@@ -30,16 +30,16 @@ class CuttingOrder(models.Model):
         return f'Cutting Order {self.pk} for {self.customer} - Status: {self.status}'
 
     def clean(self):
-        if not self.subproduct:
-            raise ValidationError("A subproduct must be selected for the cutting order.")
+        if not self.product:
+            raise ValidationError("A product must be selected for the cutting order.")
         
         try:
-            stock = self.subproduct.stocks.latest('created_at')
+            stock = self.product.stocks.latest('created_at')
         except Stock.DoesNotExist:
-            raise ValidationError(f"No stock available for subproduct {self.subproduct.name}.")
+            raise ValidationError(f"No stock available for product {self.product.name}.")
 
         if self.cutting_quantity > stock.quantity:
-            raise ValidationError(f"Insufficient stock for subproduct {self.subproduct.name}. Available: {stock.quantity}")
+            raise ValidationError(f"Insufficient stock for product {self.product.name}. Available: {stock.quantity}")
 
     def save(self, *args, **kwargs):
         self.clean()
@@ -50,9 +50,9 @@ class CuttingOrder(models.Model):
             raise ValidationError("The order must be in 'in_process' status to complete.")
 
         try:
-            stock = self.subproduct.stocks.latest('created_at')
+            stock = self.product.stocks.latest('created_at')
         except Stock.DoesNotExist:
-            raise ValidationError(f"No stock available for subproduct {self.subproduct.name}.")
+            raise ValidationError(f"No stock available for product {self.product.name}.")
 
         if self.cutting_quantity > stock.quantity:
             raise ValidationError(f"Not enough stock to complete the order.")

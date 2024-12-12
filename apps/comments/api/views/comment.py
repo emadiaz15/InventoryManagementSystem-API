@@ -7,24 +7,24 @@ from rest_framework.permissions import IsAuthenticated
 from apps.comments.models import Comment
 from apps.comments.api.serializers import CommentSerializer
 from drf_spectacular.utils import extend_schema
-from django.utils.timezone import now
 
 @extend_schema(
     methods=['GET'],
     operation_id="list_comments",
-    description="Recupera una lista de todos los comentarios activos",
+    description="Recupera una lista de todos los comentarios activos ordenados del más reciente al más antiguo",
     responses={200: CommentSerializer(many=True)},
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def comment_list_view(request):
     """
-    Endpoint para obtener una lista de comentarios activos.
+    Endpoint para obtener una lista de comentarios activos ordenados del más reciente al más antiguo.
     """
-    # Recupera solo los comentarios activos (no eliminados)
-    comments = Comment.active_objects.all()
+    # Recupera solo los comentarios activos (no eliminados) y ordena por fecha de creación descendente
+    comments = Comment.active_objects.all().order_by('-created_at')
     serializer = CommentSerializer(comments, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 @extend_schema(
@@ -48,7 +48,6 @@ def comment_create_view(request):
     if serializer.is_valid():
         serializer.save(user=request.user)  # Asigna el usuario que crea el comentario
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    # Devuelve errores de validación en caso de datos incorrectos
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -84,7 +83,7 @@ def comment_detail_view(request, pk):
         # Recupera el comentario activo por su clave primaria (pk)
         comment = Comment.active_objects.get(pk=pk)
     except Comment.DoesNotExist:
-        return Response({'detail': 'Comentario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'detail': 'Comment not found'}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
         # Serializa y devuelve los datos del comentario
@@ -92,16 +91,14 @@ def comment_detail_view(request, pk):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     elif request.method in ['PUT', 'PATCH']:
-        # Permite actualizaciones completas o parciales con `partial=True`
-        serializer = CommentSerializer(comment, data=request.data, partial=True)
+        # Permite actualizaciones completas o parciales
+        serializer = CommentSerializer(comment, data=request.data, partial=(request.method == 'PATCH'))
         if serializer.is_valid():
             serializer.save()  # Guarda los cambios en el comentario
             return Response(serializer.data, status=status.HTTP_200_OK)
-        # Devuelve errores de validación en caso de datos incorrectos
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
-        # Realiza un soft delete del comentario estableciendo `deleted_at` en la fecha y hora actuales
-        comment.deleted_at = now()
-        comment.save(update_fields=['deleted_at'])  # Actualiza solo el campo `deleted_at`
-        return Response({'message': 'Comentario eliminado correctamente (soft delete)'}, status=status.HTTP_204_NO_CONTENT)
+        # Realiza el soft delete a través del método delete() del modelo
+        comment.delete()
+        return Response({'message': 'Comment set to inactive successfully (soft delete).'}, status=status.HTTP_204_NO_CONTENT)

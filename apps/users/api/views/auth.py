@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from apps.users.models import User
 from ..serializers import UserSerializer, CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -11,29 +11,29 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 
 @extend_schema(
     operation_id="register_view",
-    description="Register a new user",
+    description="Register a new user (Staff only).",
     request=UserSerializer,
     responses={
         201: UserSerializer,
         400: "Bad Request - Invalid data",
+        403: "Forbidden - You don't have permission to access this resource"
     },
 )
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated, IsAdminUser])  # Solo staff puede registrar nuevos usuarios
 def register_view(request):
     """
     View to register a new user.
-    Handles the creation of a new user by validating input data.
+    Only staff users can create new users.
     """
     serializer = UserSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
         return Response({
             "user": UserSerializer(user).data,
-            "message": "User created successfully. Now perform login to get your token.",
+            "message": "User created successfully. Now perform login to get your token."
         }, status=status.HTTP_201_CREATED)
     
-    # Enhanced error handling: return detailed serializer errors
     return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -73,25 +73,14 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        refresh_token = request.data.get("refresh_token")  # Se obtiene el refresh token
+        refresh_token = request.data.get("refresh_token")
 
-        # Verificar si el token está presente
         if not refresh_token:
-            return Response(
-                {"error": "Refresh token is required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Refresh token is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Intentar invalidar el token
         try:
             token = RefreshToken(refresh_token)
-            token.blacklist()  # Blacklist the refresh token
-            return Response(
-                {"message": "Token successfully invalidated"},
-                status=status.HTTP_205_RESET_CONTENT
-            )
+            token.blacklist()
+            return Response({"message": "Token successfully invalidated"}, status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
-            return Response(
-                {"error": f"Failed to invalidate token: {str(e)}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": f"Failed to invalidate token: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)

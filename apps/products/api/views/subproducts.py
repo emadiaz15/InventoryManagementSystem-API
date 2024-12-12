@@ -1,79 +1,119 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from ...models import SubProduct, Product
-from ..serializers import SubProductSerializer
 from drf_spectacular.utils import extend_schema
-import base64
 from django.core.files.base import ContentFile
+import base64
+
+from apps.core.pagination import Pagination
+from apps.products.models import Product, CableAttributes
+from apps.products.api.serializers import ProductSerializer
+from apps.users.permissions import IsStaffOrReadOnly
+
 
 def decode_image_base64(image_data, name_prefix):
     """
     Decodifica una imagen en formato Base64 y la convierte en un archivo ContentFile.
+    Lanza ValueError si ocurre algún error.
     """
     try:
         format, imgstr = image_data.split(';base64,')
         ext = format.split('/')[-1]
         return ContentFile(base64.b64decode(imgstr), name=f"{name_prefix}_tech_sheet.{ext}")
     except Exception as e:
-        raise ValueError(f"Error al decodificar la imagen de la ficha técnica: {str(e)}")
+        raise ValueError(f"Error decoding technical sheet image: {str(e)}")
 
 
 @extend_schema(
     methods=['GET'],
     operation_id="list_subproducts",
-    description="Recupera una lista de subproductos para un producto específico",
+    description="Recupera una lista de subproductos (productos hijo) para un producto padre específico con paginación",
     parameters=[
-        {'name': 'product_pk', 'in': 'path', 'description': 'ID del producto al que pertenecen los subproductos', 'required': True, 'schema': {'type': 'integer'}},
+        {
+            'name': 'product_pk',
+            'in': 'path',
+            'description': 'ID del producto padre',
+            'required': True,
+            'schema': {'type': 'integer'}
+        },
     ],
-    responses={200: SubProductSerializer(many=True)},
+    responses={200: ProductSerializer(many=True)},
 )
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsStaffOrReadOnly])  # Usuarios autenticados leen, solo staff modifica
 def subproduct_list(request, product_pk):
     """
-    Endpoint para listar subproductos de un producto específico.
+    Endpoint para listar subproductos de un producto padre con paginación.
+    
+    - Un subproducto es un producto con `parent=product_padre` y status=True.
+    - Todos los usuarios autenticados pueden leer (GET).
+    - Se puede modificar el número de resultados por página usando el parámetro `page_size`.
     """
     try:
-        product = Product.objects.get(pk=product_pk, status=True)
+        parent_product = Product.objects.get(pk=product_pk, status=True)
     except Product.DoesNotExist:
-        return Response({"detail": "Producto no encontrado o inactivo."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": "Product not found or inactive."}, status=status.HTTP_404_NOT_FOUND)
     
-    subproducts = product.subproducts.filter(status=True)
-    serializer = SubProductSerializer(subproducts, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    subproducts = parent_product.subproducts.filter(status=True)
+
+    # Aplica la paginación
+    paginator = Pagination()
+    paginated_subproducts = paginator.paginate_queryset(subproducts, request)
+    
+    # Serializa los datos de la página actual
+    serializer = ProductSerializer(paginated_subproducts, many=True)
+
+    # Devuelve la respuesta paginada
+    return paginator.get_paginated_response(serializer.data)
 
 
 @extend_schema(
     methods=['POST'],
     operation_id="create_subproduct",
-    description="Crea un nuevo subproducto asociado a un producto específico",
-    request=SubProductSerializer,
-    responses={201: SubProductSerializer, 400: "Solicitud Incorrecta - Datos inválidos"},
+    description="Crea un nuevo subproducto (producto hijo) asociado a un producto padre",
+    request=ProductSerializer,
+    responses={201: ProductSerializer, 400: "Solicitud Incorrecta - Datos inválidos"},
 )
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsStaffOrReadOnly])  # Solo staff puede crear
 def create_subproduct(request, product_pk):
     """
-    Endpoint para crear un nuevo subproducto asociado a un producto específico.
+    Crea un nuevo subproducto asignando `parent = product_padre`.
+    Si la categoría del producto padre es 'Cables', se pueden crear o actualizar atributos en CableAttributes.
     """
     try:
-        product = Product.objects.get(pk=product_pk, status=True)
+        parent_product = Product.objects.get(pk=product_pk, status=True)
     except Product.DoesNotExist:
-        return Response({"detail": "Producto no encontrado o inactivo."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": "Product not found or inactive."}, status=status.HTTP_404_NOT_FOUND)
 
-    serializer = SubProductSerializer(data=request.data)
+    data = request.data.copy()
+    data['parent'] = parent_product.pk
+    serializer = ProductSerializer(data=data)
     if serializer.is_valid():
-        metadata = request.data.get('metadata', {})
-        if 'technical_sheet_photo' in metadata:
-            try:
-                serializer.validated_data['technical_sheet_photo'] = decode_image_base64(metadata['technical_sheet_photo'], serializer.validated_data['name'])
-            except ValueError as e:
-                return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        new_subproduct = serializer.save(user=request.user)
         
-        serializer.save(product=product)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        metadata = request.data.get('metadata', {})
+        if new_subproduct.category and new_subproduct.category.name == "Cables":
+            cable_attrs, created = CableAttributes.objects.get_or_create(product=new_subproduct)
+            cable_attrs.name = metadata.get('name', cable_attrs.name)
+            cable_attrs.brand = metadata.get('brand', cable_attrs.brand)
+            cable_attrs.number_coil = metadata.get('number_coil', cable_attrs.number_coil)
+            cable_attrs.initial_length = metadata.get('initial_length', cable_attrs.initial_length)
+            cable_attrs.total_weight = metadata.get('total_weight', cable_attrs.total_weight)
+            cable_attrs.coil_weight = metadata.get('coil_weight', cable_attrs.coil_weight)
+
+            if 'technical_sheet_photo' in metadata:
+                try:
+                    cable_attrs.technical_sheet_photo = decode_image_base64(
+                        metadata['technical_sheet_photo'],
+                        new_subproduct.name
+                    )
+                except ValueError as e:
+                    return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            
+            cable_attrs.save()
+        
+        return Response(ProductSerializer(new_subproduct).data, status=status.HTTP_201_CREATED)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -81,37 +121,38 @@ def create_subproduct(request, product_pk):
 @extend_schema(
     methods=['GET'],
     operation_id="retrieve_subproduct",
-    description="Recupera los detalles de un subproducto específico dentro de un producto",
-    responses={200: SubProductSerializer, 404: "SubProducto no encontrado"},
+    description="Recupera los detalles de un subproducto (producto hijo) específico",
+    responses={200: ProductSerializer, 404: "SubProduct no encontrado"},
 )
 @extend_schema(
     methods=['PUT'],
     operation_id="update_subproduct",
-    description="Actualiza los detalles de un subproducto específico dentro de un producto",
-    request=SubProductSerializer,
-    responses={200: SubProductSerializer, 400: "Solicitud Incorrecta - Datos inválidos"},
+    description="Actualiza los detalles de un subproducto (producto hijo) específico",
+    request=ProductSerializer,
+    responses={200: ProductSerializer, 400: "Solicitud Incorrecta - Datos inválidos"},
 )
 @extend_schema(
     methods=['DELETE'],
     operation_id="delete_subproduct",
-    description="Elimina suavemente un subproducto específico dentro de un producto, estableciendo status en False",
-    responses={204: "SubProducto eliminado (soft)", 404: "SubProducto no encontrado"},
+    description="Elimina suavemente un subproducto (producto hijo), estableciendo status en False",
+    responses={204: "SubProduct eliminado (soft)", 404: "SubProduct no encontrado"},
 )
 @api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsStaffOrReadOnly])  # Solo staff update/delete; todos pueden GET
 def subproduct_detail(request, product_pk, pk):
     """
-    Endpoint para obtener, actualizar o eliminar suavemente un subproducto específico dentro de un producto.
+    Obtiene, actualiza o elimina suavemente un subproducto específico.
+    Un subproducto es un producto con `parent=product_padre`.
     """
     try:
-        product = Product.objects.get(pk=product_pk, status=True)
+        parent_product = Product.objects.get(pk=product_pk, status=True)
     except Product.DoesNotExist:
-        return Response({"detail": "Producto no encontrado o inactivo."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": "Parent product not found or inactive."}, status=status.HTTP_404_NOT_FOUND)
     
     try:
-        subproduct = SubProduct.objects.get(pk=pk, product=product)
-    except SubProduct.DoesNotExist:
-        return Response({"detail": "SubProducto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        subproduct = parent_product.subproducts.get(pk=pk, status=True)
+    except Product.DoesNotExist:
+        return Response({"detail": "SubProduct not found."}, status=status.HTTP_404_NOT_FOUND)
     
     if request.method == 'GET':
         return retrieve_subproduct(subproduct)
@@ -122,24 +163,39 @@ def subproduct_detail(request, product_pk, pk):
 
 
 def retrieve_subproduct(subproduct):
-    """Obtiene los detalles del subproducto."""
-    serializer = SubProductSerializer(subproduct)
+    """Obtiene los detalles del subproducto utilizando ProductSerializer."""
+    serializer = ProductSerializer(subproduct)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 def update_subproduct(request, subproduct):
-    """Actualiza los detalles del subproducto, incluyendo la decodificación de imágenes si es necesario."""
-    serializer = SubProductSerializer(subproduct, data=request.data, partial=True)
+    """Actualiza los detalles del subproducto y CableAttributes si el producto es 'Cables'."""
+    serializer = ProductSerializer(subproduct, data=request.data, partial=True)
     if serializer.is_valid():
+        updated_subproduct = serializer.save()
         metadata = request.data.get('metadata', {})
-        if 'technical_sheet_photo' in metadata:
-            try:
-                serializer.validated_data['technical_sheet_photo'] = decode_image_base64(metadata['technical_sheet_photo'], serializer.validated_data['name'])
-            except ValueError as e:
-                return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
+
+        if updated_subproduct.category and updated_subproduct.category.name == "Cables":
+            cable_attrs, created = CableAttributes.objects.get_or_create(product=updated_subproduct)
+            cable_attrs.name = metadata.get('name', cable_attrs.name)
+            cable_attrs.brand = metadata.get('brand', cable_attrs.brand)
+            cable_attrs.number_coil = metadata.get('number_coil', cable_attrs.number_coil)
+            cable_attrs.initial_length = metadata.get('initial_length', cable_attrs.initial_length)
+            cable_attrs.total_weight = metadata.get('total_weight', cable_attrs.total_weight)
+            cable_attrs.coil_weight = metadata.get('coil_weight', cable_attrs.coil_weight)
+
+            if 'technical_sheet_photo' in metadata:
+                try:
+                    cable_attrs.technical_sheet_photo = decode_image_base64(
+                        metadata['technical_sheet_photo'],
+                        updated_subproduct.name
+                    )
+                except ValueError as e:
+                    return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            
+            cable_attrs.save()
+
+        return Response(ProductSerializer(updated_subproduct).data, status=status.HTTP_200_OK)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -148,4 +204,4 @@ def soft_delete_subproduct(subproduct):
     """Realiza un soft delete del subproducto, estableciendo `status` a False."""
     subproduct.status = False
     subproduct.save()
-    return Response({"detail": "SubProducto eliminado (soft) correctamente."}, status=status.HTTP_204_NO_CONTENT)
+    return Response({"detail": "SubProduct set to inactive successfully."}, status=status.HTTP_204_NO_CONTENT)

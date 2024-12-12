@@ -1,34 +1,48 @@
-# Este archivo define los endpoints para listar, crear, obtener, actualizar y eliminar (de manera suave) categorías de productos en la API.
+# Este archivo define los endpoints para listar, crear, obtener, actualizar y eliminar (de manera suave) categorías de productos.
+# Ahora se aplican permisos para que todos los usuarios autenticados puedan leer (GET),
+# pero solo los usuarios con is_staff=True puedan crear, actualizar y eliminar.
+# Los comentarios están en español y los mensajes se mantienen en el idioma correspondiente.
 
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from apps.products.models import Category
-from ..serializers import CategorySerializer
 from drf_spectacular.utils import extend_schema
 
-# Vista para listar todas las categorías activas
+from apps.products.models import Category
+from ..serializers import CategorySerializer
+from apps.users.permissions import IsStaffOrReadOnly  # Importamos la clase de permisos personalizada
+from apps.core.pagination import Pagination  # Importamos la clase de paginación
+
 @extend_schema(
     methods=['GET'],
     operation_id="list_categories",
-    description="Recupera una lista de todas las categorías",
+    description="Recupera una lista de todas las categorías activas con paginación",
     responses={200: CategorySerializer(many=True)},
 )
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsStaffOrReadOnly])  # Aplica permiso: lectura para todos los autenticados, cambios solo staff
 def category_list(request):
     """
-    Endpoint para listar solo las categorías activas.
+    Endpoint para listar solo las categorías activas con paginación.
+    
+    - Todos los usuarios autenticados pueden acceder a este endpoint.
+    - Devuelve una lista de categorías con status=True, paginada.
+    - Se puede modificar el número de resultados por página usando el parámetro `page_size`.
     """
     # Recupera todas las categorías activas de la base de datos
     categories = Category.objects.filter(status=True)
-    # Serializa los datos para enviarlos en la respuesta
-    serializer = CategorySerializer(categories, many=True)
-    # Devuelve los datos serializados con un código de estado HTTP 200 OK
-    return Response(serializer.data, status=status.HTTP_200_OK)
 
-# Vista para crear una nueva categoría
+    # Aplica la paginación usando la clase definida en core/pagination.py
+    paginator = Pagination()
+    paginated_categories = paginator.paginate_queryset(categories, request)
+
+    # Serializa los datos de la página actual
+    serializer = CategorySerializer(paginated_categories, many=True)
+
+    # Devuelve los datos serializados con la respuesta paginada
+    return paginator.get_paginated_response(serializer.data)
+
+
 @extend_schema(
     methods=['POST'],
     operation_id="create_category",
@@ -40,22 +54,21 @@ def category_list(request):
     },
 )
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsStaffOrReadOnly])  # Solo el staff puede crear
 def create_category(request):
     """
     Endpoint para crear una nueva categoría.
+    
+    - Requiere que el usuario sea staff para poder crear.
+    - Serializa los datos recibidos, los valida y crea una categoría.
     """
-    # Serializa los datos recibidos en la solicitud
     serializer = CategorySerializer(data=request.data)
-    # Valida los datos y, si son válidos, guarda la nueva categoría asociada al usuario autenticado
     if serializer.is_valid():
         serializer.save(user=request.user)  # Asocia la categoría con el usuario autenticado
-        # Responde con los datos de la nueva categoría y un código de estado HTTP 201 CREATED
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-    # Si los datos no son válidos, responde con los errores de validación y un código HTTP 400 BAD REQUEST
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# Vista para obtener, actualizar o eliminar una categoría específica
+
 @extend_schema(
     methods=['GET'],
     operation_id="retrieve_category",
@@ -79,35 +92,31 @@ def create_category(request):
     responses={204: "Categoría eliminada (soft) correctamente", 404: "Categoría no encontrada"},
 )
 @api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsStaffOrReadOnly])  # Solo staff puede actualizar o eliminar; autenticados pueden leer.
 def category_detail(request, pk):
     """
-    Endpoint para obtener, actualizar o eliminar una categoría específica.
+    Endpoint para obtener, actualizar o eliminar (soft) una categoría específica.
+    
+    - GET: cualquier usuario autenticado puede obtener los detalles.
+    - PUT: solo usuarios staff pueden actualizar la categoría.
+    - DELETE: solo usuarios staff pueden eliminarla (soft delete).
     """
-    # Intenta obtener la categoría por su clave primaria (pk); si no existe, responde con un error 404
     try:
         category = Category.objects.get(pk=pk)
     except Category.DoesNotExist:
         return Response({"detail": "Categoría no encontrada."}, status=status.HTTP_404_NOT_FOUND)
     
-    # Maneja la solicitud GET para obtener detalles de la categoría
     if request.method == 'GET':
         serializer = CategorySerializer(category)
         return Response(serializer.data)
-    
-    # Maneja la solicitud PUT para actualizar los detalles de la categoría
     elif request.method == 'PUT':
         serializer = CategorySerializer(category, data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
-        # Responde con errores de validación si los datos no son válidos
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Maneja la solicitud DELETE para marcar la categoría como inactiva
     elif request.method == 'DELETE':
         category.delete()
-        # Devuelve una respuesta de éxito indicando que la categoría ha sido eliminada (soft)
         return Response(
             {"detail": "Categoría eliminada (soft) correctamente."},
             status=status.HTTP_204_NO_CONTENT

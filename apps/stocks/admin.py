@@ -7,15 +7,15 @@ class StockAdmin(admin.ModelAdmin):
     """
     Configuración del panel de administración para el modelo Stock.
     """
-    list_display = ('id', 'product', 'subproduct', 'quantity', 'created_at', 'updated_at', 'user')  # Columnas a mostrar
-    list_filter = ('product', 'subproduct', 'created_at', 'updated_at', 'user')  # Filtros laterales
-    search_fields = ('product__name', 'subproduct__name', 'user__username')  # Campos para búsqueda
+    list_display = ('id', 'product', 'quantity', 'created_at', 'updated_at', 'user')  # Columnas a mostrar
+    list_filter = ('product', 'created_at', 'updated_at', 'user')  # Filtros laterales
+    search_fields = ('product__name', 'user__username')  # Campos para búsqueda
     ordering = ('-created_at',)  # Orden descendente por fecha de creación
     readonly_fields = ('created_at', 'updated_at')  # Evitar la edición de las marcas de tiempo
 
     fieldsets = (
         (None, {
-            'fields': ('product', 'subproduct', 'quantity', 'user')
+            'fields': ('product', 'quantity', 'user')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
@@ -39,15 +39,15 @@ class StockHistoryAdmin(admin.ModelAdmin):
     """
     Configuración del panel de administración para el modelo StockHistory.
     """
-    list_display = ('id', 'product', 'subproduct', 'stock_before', 'stock_after', 'change_reason', 'recorded_at', 'user')  # Columnas a mostrar
-    list_filter = ('product', 'subproduct', 'recorded_at', 'user')  # Filtros laterales
-    search_fields = ('product__name', 'subproduct__name', 'change_reason', 'user__username')  # Campos para búsqueda
+    list_display = ('id', 'product', 'stock_before', 'stock_after', 'change_reason', 'recorded_at', 'user')  # Columnas a mostrar
+    list_filter = ('product', 'recorded_at', 'user')  # Filtros laterales
+    search_fields = ('product__name', 'change_reason', 'user__username')  # Campos para búsqueda
     ordering = ('-recorded_at',)  # Orden descendente por fecha de registro
 
     readonly_fields = ('recorded_at',)  # Evitar la edición directa del campo de fecha
     fieldsets = (
         (None, {
-            'fields': ('product', 'subproduct', 'stock_before', 'stock_after', 'change_reason', 'user')
+            'fields': ('product', 'stock_before', 'stock_after', 'change_reason', 'user')
         }),
         ('Timestamps', {
             'fields': ('recorded_at',),

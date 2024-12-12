@@ -12,12 +12,12 @@ class ActiveCommentManager(models.Manager):
         return super().get_queryset().filter(deleted_at__isnull=True)
 
 class Comment(models.Model):
-    # Relación genérica para permitir comentarios en Product o SubProduct
+    # Relación genérica para permitir comentarios en cualquier modelo, por ejemplo Product
     content_type = models.ForeignKey(
         ContentType,
         on_delete=models.CASCADE,
         related_name="comments",
-        default=1  # Asigna un ContentType id existente (ejemplo: 1) temporalmente
+        default=1  # Valor por defecto temporal, asegurarse de que ContentType id=1 exista
     )
     object_id = models.PositiveIntegerField()
     content_object = GenericForeignKey('content_type', 'object_id')
@@ -33,6 +33,7 @@ class Comment(models.Model):
     active_objects = ActiveCommentManager()  # Manager para comentarios activos
 
     def __str__(self):
+        # Mensaje en inglés para mantener consistencia
         return f'Comment by {self.user.username if self.user else "Unknown"} on {self.content_object}'
 
     def delete(self, *args, **kwargs):
