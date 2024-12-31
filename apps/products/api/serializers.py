@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from ..models import Category, Type, Product, CableAttributes
 from apps.comments.api.serializers import CommentSerializer
+from ..models import Category, Type, Product, CableAttributes
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -35,7 +35,10 @@ class CableAttributesSerializer(serializers.ModelSerializer):
 
 
 class NestedProductSerializer(serializers.ModelSerializer):
-    """Serializer para mostrar productos relacionados (subproductos)"""
+    """
+    Serializer para mostrar productos relacionados (subproductos).
+    Sólo lectura: no se espera crear/editar subproductos desde aquí.
+    """
     category = CategorySerializer(read_only=True)
     type = TypeSerializer(read_only=True)
     user = serializers.StringRelatedField(read_only=True)
@@ -56,14 +59,26 @@ class NestedProductSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     """
-    Serializer principal para productos, incluyendo subproductos y atributos de cable
+    Serializer principal para productos, incluyendo:
+      - subproductos (read_only)
+      - atributos de cable (read_only)
+      - comentarios (read_only)
+      - posibilidad de asignar un 'parent' para productos que sean subproductos
     """
+    # Relaciones de solo lectura
     category = CategorySerializer(read_only=True)
     type = TypeSerializer(read_only=True)
     user = serializers.StringRelatedField(read_only=True)
     comments = CommentSerializer(many=True, read_only=True)
-    subproducts = NestedProductSerializer(many=True, read_only=True)  # Subproductos
-    cable_attributes = CableAttributesSerializer(read_only=True)  # Atributos de cable si aplica
+    subproducts = NestedProductSerializer(many=True, read_only=True)
+    cable_attributes = CableAttributesSerializer(read_only=True)
+
+    # Campo para asignar producto padre de forma opcional
+    parent = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(),
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = Product
@@ -77,30 +92,19 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """
-        Validación personalizada:
-        - Requiere al menos un subproducto activo si el producto pertenece a la categoría 'Cables'.
-        - Verifica que un producto con subproductos no pueda tener atributos de cable.
+        Validación personalizada (Enfoque Mixto):
+        - Se elimina la restricción que impedía coexistir CableAttributes y subproductos.
+        - Puedes agregar lógica adicional si lo deseas.
         """
-        category = self.instance.category if self.instance else data.get('category')
-
-        # Validación para la categoría 'Cables'
-        if category and category.name == "Cables":
-            # Verifica que el producto tenga al menos un subproducto activo
-            if self.instance and not self.instance.subproducts.filter(status=True).exists():
-                raise serializers.ValidationError(
-                    "El producto de categoría 'Cables' debe tener al menos un subproducto activo."
-                )
-
-            # Un producto con subproductos no puede tener CableAttributes
-            if self.instance and self.instance.cable_attributes:
-                raise serializers.ValidationError(
-                    "Un producto con subproductos no puede tener atributos de cable (CableAttributes)."
-                )
-
-        # Validación adicional: un producto con atributos de cable no puede ser un subproducto
-        if data.get('parent') and self.instance and self.instance.cable_attributes:
-            raise serializers.ValidationError(
-                "Un producto con atributos de cable no puede ser un subproducto."
-            )
+        # Ejemplo: si deseas forzar que, si es categoría 'Cables' y no tiene subproductos,
+        # debe tener CableAttributes. (Descomenta y adapta a tu preferencia)
+        #
+        # category = self.instance.category if self.instance else data.get('category')
+        # if category and category.name == "Cables":
+        #     # Si no hay subproductos y tampoco hay CableAttributes, error
+        #     if not self.instance.subproducts.exists() and not self.instance.cable_attributes:
+        #         raise serializers.ValidationError(
+        #             "Un producto de categoría 'Cables' requiere subproductos o CableAttributes."
+        #         )
 
         return data

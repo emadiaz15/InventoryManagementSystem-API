@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from drf_spectacular.utils import extend_schema
 
-from apps.stocks.models import Stock, StockHistory
+from apps.stocks.models import Stock
 from apps.stocks.api.serializers import StockSerializer
 from apps.users.permissions import IsStaffOrReadAndUpdateOnly
 
@@ -20,10 +20,9 @@ def list_stocks_view(request):
     """
     Endpoint para listar todos los registros de stock activos.
     
-    - Usuarios no staff: pueden leer.
-    - Usuarios staff: pueden también crear, eliminar, etc. (pero este endpoint solo es GET).
+    - Usuarios no staff: solo lectura (GET).
+    - Usuarios staff: podrían crear/editar stock (pero no en este endpoint).
     """
-    # Filtro opcional por producto
     product_id = request.query_params.get('product')
 
     stocks = Stock.objects.filter(is_active=True)
@@ -48,10 +47,10 @@ def list_stocks_view(request):
 @permission_classes([IsStaffOrReadAndUpdateOnly])  # Solo staff puede crear
 def create_stock_view(request):
     """
-    Endpoint para crear un nuevo registro de stock.
+    Endpoint para crear un nuevo registro de stock (inicial).
     - Solo staff puede crear (POST).
     """
-    serializer = StockSerializer(data=request.data)
+    serializer = StockSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         # Asigna el usuario actual al crear el registro de stock
         serializer.save(user=request.user)
@@ -68,7 +67,7 @@ def create_stock_view(request):
 @extend_schema(
     methods=['PUT'],
     operation_id="update_stock",
-    description="Actualiza los detalles de un registro de stock y registra el cambio en el historial",
+    description="Actualiza los detalles de un registro de stock (puede cambiar la cantidad, ubicación, etc.)",
     request=StockSerializer,
     responses={
         200: StockSerializer,
@@ -88,8 +87,8 @@ def stock_detail_view(request, pk=None):
     Endpoint para obtener, actualizar o eliminar (soft) un registro de stock específico.
     
     - GET: Lectura para todos los autenticados.
-    - PUT: Modificación para todos los autenticados.
-    - DELETE: Solo staff.
+    - PUT: Modificación para todos los autenticados (p.ej., cambiar cantidad o location).
+    - DELETE: Solo staff (soft-delete que pone is_active=False).
     """
     try:
         stock = Stock.objects.get(pk=pk, is_active=True)
@@ -97,45 +96,21 @@ def stock_detail_view(request, pk=None):
         return Response({'detail': 'Stock not found'}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
-        # Solo lectura
         serializer = StockSerializer(stock)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'PUT':
-        # Usuarios no staff pueden modificar también
-        serializer = StockSerializer(stock, data=request.data, partial=True)
+        # Permite actualización parcial (partial=True)
+        serializer = StockSerializer(stock, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
-            stock_before = stock.quantity
-            new_quantity = serializer.validated_data.get('quantity', stock_before)
-
-            # Registrar el cambio en el historial
-            StockHistory.objects.create(
-                product=stock.product,
-                stock_before=stock_before,
-                stock_after=new_quantity,
-                change_reason=serializer.validated_data.get('change_reason', 'Stock update'),
-                user=request.user
-            )
-
-            # Actualizar el stock
+            # El método update del serializer se encargará de llamar a stock.apply_change
+            # si la quantity cambió, registrando la operación en StockHistory.
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'DELETE':
         # Solo staff puede eliminar (soft delete)
-        if not stock.is_active:
-            return Response({'detail': 'Stock already inactive'}, status=status.HTTP_400_BAD_REQUEST)
-
-        StockHistory.objects.create(
-            product=stock.product,
-            stock_before=stock.quantity,
-            stock_after=0,
-            change_reason="Soft deletion of stock",
-            user=request.user
-        )
-
-        stock.is_active = False
-        stock.quantity = 0
-        stock.save()
+        # Llamamos a stock.soft_delete(...) en lugar de hacerlo manualmente.
+        stock.soft_delete(reason="Soft deletion of stock", user=request.user)
         return Response({'detail': 'Stock set to inactive successfully.'}, status=status.HTTP_204_NO_CONTENT)

@@ -79,38 +79,46 @@ def subproduct_list(request, product_pk):
 def create_subproduct(request, product_pk):
     """
     Crea un nuevo subproducto asignando `parent = product_padre`.
-    Si la categoría del producto padre es 'Cables', se pueden crear o actualizar atributos en CableAttributes.
+    Si la categoría del producto padre o subproducto es 'Cables',
+    se pueden crear o actualizar atributos en CableAttributes (campo brand, etc.).
     """
     try:
         parent_product = Product.objects.get(pk=product_pk, status=True)
     except Product.DoesNotExist:
         return Response({"detail": "Product not found or inactive."}, status=status.HTTP_404_NOT_FOUND)
 
+    # Forzamos el 'parent' en los datos
     data = request.data.copy()
     data['parent'] = parent_product.pk
+
+    # Creamos el subproducto
     serializer = ProductSerializer(data=data)
     if serializer.is_valid():
         new_subproduct = serializer.save(user=request.user)
-        
-        metadata = request.data.get('metadata', {})
-        if new_subproduct.category and new_subproduct.category.name == "Cables":
-            cable_attrs, created = CableAttributes.objects.get_or_create(product=new_subproduct)
-            cable_attrs.name = metadata.get('name', cable_attrs.name)
-            cable_attrs.brand = metadata.get('brand', cable_attrs.brand)
-            cable_attrs.number_coil = metadata.get('number_coil', cable_attrs.number_coil)
-            cable_attrs.initial_length = metadata.get('initial_length', cable_attrs.initial_length)
-            cable_attrs.total_weight = metadata.get('total_weight', cable_attrs.total_weight)
-            cable_attrs.coil_weight = metadata.get('coil_weight', cable_attrs.coil_weight)
 
-            if 'technical_sheet_photo' in metadata:
+        # Si la categoría es "Cables", manejamos CableAttributes
+        if new_subproduct.category and new_subproduct.category.name == "Cables":
+            # Obtener (o crear) registro de CableAttributes asociado
+            cable_attrs, created = CableAttributes.objects.get_or_create(parent=new_subproduct)
+            
+            # Leemos los campos desde el mismo nivel que el resto del producto
+            cable_attrs.brand = request.data.get('brand', cable_attrs.brand)
+            cable_attrs.number_coil = request.data.get('number_coil', cable_attrs.number_coil)
+            cable_attrs.initial_length = request.data.get('initial_length', cable_attrs.initial_length)
+            cable_attrs.total_weight = request.data.get('total_weight', cable_attrs.total_weight)
+            cable_attrs.coil_weight = request.data.get('coil_weight', cable_attrs.coil_weight)
+            
+            # Procesar technical_sheet_photo en base64, si viene
+            technical_sheet_photo_b64 = request.data.get('technical_sheet_photo')
+            if technical_sheet_photo_b64:
                 try:
                     cable_attrs.technical_sheet_photo = decode_image_base64(
-                        metadata['technical_sheet_photo'],
+                        technical_sheet_photo_b64,
                         new_subproduct.name
                     )
                 except ValueError as e:
                     return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-            
+
             cable_attrs.save()
         
         return Response(ProductSerializer(new_subproduct).data, status=status.HTTP_201_CREATED)
@@ -173,26 +181,27 @@ def update_subproduct(request, subproduct):
     serializer = ProductSerializer(subproduct, data=request.data, partial=True)
     if serializer.is_valid():
         updated_subproduct = serializer.save()
-        metadata = request.data.get('metadata', {})
 
+        # Si la categoría del subproducto es 'Cables', actualizamos o creamos CableAttributes
         if updated_subproduct.category and updated_subproduct.category.name == "Cables":
-            cable_attrs, created = CableAttributes.objects.get_or_create(product=updated_subproduct)
-            cable_attrs.name = metadata.get('name', cable_attrs.name)
-            cable_attrs.brand = metadata.get('brand', cable_attrs.brand)
-            cable_attrs.number_coil = metadata.get('number_coil', cable_attrs.number_coil)
-            cable_attrs.initial_length = metadata.get('initial_length', cable_attrs.initial_length)
-            cable_attrs.total_weight = metadata.get('total_weight', cable_attrs.total_weight)
-            cable_attrs.coil_weight = metadata.get('coil_weight', cable_attrs.coil_weight)
-
-            if 'technical_sheet_photo' in metadata:
+            cable_attrs, created = CableAttributes.objects.get_or_create(parent=updated_subproduct)
+            
+            cable_attrs.brand = request.data.get('brand', cable_attrs.brand)
+            cable_attrs.number_coil = request.data.get('number_coil', cable_attrs.number_coil)
+            cable_attrs.initial_length = request.data.get('initial_length', cable_attrs.initial_length)
+            cable_attrs.total_weight = request.data.get('total_weight', cable_attrs.total_weight)
+            cable_attrs.coil_weight = request.data.get('coil_weight', cable_attrs.coil_weight)
+            
+            technical_sheet_photo_b64 = request.data.get('technical_sheet_photo')
+            if technical_sheet_photo_b64:
                 try:
                     cable_attrs.technical_sheet_photo = decode_image_base64(
-                        metadata['technical_sheet_photo'],
+                        technical_sheet_photo_b64,
                         updated_subproduct.name
                     )
                 except ValueError as e:
                     return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-            
+
             cable_attrs.save()
 
         return Response(ProductSerializer(updated_subproduct).data, status=status.HTTP_200_OK)
