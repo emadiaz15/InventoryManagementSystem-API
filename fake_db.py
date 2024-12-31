@@ -2,6 +2,8 @@
 
 import os
 import django
+import base64
+from django.core.files.base import ContentFile
 from faker import Faker
 
 # ------------------------------------------------------------------------------
@@ -19,9 +21,11 @@ from django.utils.timezone import now
 
 User = get_user_model()
 
-from apps.products.models import Category, Type, Product  # Ajusta la ruta según tu proyecto
+from apps.products.models import Category, Type, Product
 from apps.cuts.models import CuttingOrder
-from apps.comments.models import Comment  # Ajusta si tu Comment está en otra ubicación
+from apps.comments.models import Comment
+from apps.stocks.models import Stock  # Para crear stocks iniciales
+from apps.stocks.models import StockHistory  # Si deseas poblar historial adicional
 
 fake = Faker()
 
@@ -30,7 +34,7 @@ fake = Faker()
 # ------------------------------------------------------------------------------
 def create_fake_users(n=5):
     """
-    Crea 'n' usuarios falsos utilizando faker.
+    Crea 'n' usuarios falsos utilizando Faker.
     """
     for _ in range(n):
         username = fake.unique.user_name()
@@ -82,7 +86,7 @@ def create_fake_categories():
     return categories
 
 # ------------------------------------------------------------------------------
-# 5. Crear Tipos
+# 5. Crear Tipos (asociados a la categoría 'Cables')
 # ------------------------------------------------------------------------------
 def create_fake_types(category_cables, n=5):
     """
@@ -90,7 +94,7 @@ def create_fake_types(category_cables, n=5):
     """
     types = []
     for _ in range(n):
-        name = fake.word().capitalize()  # p.ej. "Utpextra"
+        name = fake.word().capitalize()
         type_obj = Type.objects.create(
             name=name,
             description=f"Descripción del tipo {name}",
@@ -99,7 +103,6 @@ def create_fake_types(category_cables, n=5):
         )
         print(f'Tipo creado: {type_obj.name}')
         types.append(type_obj)
-
     return types
 
 # ------------------------------------------------------------------------------
@@ -108,6 +111,7 @@ def create_fake_types(category_cables, n=5):
 def create_fake_products(categories, types, n=10):
     """
     Crea 'n' productos falsos, eligiendo aleatoriamente una Category y un Type.
+    Retorna la lista de productos creados.
     """
     products = []
     for _ in range(n):
@@ -118,15 +122,14 @@ def create_fake_products(categories, types, n=10):
                 break
 
         category = fake.random_element(elements=categories)
-        type_obj = fake.random_element(elements=types)
+        type_obj = fake.random_element(elements=types) if types else None
 
         product = Product.objects.create(
-            name=fake.word().capitalize(),      # Nombre corto
+            name=fake.word().capitalize(),
             code=code,
             description=fake.sentence(nb_words=8),
-            image=None,                         # O usa fake.image_url() si deseas
-            category=category,                 # Instancia de Category
-            type=type_obj,                     # Instancia de Type
+            category=category,   # Instancia de Category
+            type=type_obj,       # Instancia de Type
             status=True
         )
         print(f'Producto creado: {product.name} (código: {product.code})')
@@ -135,12 +138,12 @@ def create_fake_products(categories, types, n=10):
     return products
 
 # ------------------------------------------------------------------------------
-# 7. Subproductos
+# 7. Crear Subproductos
 # ------------------------------------------------------------------------------
 def create_fake_subproducts(parent_product, n=2):
     """
     Crea n subproductos asociados a un product padre específico.
-    Depende de cómo manejes la relación en tu modelo de base de datos.
+    Supone que tu modelo Product tiene un campo 'parent = ForeignKey("self")'.
     """
     subproducts = []
     for _ in range(n):
@@ -153,10 +156,10 @@ def create_fake_subproducts(parent_product, n=2):
             name=f"{parent_product.name}_sub",
             code=code,
             description="Subproducto derivado de " + parent_product.name,
-            category=parent_product.category,  # misma categoría
-            type=parent_product.type,          # mismo tipo
+            category=parent_product.category,
+            type=parent_product.type,
+            parent=parent_product,  # Aquí enlaza con el padre
             status=True,
-            # Si tu modelo Product tiene un campo 'parent = ForeignKey("self")', podrías usarlo aquí
         )
         print(f'Subproducto creado: {sub.name} (parent: {parent_product.name})')
         subproducts.append(sub)
@@ -164,15 +167,14 @@ def create_fake_subproducts(parent_product, n=2):
     return subproducts
 
 # ------------------------------------------------------------------------------
-# 8. Crear Comentarios (usando ContentTypes)
+# 8. Crear Comentarios (usando ContentType)
 # ------------------------------------------------------------------------------
 def create_fake_comments(products, n=3):
     """
-    Crea 'n' comentarios para cada producto, usando content_type y object_id
-    (según tu OpenAPI, donde Comment no tiene campo 'product' directo).
+    Crea 'n' comentarios para cada producto, usando content_type y object_id.
     """
     all_users = list(User.objects.all())
-    product_ct = ContentType.objects.get_for_model(Product)  # content_type para Product
+    product_ct = ContentType.objects.get_for_model(Product)
 
     for product in products:
         for _ in range(n):
@@ -182,7 +184,7 @@ def create_fake_comments(products, n=3):
             if user:
                 Comment.objects.create(
                     content_type=product_ct,
-                    object_id=product.id,  # ID del producto comentado
+                    object_id=product.id,
                     user=user,
                     text=text
                 )
@@ -192,40 +194,83 @@ def create_fake_comments(products, n=3):
                 break
 
 # ------------------------------------------------------------------------------
-# 9. Crear Órdenes de Corte (CuttingOrder)
+# 9. Crear Stock inicial
+# ------------------------------------------------------------------------------
+def create_initial_stock_for_products(products):
+    """
+    Crea un registro de stock inicial para cada producto, asegurando que
+    la validación de CuttingOrder no falle por falta de stock.
+    """
+    user = User.objects.first()  # Asigna un usuario cualquiera
+    for product in products:
+        # Verifica si ya existe un stock activo (opcional)
+        if not Stock.objects.filter(product=product, is_active=True).exists():
+            quantity = fake.random_int(min=10, max=100)
+            Stock.objects.create(
+                product=product,
+                quantity=quantity,
+                user=user,
+                is_active=True
+            )
+            print(f"Stock inicial creado para {product.name} con {quantity} unidades.")
+
+# ------------------------------------------------------------------------------
+# 10. Crear Órdenes de Corte (CuttingOrder)
 # ------------------------------------------------------------------------------
 def create_fake_cutting_orders(products, n=10):
     """
-    Crea 'n' CuttingOrders, asignando la instancia de User en 'assigned_by'
-    y 'assigned_to' (no sus .id).
+    Crea 'n' CuttingOrders, con asignaciones aleatorias de usuario,
+    asegurando que cutting_quantity sea un Decimal menor al stock.
     """
+    from decimal import Decimal
     all_users = list(User.objects.all())
     status_choices = ["pending", "in_process", "completed"]
 
     for _ in range(n):
         product = fake.random_element(elements=products)
-        customer_name = fake.company()
-        cutting_quantity = fake.pydecimal(left_digits=3, right_digits=2, positive=True, min_value=1, max_value=999)
 
+        # Obtener la cantidad de stock disponible más reciente
+        stock_obj = product.stocks.latest('created_at')
+        available_stock = stock_obj.quantity
+
+        # Generar un cutting_quantity que no supere el stock actual
+        if available_stock < 1:
+            # Si no hay stock suficiente ni para 1, omitimos la creación de la orden
+            print(f"No hay stock suficiente para generar orden de corte en {product.name}")
+            continue
+
+        # Definimos un valor máximo para la orden, p. ej. el stock - 1 o el stock mismo
+        max_cut = available_stock if available_stock <= 999 else Decimal("999.00")
+
+        cutting_quantity = fake.pydecimal(
+            left_digits=3,
+            right_digits=2,
+            positive=True,
+            min_value=Decimal("1.00"),
+            max_value=max_cut
+        )
+
+        customer_name = fake.company()
         assigned_by_user = fake.random_element(elements=all_users) if all_users else None
         assigned_to_user = fake.random_element(elements=all_users) if all_users else None
 
         order = CuttingOrder.objects.create(
             product=product,
             customer=customer_name,
-            cutting_quantity=str(cutting_quantity),  # str para campos Decimal o CharField
+            cutting_quantity=cutting_quantity,  # Pasa un Decimal directamente
             status=fake.random_element(elements=status_choices),
-            assigned_by=assigned_by_user,  # Se pasa la instancia de User
-            assigned_to=assigned_to_user,  # Se pasa la instancia de User
+            assigned_by=assigned_by_user,
+            assigned_to=assigned_to_user,
         )
-        print(f'Orden de corte creada para {product.name} - Cliente: {customer_name} - Cantidad: {cutting_quantity}')
+        print(f'Orden de corte creada: [Producto: {product.name} | Stock: {available_stock} '
+              f'| Cantidad: {cutting_quantity} | Cliente: {customer_name}]')
 
 # ------------------------------------------------------------------------------
-# 10. Ejecución principal
+# EJECUCIÓN PRINCIPAL
 # ------------------------------------------------------------------------------
 if __name__ == "__main__":
     print("===== INICIANDO POBLACIÓN DE DATOS FALSOS =====")
-    
+
     # 1. Crear usuarios
     print("\n--- Creando usuarios ---")
     create_fake_users(n=5)
@@ -234,7 +279,7 @@ if __name__ == "__main__":
     print("\n--- Creando categorías ---")
     categories = create_fake_categories()
     
-    # 3. Crear un par de tipos asociado a la categoría 'Cables'
+    # 3. Crear Tipos (asociado a la categoría 'Cables', por ejemplo)
     print("\n--- Creando tipos ---")
     category_cables = next((c for c in categories if c.name == "Cables"), None)
     if category_cables:
@@ -247,19 +292,23 @@ if __name__ == "__main__":
     print("\n--- Creando productos ---")
     products = create_fake_products(categories, types, n=8)
     
-    # 5. Crear subproductos para los primeros 2 productos (ejemplo)
+    # 5. Crear subproductos (ejemplo) para los primeros 2 productos
     print("\n--- Creando subproductos ---")
     if products:
         create_fake_subproducts(products[0], n=2)
         if len(products) > 1:
             create_fake_subproducts(products[1], n=2)
     
-    # 6. Crear comentarios en productos
+    # 6. Crear comentarios
     print("\n--- Creando comentarios ---")
     create_fake_comments(products, n=2)
+
+    # 7. Crear stock inicial para evitar error de CuttingOrder si no hay stock
+    print("\n--- Creando stock inicial para los productos ---")
+    create_initial_stock_for_products(products)
     
-    # 7. Crear órdenes de corte
+    # 8. Crear órdenes de corte (CuttingOrder)
     print("\n--- Creando órdenes de corte ---")
     create_fake_cutting_orders(products, n=5)
-    
+
     print("\n===== PROCESO DE POBLACIÓN FINALIZADO =====")
