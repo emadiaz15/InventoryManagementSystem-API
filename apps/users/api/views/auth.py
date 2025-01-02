@@ -1,4 +1,4 @@
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
@@ -8,6 +8,10 @@ from apps.users.models import User
 from ..serializers import UserSerializer, CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from drf_spectacular.utils import extend_schema, extend_schema_view
+import logging
+
+# Configuración del logger para errores
+logger = logging.getLogger(__name__)
 
 @extend_schema(
     operation_id="register_view",
@@ -23,8 +27,8 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 @permission_classes([IsAuthenticated, IsAdminUser])  # Solo staff puede registrar nuevos usuarios
 def register_view(request):
     """
-    View to register a new user.
-    Only staff users can create new users.
+    Vista para registrar un nuevo usuario.
+    Solo los usuarios con permisos de staff pueden crear nuevos usuarios.
     """
     serializer = UserSerializer(data=request.data)
     if serializer.is_valid():
@@ -35,7 +39,6 @@ def register_view(request):
         }, status=status.HTTP_201_CREATED)
     
     return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-
 
 @extend_schema_view(
     post=extend_schema(
@@ -50,11 +53,10 @@ def register_view(request):
 )
 class CustomTokenObtainPairView(TokenObtainPairView):
     """
-    View to obtain a JWT token pair (access and refresh).
-    Uses a custom serializer to add additional claims to the token.
+    Vista para obtener un par de tokens JWT (access y refresh).
+    Usa un serializer personalizado para agregar claims adicionales al token.
     """
     serializer_class = CustomTokenObtainPairSerializer
-
 
 @extend_schema(
     operation_id="logout_user",
@@ -67,8 +69,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 )
 class LogoutView(APIView):
     """
-    View to log out a user by blacklisting the refresh token.
-    Requires the refresh token to be provided, which will be invalidated.
+    Vista para cerrar sesión de un usuario invalidando el refresh token.
+    Requiere que se proporcione el refresh token, el cual será invalidado.
     """
     permission_classes = [IsAuthenticated]
 
@@ -80,7 +82,19 @@ class LogoutView(APIView):
 
         try:
             token = RefreshToken(refresh_token)
+
+            # Validar que el token sea de tipo 'refresh'
+            if token.token_type != "refresh":
+                return Response({"error": "Provided token is not a refresh token"}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Invalidar el token
             token.blacklist()
             return Response({"message": "Token successfully invalidated"}, status=status.HTTP_205_RESET_CONTENT)
+
+        except TokenError as e:
+            logger.error(f"Logout failed for token: {refresh_token} | Error: {str(e)}")
+            return Response({"error": "Invalid or expired refresh token"}, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
+            logger.error(f"Unexpected error during logout: {str(e)}")
             return Response({"error": f"Failed to invalidate token: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
