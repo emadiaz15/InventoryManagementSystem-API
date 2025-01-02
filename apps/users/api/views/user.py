@@ -89,17 +89,29 @@ def user_detail_api_view(request, pk=None):
     """
     Endpoint to retrieve, update or soft-delete a specific user.
     - Staff users: can perform all CRUD operations (GET, PUT, DELETE).
-    - Non-staff users: can only read (GET) and update (PUT).
+    - Non-staff users: can only read (GET) their own profile.
     """
     user = get_object_or_404(User, id=pk, is_active=True)
 
     if request.method == 'GET':
-        # Todos los usuarios autenticados pueden leer
-        serializer = UserSerializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        # Staff puede leer cualquier perfil; usuarios no staff solo su propio perfil
+        if request.user.is_staff or request.user.id == user.id:
+            serializer = UserSerializer(user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response({'detail': 'You do not have permission to view this profile.'}, status=status.HTTP_403_FORBIDDEN)
     
     elif request.method == 'PUT':
-        # Todos los usuarios autenticados pueden actualizar
+        # Solo staff puede modificar cualquier usuario; usuarios no staff solo pueden modificarse a sí mismos
+        if not request.user.is_staff and request.user.id != user.id:
+            return Response({'detail': 'You do not have permission to update this user.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Restringir campos que los usuarios no staff pueden modificar
+        if not request.user.is_staff:
+            allowed_fields = {'name', 'last_name', 'dni', 'email', 'image'}
+            for field in request.data.keys():
+                if field not in allowed_fields:
+                    return Response({'detail': f'You cannot modify the field "{field}".'}, status=status.HTTP_403_FORBIDDEN)
+
         serializer = UserSerializer(user, data=request.data, partial=True)  # Permite actualización parcial
         if serializer.is_valid():
             serializer.save()
@@ -110,7 +122,7 @@ def user_detail_api_view(request, pk=None):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'DELETE':
-        # Solo usuarios staff pueden eliminar (borrado lógico)
+        # Solo usuarios staff pueden realizar eliminación lógica
         if not request.user.is_staff:
             return Response({'detail': 'You do not have permission to delete this user.'}, status=status.HTTP_403_FORBIDDEN)
         
