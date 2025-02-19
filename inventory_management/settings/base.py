@@ -23,6 +23,7 @@ THIRD_APPS = [
     'drf_spectacular',
     'celery',
     'corsheaders',
+    "csp",
 ]
 
 LOCAL_APPS = [
