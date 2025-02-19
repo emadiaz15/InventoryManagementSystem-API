@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  # Cargar las variables del archivo .env
 
-SECRET_KEY = 'django-insecure-j!9oi#6-*-vn*uk631lfs#wf9hj8wa4=-3!u6cim4zq66=@$gn'
+SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-secret-key')  # Usa una clave por defecto en caso de error
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -44,9 +44,14 @@ SIMPLE_JWT = {
 }
 
 # Configuración de CORS
+# Permite peticiones desde el frontend
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5174",  # Puerto del dev
+    "http://localhost:4174",  # Puerto del preview
+]
 CORS_ALLOW_HEADERS = ['Authorization', 'Content-Type']
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 # Configuración del correo
