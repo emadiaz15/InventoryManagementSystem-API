@@ -16,21 +16,21 @@ from apps.core.pagination import Pagination  # Importamos la clase de paginació
 @extend_schema(
     methods=['GET'],
     operation_id="list_categories",
-    description="Recupera una lista de todas las categorías activas con paginación",
+    description="Recupera una lista de todas las categorías activas con paginación, ordenadas de las más recientes a las más antiguas",
     responses={200: CategorySerializer(many=True)},
 )
 @api_view(['GET'])
 @permission_classes([IsStaffOrReadOnly])  # Aplica permiso: lectura para todos los autenticados, cambios solo staff
 def category_list(request):
     """
-    Endpoint para listar solo las categorías activas con paginación.
+    Endpoint para listar solo las categorías activas con paginación, ordenadas de las más recientes a las más antiguas.
     
     - Todos los usuarios autenticados pueden acceder a este endpoint.
     - Devuelve una lista de categorías con status=True, paginada.
     - Se puede modificar el número de resultados por página usando el parámetro `page_size`.
     """
-    # Recupera todas las categorías activas de la base de datos
-    categories = Category.objects.filter(status=True)
+    # Recupera todas las categorías activas de la base de datos y ordénalas por 'created_at' de forma descendente
+    categories = Category.objects.filter(status=True).order_by('-created_at')
 
     # Aplica la paginación usando la clase definida en core/pagination.py
     paginator = Pagination()
