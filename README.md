@@ -1,6 +1,6 @@
-# Backend para Sistema de Gestión de Productos con Códigos QR
+# Backend para Sistema de Gestión de Productos
 
-Este proyecto es el backend de un sistema de gestión de productos orientado a la administración de inventarios, especializado en la gestión de un producto en particular (en esta versión, cables). El sistema permite a los administradores y operarios gestionar productos, monitorear niveles de stock, realizar seguimientos de órdenes de corte, y generar reportes. El backend está construido utilizando **Django** y **Django REST Framework (DRF)**, con generación automática de códigos QR para facilitar el acceso a la información de productos.
+Este proyecto es el backend de un sistema de gestión de productos orientado a la administración de inventarios, especializado en la gestión de un producto en particular (en esta versión, cables). El sistema permite a los administradores y operarios gestionar productos, monitorear niveles de stock, realizar seguimientos de órdenes de corte, y generar reportes. El backend está construido utilizando **Django** y **Django REST Framework (DRF)**.
 
 ## **Índice**
 
@@ -24,12 +24,10 @@ Nombre del Proyecto: Inventory Management System
 
 - CRUD para productos, categorías, tipos y marcas.
 - Gestión de stock y visualización de la ubicación de productos en el depósito.
-- Generación automática y visualización de códigos QR para cada producto.
 - Sistema de autenticación y autorización basado en JWT.
 - Gestión de usuarios, roles y permisos.
 - Gestión de órdenes de corte con cambio de estado (pendiente, en proceso, finalizado).
 - Generación de reportes de inventarios, incluyendo órdenes de corte y productos faltantes.
-- Generación automática de **códigos QR** para cada producto.
 
 ## **Requisitos**
 
@@ -109,42 +107,27 @@ DATABASE_URL=postgres://tu_usuario:tu_contraseña@localhost:5432/nombre_base_dat
 - **Productos**: `/api/products/`
 - **Categorías**: `/api/categories/`
 - **Tipos**: `/api/types/`
-- **Generar Código QR**: `/api/products/<id>/generate_qr_code/`
-- **Mostrar Código QR**: `/api/products/<id>/show_qr_code_image/`
 
 ## **API Endpoints**
 
-| Método | Endpoint                               | Descripción                           |
-| ------ | -------------------------------------- | ------------------------------------- |
-| POST   | /api/auth/login/                       | Inicia sesión y obtiene el token JWT. |
-| GET    | /api/products/                         | Obtiene la lista de productos.        |
-| POST   | /api/products/                         | Crea un nuevo producto.               |
-| GET    | /api/products/<id>/                    | Obtiene los detalles de un producto.  |
-| PUT    | /api/products/<id>/                    | Actualiza un producto existente.      |
-| DELETE | /api/products/<id>/                    | Elimina un producto.                  |
-| GET    | /api/products/<id>/generate_qr_code/   | Genera el código QR de un producto.   |
-| GET    | /api/products/<id>/show_qr_code_image/ | Muestra la imagen del código QR.      |
-
-## **Pruebas**
-
-### Ejecución de pruebas unitarias
-
-El proyecto incluye una serie de pruebas unitarias para garantizar el correcto funcionamiento de las funcionalidades clave. Puedes ejecutar las pruebas con:
-
-```bash
-python manage.py test
-```
+| Método | Endpoint            | Descripción                           |
+| ------ | ------------------- | ------------------------------------- |
+| POST   | /api/auth/login/    | Inicia sesión y obtiene el token JWT. |
+| GET    | /api/products/      | Obtiene la lista de productos.        |
+| POST   | /api/products/      | Crea un nuevo producto.               |
+| GET    | /api/products/<id>/ | Obtiene los detalles de un producto.  |
+| PUT    | /api/products/<id>/ | Actualiza un producto existente.      |
+| DELETE | /api/products/<id>/ | Elimina un producto.                  |
 
 ## **Arquitectura**
 
-La arquitectura de este proyecto sigue un patrón tradicional de MVC (Modelo-Vista-Controlador) y está dividida en módulos clave para la gestión de productos, categorías y tipos, con soporte para la generación y visualización de códigos QR.
+La arquitectura de este proyecto sigue un patrón tradicional de MVC (Modelo-Vista-Controlador) y está dividida en módulos clave para la gestión de productos, categorías y tipos.
 
 ### Estructura del Proyecto:
 
 - **Django** como el framework para el backend.
 - **Django REST Framework (DRF)** para la creación de la API.
 - **PostgreSQL** como base de datos relacional.
-- **QR Codes** generados automáticamente usando la librería `qrcode` de Python.
 
 ## **Tecnologías Utilizadas**
 
