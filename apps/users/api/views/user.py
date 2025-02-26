@@ -3,11 +3,11 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
-from django.utils.timezone import now
 from apps.users.models import User
 from ..serializers import UserSerializer
 from drf_spectacular.utils import extend_schema
 from apps.core.pagination import Pagination
+from ...filters import UserFilter  # Asegúrate de que la ruta sea la correcta
 
 @extend_schema(
     operation_id="get_user_profile",
@@ -30,21 +30,29 @@ def profile_view(request):
 
 @extend_schema(
     operation_id="list_users",
-    description="Retrieve a list of all users. Only accessible by admin users.",
+    description="Retrieve a list of all users with filtering and pagination. Only accessible by admin users.",
     responses={
         200: UserSerializer(many=True),
         403: "Forbidden - Not allowed to access"
     }
 )
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])  # Only admins can access
+@permission_classes([IsAuthenticated, IsAdminUser])
 def user_list_view(request):
     """
     Endpoint to retrieve a list of users with pagination, showing the newest users first.
+    Filters are applied via query parameters using the UserFilter.
     """
+    # Initialize the queryset (order by newest first)
+    queryset = User.objects.all().order_by('-created_at')
+    # Apply the filters using django-filter's UserFilter
+    filterset = UserFilter(request.GET, queryset=queryset)
+    if not filterset.is_valid():
+        return Response(filterset.errors, status=status.HTTP_400_BAD_REQUEST)
+    queryset = filterset.qs
+
     paginator = Pagination()
-    users = User.objects.filter(is_active=True).order_by('-created_at')
-    result_page = paginator.paginate_queryset(users, request)
+    result_page = paginator.paginate_queryset(queryset, request)
     serializer = UserSerializer(result_page, many=True)
     return paginator.get_paginated_response(serializer.data)
 
@@ -94,25 +102,22 @@ def user_detail_api_view(request, pk=None):
     user = get_object_or_404(User, id=pk, is_active=True)
 
     if request.method == 'GET':
-        # Staff puede leer cualquier perfil; usuarios no staff solo su propio perfil
         if request.user.is_staff or request.user.id == user.id:
             serializer = UserSerializer(user)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response({'detail': 'You do not have permission to view this profile.'}, status=status.HTTP_403_FORBIDDEN)
     
     elif request.method == 'PUT':
-        # Solo staff puede modificar cualquier usuario; usuarios no staff solo pueden modificarse a sí mismos
         if not request.user.is_staff and request.user.id != user.id:
             return Response({'detail': 'You do not have permission to update this user.'}, status=status.HTTP_403_FORBIDDEN)
         
-        # Restringir campos que los usuarios no staff pueden modificar
         if not request.user.is_staff:
             allowed_fields = {'name', 'last_name', 'dni', 'email', 'image'}
             for field in request.data.keys():
                 if field not in allowed_fields:
                     return Response({'detail': f'You cannot modify the field "{field}".'}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = UserSerializer(user, data=request.data, partial=True)  # Permite actualización parcial
+        serializer = UserSerializer(user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response({
@@ -122,11 +127,10 @@ def user_detail_api_view(request, pk=None):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'DELETE':
-        # Solo usuarios staff pueden realizar eliminación lógica
         if not request.user.is_staff:
             return Response({'detail': 'You do not have permission to delete this user.'}, status=status.HTTP_403_FORBIDDEN)
         
-        # Soft delete: marcar el usuario como inactivo
         user.is_active = False
         user.save(update_fields=['is_active'])
         return Response({'message': 'User set to inactive successfully (soft delete).'}, status=status.HTTP_200_OK)
+    
