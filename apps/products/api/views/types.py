@@ -29,7 +29,7 @@ def type_list(request):
     - Devuelve una lista de tipos con status=True, ordenados del más reciente al más antiguo.
     - Se puede modificar el número de resultados por página usando el parámetro `page_size`.
     """
-    # Filtra solo los tipos que están activos en la base de datos y ordena por más reciente
+    # Filtra solo los tipos activos y ordena por fecha de creación descendente (más nuevos primero)
     types = Type.objects.filter(status=True).order_by('-created_at')
 
     # Aplica la paginación usando la clase definida en core/pagination.py
@@ -46,7 +46,7 @@ def type_list(request):
 @extend_schema(
     methods=['POST'],
     operation_id="create_type",
-    description="Crea un nuevo tipo.",
+    description="Crea un nuevo tipo de producto.",
     request=TypeSerializer,
     responses={
         201: TypeSerializer,
@@ -57,7 +57,7 @@ def type_list(request):
 @permission_classes([IsStaffOrReadOnly])  # Solo el staff puede crear
 def create_type(request):
     """
-    Endpoint para crear un nuevo tipo.
+    Endpoint para crear un nuevo tipo de producto.
     
     - Requiere que el usuario sea staff para poder crear.
     - Serializa los datos recibidos, los valida y crea un tipo.
@@ -78,7 +78,7 @@ def create_type(request):
 @extend_schema(
     methods=['PUT'],
     operation_id="update_type",
-    description="Actualiza detalles de un tipo específico.",
+    description="Actualiza detalles de un tipo específico. Solo se actualizan los campos proporcionados en la solicitud.",
     request=TypeSerializer,
     responses={
         200: TypeSerializer,
@@ -88,14 +88,14 @@ def create_type(request):
 @extend_schema(
     methods=['DELETE'],
     operation_id="delete_type",
-    description="Marca un tipo específico como inactivo en lugar de eliminarlo físicamente.",
+    description="Realiza un soft delete cambiando el estado de un tipo específico a inactivo.",
     responses={204: "Tipo eliminado (soft) correctamente", 404: "Tipo no encontrado"},
 )
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsStaffOrReadOnly])  # Solo staff puede actualizar o eliminar; autenticados pueden leer
 def type_detail(request, pk):
     """
-    Endpoint para obtener, actualizar o marcar un tipo específico como inactivo.
+    Endpoint para obtener, actualizar o marcar un tipo específico como inactivo (soft delete).
     
     - GET: cualquier usuario autenticado puede obtener los detalles.
     - PUT: solo usuarios staff pueden actualizar el tipo.
@@ -111,7 +111,7 @@ def type_detail(request, pk):
         return Response(serializer.data)
     
     elif request.method == 'PUT':
-        serializer = TypeSerializer(type_instance, data=request.data, partial=True)
+        serializer = TypeSerializer(type_instance, data=request.data, partial=True)  # Permitir actualización parcial
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)

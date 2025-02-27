@@ -25,8 +25,9 @@ class TypeSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description', 'category', 'status']
 
     def get_category(self, obj):
-        """Devuelve el nombre de la categoría asociada en lugar del ID"""
-        return obj.category.name if obj.category else "Sin Categoría"
+        """Devuelve el ID y el nombre de la categoría asociada"""
+        return {"id": obj.category.id, "name": obj.category.name} if obj.category else None
+
 
 
 class CableAttributesSerializer(serializers.ModelSerializer):
