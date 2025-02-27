@@ -18,9 +18,15 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class TypeSerializer(serializers.ModelSerializer):
     """Serializer para el tipo, incluyendo la categoría a la que pertenece"""
+    category = serializers.SerializerMethodField()
+
     class Meta:
         model = Type
         fields = ['id', 'name', 'description', 'category', 'status']
+
+    def get_category(self, obj):
+        """Devuelve el nombre de la categoría asociada en lugar del ID"""
+        return obj.category.name if obj.category else "Sin Categoría"
 
 
 class CableAttributesSerializer(serializers.ModelSerializer):
