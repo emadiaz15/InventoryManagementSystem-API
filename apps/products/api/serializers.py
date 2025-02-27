@@ -4,10 +4,16 @@ from ..models import Category, Type, Product, CableAttributes
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    """Serializer para la categoría con campos básicos"""
     class Meta:
         model = Category
         fields = ['id', 'name', 'description', 'status']
+
+    def update(self, instance, validated_data):
+        instance.name = validated_data.get('name', instance.name)
+        instance.description = validated_data.get('description', instance.description)
+        instance.status = validated_data.get('status', instance.status)
+        instance.save()
+        return instance
 
 
 class TypeSerializer(serializers.ModelSerializer):
