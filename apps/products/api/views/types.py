@@ -12,10 +12,11 @@ from ..serializers import TypeSerializer
 from apps.users.permissions import IsStaffOrReadOnly  # Importamos el permiso personalizado
 from apps.core.pagination import Pagination  # Importamos la clase de paginación global
 
+
 @extend_schema(
     methods=['GET'],
     operation_id="list_types",
-    description="Recupera una lista de todos los tipos activos con paginación",
+    description="Recupera una lista de todos los tipos activos con paginación, ordenados del más nuevo al más antiguo.",
     responses={200: TypeSerializer(many=True)},
 )
 @api_view(['GET'])
@@ -25,11 +26,11 @@ def type_list(request):
     Endpoint para listar solo los tipos activos con paginación.
     
     - Todos los usuarios autenticados pueden acceder a este endpoint.
-    - Devuelve una lista de tipos con status=True, paginada.
+    - Devuelve una lista de tipos con status=True, ordenados del más reciente al más antiguo.
     - Se puede modificar el número de resultados por página usando el parámetro `page_size`.
     """
-    # Filtra solo los tipos que están activos en la base de datos
-    types = Type.objects.filter(status=True)
+    # Filtra solo los tipos que están activos en la base de datos y ordena por más reciente
+    types = Type.objects.filter(status=True).order_by('-created_at')
 
     # Aplica la paginación usando la clase definida en core/pagination.py
     paginator = Pagination()
@@ -45,7 +46,7 @@ def type_list(request):
 @extend_schema(
     methods=['POST'],
     operation_id="create_type",
-    description="Crea un nuevo tipo",
+    description="Crea un nuevo tipo.",
     request=TypeSerializer,
     responses={
         201: TypeSerializer,
@@ -63,7 +64,7 @@ def create_type(request):
     """
     serializer = TypeSerializer(data=request.data)
     if serializer.is_valid():
-        serializer.save(user=request.user)
+        serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -71,13 +72,13 @@ def create_type(request):
 @extend_schema(
     methods=['GET'],
     operation_id="retrieve_type",
-    description="Recupera detalles de un tipo específico",
+    description="Recupera detalles de un tipo específico.",
     responses={200: TypeSerializer, 404: "Tipo no encontrado"},
 )
 @extend_schema(
     methods=['PUT'],
     operation_id="update_type",
-    description="Actualiza detalles de un tipo específico",
+    description="Actualiza detalles de un tipo específico.",
     request=TypeSerializer,
     responses={
         200: TypeSerializer,
@@ -87,7 +88,7 @@ def create_type(request):
 @extend_schema(
     methods=['DELETE'],
     operation_id="delete_type",
-    description="Marca un tipo específico como inactivo",
+    description="Marca un tipo específico como inactivo en lugar de eliminarlo físicamente.",
     responses={204: "Tipo eliminado (soft) correctamente", 404: "Tipo no encontrado"},
 )
 @api_view(['GET', 'PUT', 'DELETE'])
@@ -108,14 +109,17 @@ def type_detail(request, pk):
     if request.method == 'GET':
         serializer = TypeSerializer(type_instance)
         return Response(serializer.data)
+    
     elif request.method == 'PUT':
-        serializer = TypeSerializer(type_instance, data=request.data)
+        serializer = TypeSerializer(type_instance, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
     elif request.method == 'DELETE':
-        type_instance.delete()
+        type_instance.status = False  # Soft delete (cambio de estado)
+        type_instance.save()
         return Response(
             {"detail": "Tipo eliminado (soft) correctamente."},
             status=status.HTTP_204_NO_CONTENT
