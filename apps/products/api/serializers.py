@@ -17,12 +17,13 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class TypeSerializer(serializers.ModelSerializer):
-    """Serializer para el tipo, incluyendo la categoría a la que pertenece"""
-    category = serializers.SerializerMethodField()
+    """Serializer para el tipo, incluyendo la categoría"""
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=True)
 
     class Meta:
         model = Type
         fields = ['id', 'name', 'description', 'category', 'status']
+
 
     def get_category(self, obj):
         """Devuelve el ID y el nombre de la categoría asociada"""
