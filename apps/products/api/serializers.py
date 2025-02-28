@@ -8,8 +8,19 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ['id', 'name', 'description', 'status']
 
+    def validate_name(self, value):
+        """Valida que el nombre de la categoría no exista"""
+        if Category.objects.filter(name=value).exists():
+            raise serializers.ValidationError("El nombre de la categoría ya existe. Debe ser único.")
+        return value
+
     def update(self, instance, validated_data):
-        instance.name = validated_data.get('name', instance.name)
+        """Verifica que el nuevo nombre no exista antes de actualizar"""
+        new_name = validated_data.get('name', instance.name)
+        if new_name != instance.name and Category.objects.filter(name=new_name).exists():
+            raise serializers.ValidationError("El nombre de la categoría ya existe. Debe ser único.")
+        
+        instance.name = new_name
         instance.description = validated_data.get('description', instance.description)
         instance.status = validated_data.get('status', instance.status)
         instance.save()
@@ -24,12 +35,15 @@ class TypeSerializer(serializers.ModelSerializer):
         model = Type
         fields = ['id', 'name', 'description', 'category', 'status']
 
-
     def get_category(self, obj):
         """Devuelve el ID y el nombre de la categoría asociada"""
         return {"id": obj.category.id, "name": obj.category.name} if obj.category else None
-
-
+    
+    def validate_name(self, value):
+        """Valida que no exista otro 'Type' con el mismo nombre"""
+        if Type.objects.filter(name=value).exists():
+            raise serializers.ValidationError("El nombre del tipo ya existe. Debe ser único.")
+        return value
 
 class CableAttributesSerializer(serializers.ModelSerializer):
     """Serializer para los atributos específicos de productos de la categoría 'Cables'"""
