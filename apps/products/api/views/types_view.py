@@ -32,8 +32,12 @@ def create_type(request):
     """
     Crea un nuevo tipo de producto.
     """
-    serializer = TypeSerializer(data=request.data)
-
+    # Aseguramos que el request tiene un 'user' autenticado
+    if not request.user.is_authenticated:
+        return Response({"detail": "No autorizado."}, status=status.HTTP_403_FORBIDDEN)
+    
+    serializer = TypeSerializer(data=request.data, context={'request': request})
+    
     if serializer.is_valid():
         # Crear el tipo de producto usando el serializador
         type_instance = serializer.save()
@@ -56,6 +60,7 @@ def type_detail(request, pk):
         return Response({"detail": "Tipo no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
+        # Obtenemos el tipo y lo serializamos
         serializer = TypeSerializer(type_instance)
         return Response(serializer.data)
 
@@ -63,12 +68,13 @@ def type_detail(request, pk):
         # Aseguramos que 'modified_by' sea el usuario autenticado al realizar la actualización
         serializer = TypeSerializer(type_instance, data=request.data, context={'request': request}, partial=True)
         if serializer.is_valid():
-            # Pasa el usuario autenticado al serializador
+            # Pasa el usuario autenticado al serializador para realizar la actualización
             updated_type = TypeRepository.update(type_instance, **serializer.validated_data, user=request.user)
             return Response(TypeSerializer(updated_type).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
+        # Solo el usuario autenticado puede eliminar
         user = request.user if request.user.is_authenticated else None
         if user:
             # Realizamos un soft delete usando el repositorio
