@@ -63,7 +63,8 @@ def category_detail(request, pk):
         # Aseguramos que 'modified_by' sea el usuario autenticado al realizar la actualización
         serializer = CategorySerializer(category, data=request.data, context={'request': request}, partial=True)
         if serializer.is_valid():
-            updated_category = CategoryRepository.update(category, **serializer.validated_data)
+            # Pasa el usuario autenticado al serializador
+            updated_category = CategoryRepository.update(category, **serializer.validated_data, user=request.user)
             return Response(CategorySerializer(updated_category).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

@@ -28,8 +28,9 @@ class CategoryRepository:
         category.save()
         return category
 
+    
     @staticmethod
-    def update(category: Category, name: str = None, description: str = None, status: bool = None):
+    def update(category: Category, name: str = None, description: str = None, status: bool = None, user=None):
         """
         Actualiza la información de una categoría existente y guarda el campo deleted_at
         si se actualizan ciertos campos.
@@ -45,6 +46,10 @@ class CategoryRepository:
             category.status = status
             changes_made = True
 
+        # Asignar el 'modified_by' al usuario autenticado
+        if user:
+            category.modified_by = user
+
         # Si hubo cambios, actualizar la fecha en deleted_at
         if changes_made:
             # Si el status cambia a 'false', guardamos la fecha de eliminación en 'deleted_at'
@@ -52,9 +57,11 @@ class CategoryRepository:
                 category.deleted_at = timezone.now()  # Marca el tiempo de eliminación
 
             category.modified_at = timezone.now()  # Marca el tiempo de la última modificación
-            category.save(update_fields=['name', 'description', 'status', 'modified_at', 'deleted_at'])
+            category.save(update_fields=['name', 'description', 'status', 'modified_at', 'deleted_at', 'modified_by'])
 
         return category
+
+
 
     @staticmethod
     def soft_delete(category: Category, user):

@@ -5,7 +5,7 @@ from .base_serializer import BaseSerializer
 
 class CategorySerializer(BaseSerializer):
     created_by = serializers.CharField(source='created_by.username', read_only=True)
-    modified_by = serializers.CharField(source='modified_by.username', read_only=True, required=False)
+    modified_by = serializers.CharField(source='modified_by.username', read_only=True)  # Este campo debe ser solo lectura
     deleted_by = serializers.CharField(source='deleted_by.username', read_only=True, required=False)
     modified_at = serializers.DateTimeField(required=False, allow_null=True)
 
@@ -39,16 +39,26 @@ class CategorySerializer(BaseSerializer):
         return category
 
     def update(self, instance, validated_data):
+        """
+        Sobreescribimos el método de actualización para asegurarnos de que 
+        'modified_by' se actualice con el usuario autenticado y 
+        'modified_at' solo se modifique si la categoría realmente cambia.
+        """
         request = self.context.get('request', None)
-        if request and hasattr(request, "user"):
-            validated_data['modified_by'] = request.user
+        user = request.user if request and hasattr(request, "user") else None
 
+        # Actualizar 'modified_by' con el usuario autenticado
+        if user:
+            if 'name' in validated_data or 'description' in validated_data or 'status' in validated_data:
+                validated_data['modified_by'] = user
+                validated_data['modified_at'] = timezone.now()
+                
+        # Actualizar 'status' y 'deleted_by' si corresponde
         if 'status' in validated_data and validated_data['status'] is False:
-            validated_data['deleted_by'] = request.user
+            validated_data['deleted_by'] = user
+            validated_data['deleted_at'] = timezone.now()
 
-        # Si el status es False, aseguramos que `modified_at` no se sobrescriba
-        if 'status' in validated_data and validated_data['status'] is False:
-            validated_data['modified_at'] = None  # Para que no se sobrescriba el `modified_at` si el status se pone a False
+
 
         return super().update(instance, validated_data)
 

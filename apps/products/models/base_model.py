@@ -40,10 +40,9 @@ class BaseModel(models.Model):
             self.modified_at = None  # Aseguramos que 'modified_at' sea None al crear.
 
         elif self.pk:  # Si ya existe la instancia (modificación)
+            if user:  # Solo si hay un usuario autenticado
+                self.modified_by = user  # Asignamos 'modified_by'
             if not self.modified_at:  # Si 'modified_at' es None
-                self.modified_by = None  # No asignamos 'modified_by' al principio
-            else:
-                self.modified_by = user  # Asignamos 'modified_by' si 'modified_at' tiene valor
                 self.modified_at = timezone.now()  # Asignamos la fecha de modificación
 
         super().save(*args, **kwargs)
