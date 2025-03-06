@@ -5,9 +5,6 @@ from apps.stocks.models import Stock
 class ProductRepository:
     @staticmethod
     def get_by_id(product_id: int):
-        """
-        Recupera un producto por su ID.
-        """
         try:
             return Product.objects.get(id=product_id, status=True)
         except Product.DoesNotExist:
@@ -15,9 +12,6 @@ class ProductRepository:
 
     @staticmethod
     def get_all_active(category=None, type=None, active=True):
-        """
-        Retorna todos los productos activos, con filtros opcionales por categoría y tipo.
-        """
         products = Product.objects.filter(status=active)
         if category:
             products = products.filter(category=category)
@@ -27,14 +21,12 @@ class ProductRepository:
 
     @staticmethod
     def create(name: str, description: str, category: int, type: int, user, stock_quantity: int = None, code: int = None):
-        """
-        Crea un nuevo producto y, si se especifica, un stock inicial.
-        """
-        # Crear el producto con el código
-        product = Product(name=name, description=description, category=category, type=type, code=code)  # Añadido 'code'
+        if code and Product.objects.filter(code=code).exists():
+            raise ValueError("El código del producto debe ser único.")
+        
+        product = Product(name=name, description=description, category=category, type=type, code=code)
         product.save(user=user)
         
-        # Crear stock si se especifica
         if stock_quantity is not None and stock_quantity >= 0:
             Stock.objects.create(product=product, quantity=stock_quantity, user=user)
         
@@ -42,10 +34,7 @@ class ProductRepository:
 
     @staticmethod
     def update(product_instance: Product, name: str = None, description: str = None, 
-               category_id: int = None, type_id: int = None, status: bool = None, user=None):
-        """
-        Actualiza un producto existente.
-        """
+               category: int = None, type: int = None, status: bool = None, code: int = None, user=None):
         changes_made = False
         if name:
             product_instance.name = name
@@ -53,14 +42,19 @@ class ProductRepository:
         if description:
             product_instance.description = description
             changes_made = True
-        if category_id:
-            product_instance.category_id = category_id
+        if category:
+            product_instance.category = category
             changes_made = True
-        if type_id:
-            product_instance.type_id = type_id  # Actualizamos el tipo correctamente
+        if type:
+            product_instance.type = type
             changes_made = True
         if status is not None:
             product_instance.status = status
+            changes_made = True
+        if code and code != product_instance.code:
+            if Product.objects.filter(code=code).exists():
+                raise ValueError("El código del producto debe ser único.")
+            product_instance.code = code
             changes_made = True
 
         if user:
@@ -74,9 +68,6 @@ class ProductRepository:
 
     @staticmethod
     def soft_delete(product_instance: Product, user):
-        """
-        Realiza un soft delete de un producto.
-        """
         product_instance.status = False
         product_instance.deleted_at = timezone.now()
         product_instance.deleted_by = user

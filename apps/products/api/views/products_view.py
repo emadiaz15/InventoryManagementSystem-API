@@ -109,8 +109,8 @@ def product_detail(request, pk):
                         product,
                         name=serializer.validated_data.get('name'),
                         description=serializer.validated_data.get('description'),
-                        category_id=serializer.validated_data.get('category'),
-                        type_id=serializer.validated_data.get('type'),
+                        category=serializer.validated_data.get('category'),
+                        type=serializer.validated_data.get('type'),
                         status=serializer.validated_data.get('status'),
                         code=code,  # Validamos el código también en la actualización
                         user=request.user
