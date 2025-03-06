@@ -30,22 +30,23 @@ class BaseModel(models.Model):
     class Meta:
         abstract = True  # No se crea una tabla para este modelo directamente
 
-
     def save(self, *args, **kwargs):
         """Lógica para asignar 'created_by', 'modified_by', y 'modified_at'"""
         user = kwargs.pop("user", None)  # Extraemos el 'user' de kwargs si está presente.
-        
+
         if not self.pk and user:  # Si es un objeto nuevo
             self.created_by = user
-            self.modified_by = None  # Aseguramos que 'modified_by' es None al crear.
-            self.modified_at = None  # Aseguramos que 'modified_at' es None al crear.
-        elif user:  # Si hay un usuario y es una modificación
-            self.modified_by = user
-            if not self.modified_at:
-                self.modified_at = timezone.now()  # Asignamos 'modified_at' solo si no existe
+            self.modified_by = None  # Aseguramos que 'modified_by' sea None al crear.
+            self.modified_at = None  # Aseguramos que 'modified_at' sea None al crear.
+
+        elif self.pk:  # Si ya existe la instancia (modificación)
+            if not self.modified_at:  # Si 'modified_at' es None
+                self.modified_by = None  # No asignamos 'modified_by' al principio
+            else:
+                self.modified_by = user  # Asignamos 'modified_by' si 'modified_at' tiene valor
+                self.modified_at = timezone.now()  # Asignamos la fecha de modificación
 
         super().save(*args, **kwargs)
-
 
     def delete(self, *args, **kwargs):
         """Realiza un soft delete (cambia el status a False y marca deleted_at)."""

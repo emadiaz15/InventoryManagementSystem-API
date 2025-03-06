@@ -3,9 +3,6 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
-from django.utils import timezone
-
-from apps.products.models import Category
 from apps.products.api.serializers.category_serializer import CategorySerializer
 from apps.users.permissions import IsStaffOrReadOnly
 from apps.core.pagination import Pagination
@@ -22,13 +19,12 @@ def category_list(request):
     """
     Lista todas las categorías activas con paginación.
     """
-    categories = CategoryRepository.get_all_active()
-    paginator = Pagination()
-    paginated_categories = paginator.paginate_queryset(categories, request)
-    serializer = CategorySerializer(paginated_categories, many=True)
-    return paginator.get_paginated_response(serializer.data)
+    categories = CategoryRepository.get_all_active()  # Obtén todas las categorías activas
+    paginator = Pagination()  # Paginador personalizado
+    paginated_categories = paginator.paginate_queryset(categories, request)  # Paginamos el queryset
+    serializer = CategorySerializer(paginated_categories, many=True)  # Serializamos los datos paginados
+    return paginator.get_paginated_response(serializer.data)  # Respondemos con la paginación
 
-@extend_schema(**create_category_doc)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_category(request):
@@ -36,18 +32,11 @@ def create_category(request):
     Crea una nueva categoría y asigna `created_by` al usuario autenticado.
     """
     user = request.user
-    serializer = CategorySerializer(data=request.data, context={'request': request})
-    
-    if serializer.is_valid():
-        # Crear la categoría sin pasar 'user' directamente al serializer
-        category = Category(
-            name=request.data['name'], 
-            description=request.data['description'],
-        )
-        
-        # Guardar la categoría con el 'user' en kwargs
-        category.save(user=user)  # Aquí es donde pasamos el 'user' a save
+    serializer = CategorySerializer(data=request.data, context={'request': request})  # Aquí pasamos el context
 
+    if serializer.is_valid():
+        # Crear la categoría usando el serializador
+        category = serializer.save()
         return Response(CategorySerializer(category).data, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -56,7 +45,6 @@ def create_category(request):
 @extend_schema(**get_category_by_id_doc)
 @extend_schema(**update_category_by_id_doc)
 @extend_schema(**delete_category_by_id_doc)
-
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsStaffOrReadOnly])  # Solo staff puede actualizar o eliminar; autenticados pueden leer.
 def category_detail(request, pk):

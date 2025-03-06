@@ -34,7 +34,6 @@ class CategoryRepository:
         Actualiza la información de una categoría existente y guarda el campo deleted_at
         si se actualizan ciertos campos.
         """
-        # Verificar si hay cambios en los campos
         changes_made = False
         if name is not None:
             category.name = name

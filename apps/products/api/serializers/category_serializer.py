@@ -1,12 +1,11 @@
 from rest_framework import serializers
 from django.utils import timezone
-
 from apps.products.models import Category
 from .base_serializer import BaseSerializer
 
 class CategorySerializer(BaseSerializer):
     created_by = serializers.CharField(source='created_by.username', read_only=True)
-    modified_by = serializers.CharField(source='modified_by.username', read_only=True)
+    modified_by = serializers.CharField(source='modified_by.username', read_only=True, required=False)
     deleted_by = serializers.CharField(source='deleted_by.username', read_only=True, required=False)
     modified_at = serializers.DateTimeField(required=False, allow_null=True)
 
@@ -17,6 +16,27 @@ class CategorySerializer(BaseSerializer):
             'created_at', 'modified_at', 'deleted_at',
             'created_by', 'modified_by', 'deleted_by'
         ]
+
+    def create(self, validated_data):
+        """
+        Sobreescribimos el método create para manejar la creación de la categoría
+        con el campo 'user' que será pasado en kwargs.
+        """
+        user = self.context['request'].user  # Obtenemos el usuario autenticado desde el contexto de la solicitud
+
+        # Creamos la categoría
+        category = Category.objects.create(
+            name=validated_data['name'],
+            description=validated_data.get('description', ''),
+            created_by=user,
+            modified_by=None,  # Se asigna None a 'modified_by' al crear la categoría
+            status=True,
+            created_at=timezone.now(),
+            modified_at=None,
+            deleted_at=None
+        )
+
+        return category
 
     def update(self, instance, validated_data):
         request = self.context.get('request', None)
@@ -32,33 +52,19 @@ class CategorySerializer(BaseSerializer):
 
         return super().update(instance, validated_data)
 
-
-    def save(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
-
-        # Si es una nueva instancia, asignar los valores iniciales
-        if not self.instance.pk and user:
-            self.instance.created_by = user
-            self.instance.modified_at = None  # No asignar `modified_at` al momento de la creación
-            self.instance.modified_by = None  # Aseguramos que `modified_by` esté en None en la creación
-
-        # Si ya existe la instancia, asignar los valores de modificación
-        if user:
-            self.instance.modified_by = user
-            if not self.instance.modified_at:
-                self.instance.modified_at = timezone.now()  # Asignar `modified_at` solo si no existe
-
-        # Llamada al `save()` de la instancia de modelo
-        super().save(*args, **kwargs)
-
-
-
     def to_representation(self, instance):
+        """
+        Este método permite ajustar la representación del objeto para incluir el campo 'deleted_by'
+        solo si el status no es False.
+        """
         data = super().to_representation(instance)
+
+        # Aseguramos que 'modified_by' esté correctamente inicializado como null si no ha sido modificado
+        if instance.modified_by is None:
+            data['modified_by'] = None
 
         # Si nunca ha sido cambiado el status a False, aseguramos que `deleted_by` esté en null
         if not instance.deleted_by and instance.status != False:
             data['deleted_by'] = None
 
         return data
-
