@@ -30,17 +30,22 @@ class BaseModel(models.Model):
     class Meta:
         abstract = True  # No se crea una tabla para este modelo directamente
 
+
     def save(self, *args, **kwargs):
-        """Lógica de creación y modificación para BaseModel"""
-        user = kwargs.pop("user", None)  # Extrae el usuario de los kwargs
-        if not self.pk and user:  # Si es un nuevo objeto
+        """Lógica para asignar 'created_by', 'modified_by', y 'modified_at'"""
+        user = kwargs.pop("user", None)  # Extraemos el 'user' de kwargs si está presente.
+        
+        if not self.pk and user:  # Si es un objeto nuevo
             self.created_by = user
-            self.modified_at = None  # No asignar `modified_at` en la creación
-        elif user:  # Si hay usuario y es una modificación
+            self.modified_by = None  # Aseguramos que 'modified_by' es None al crear.
+            self.modified_at = None  # Aseguramos que 'modified_at' es None al crear.
+        elif user:  # Si hay un usuario y es una modificación
             self.modified_by = user
             if not self.modified_at:
-                self.modified_at = timezone.now()  # Asignar `modified_at` solo si no existe
+                self.modified_at = timezone.now()  # Asignamos 'modified_at' solo si no existe
+
         super().save(*args, **kwargs)
+
 
     def delete(self, *args, **kwargs):
         """Realiza un soft delete (cambia el status a False y marca deleted_at)."""

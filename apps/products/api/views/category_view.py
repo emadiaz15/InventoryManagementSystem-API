@@ -37,17 +37,20 @@ def create_category(request):
     """
     user = request.user
     serializer = CategorySerializer(data=request.data, context={'request': request})
+    
     if serializer.is_valid():
-        # Crear la categoría con el usuario
+        # Crear la categoría sin pasar 'user' directamente al serializer
         category = Category(
             name=request.data['name'], 
             description=request.data['description'],
         )
-        category.save(user=user)  # Llamamos al método `save` de BaseModel y pasamos el usuario
+        
+        # Guardar la categoría con el 'user' en kwargs
+        category.save(user=user)  # Aquí es donde pasamos el 'user' a save
 
         return Response(CategorySerializer(category).data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(**get_category_by_id_doc)

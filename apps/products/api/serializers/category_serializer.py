@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from django.utils import timezone
+
 from apps.products.models import Category
 from .base_serializer import BaseSerializer
 
@@ -30,21 +32,26 @@ class CategorySerializer(BaseSerializer):
 
         return super().update(instance, validated_data)
 
+
     def save(self, *args, **kwargs):
         user = kwargs.pop('user', None)
+
+        # Si es una nueva instancia, asignar los valores iniciales
         if not self.instance.pk and user:
-            self.created_by = user
-            self.modified_at = None  # No asignar `modified_at` al momento de la creación
+            self.instance.created_by = user
+            self.instance.modified_at = None  # No asignar `modified_at` al momento de la creación
+            self.instance.modified_by = None  # Aseguramos que `modified_by` esté en None en la creación
+
+        # Si ya existe la instancia, asignar los valores de modificación
         if user:
-            self.modified_by = user
+            self.instance.modified_by = user
             if not self.instance.modified_at:
-                self.instance.modified_at = None  # Aseguramos que `modified_at` siga siendo null si es una creación
+                self.instance.modified_at = timezone.now()  # Asignar `modified_at` solo si no existe
 
-        # Cuando el `status` cambia a False, marcar el `deleted_by`
-        if self.instance.status is not False and 'status' in kwargs and kwargs['status'] is False:
-            self.instance.deleted_by = user
-
+        # Llamada al `save()` de la instancia de modelo
         super().save(*args, **kwargs)
+
+
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -54,3 +61,4 @@ class CategorySerializer(BaseSerializer):
             data['deleted_by'] = None
 
         return data
+
