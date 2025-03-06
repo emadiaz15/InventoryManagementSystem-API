@@ -1,25 +1,31 @@
 from rest_framework import serializers
 from django.utils import timezone
+from django.db.models import Q
+
 
 class BaseSerializer(serializers.ModelSerializer):
-    """✅ Clase base para serializers con métodos reutilizables."""
+    """Clase base para serializers con métodos reutilizables."""
 
     def _normalize_field(self, value):
-        """🔹 Normaliza el texto eliminando espacios y pasando a minúsculas."""
+        """Normaliza el texto eliminando espacios y convirtiendo a minúsculas."""
         return value.strip().lower().replace(" ", "")
-    
-    def validate_name(self, value):
-        """✅ Normaliza y valida que el nombre sea único en la base de datos."""
-        normalized_name = self._normalize_field(value)
-        if self.Meta.model.objects.exclude(
-            id=self.instance.id if self.instance else None
-        ).filter(name__iexact=normalized_name).exists():
-            raise serializers.ValidationError(f"El nombre '{value}' ya existe. Debe ser único.")
+
+    def _get_normalized_name(self, name):
+        """Valida y normaliza el nombre del campo para asegurar que sea único."""
+        normalized_name = self._normalize_field(name)
+        # Usamos Q para hacer un filtro más flexible y asegurar la unicidad
+        if self.Meta.model.objects.filter(Q(name__iexact=normalized_name) & ~Q(id=self.instance.id if self.instance else None)).exists():
+            raise serializers.ValidationError(f"El nombre '{name}' ya existe. Debe ser único.")
         return normalized_name
 
+    def _validate_unique_code(self, code):
+        """Valida que el código del producto sea único."""
+        if self.Meta.model.objects.filter(Q(code=code) & ~Q(id=self.instance.id if self.instance else None)).exists():
+            raise serializers.ValidationError(f"El código '{code}' ya existe. Debe ser único.")
+
     def create(self, validated_data):
-        """Sobreescribe el método create para agregar 'created_by' y 'modified_by'."""
-        user = self.context['request'].user  # Obtenemos el usuario autenticado desde el contexto de la solicitud
+        """Sobreescribe el método create para agregar 'created_by', 'modified_by'."""
+        user = self.context['request'].user  # Obtener el usuario autenticado
         validated_data['created_by'] = user
         validated_data['modified_by'] = None  # Inicialmente, 'modified_by' es None
         validated_data['created_at'] = timezone.now()
@@ -32,13 +38,11 @@ class BaseSerializer(serializers.ModelSerializer):
         request = self.context.get('request', None)
         user = request.user if request and hasattr(request, "user") else None
 
-        # Actualizar 'modified_by' con el usuario autenticado
         if user:
-            if 'name' in validated_data or 'description' in validated_data or 'status' in validated_data:
+            if any(field in validated_data for field in ['name', 'description', 'status']):
                 validated_data['modified_by'] = user
                 validated_data['modified_at'] = timezone.now()
 
-        # Actualizar 'status' y 'deleted_by' si corresponde
         if 'status' in validated_data and validated_data['status'] is False:
             validated_data['deleted_by'] = user
             validated_data['deleted_at'] = timezone.now()
@@ -46,14 +50,13 @@ class BaseSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
     def to_representation(self, instance):
-        """Ajusta la representación del objeto para incluir 'deleted_by' solo si el status es False."""
+        """Ajusta la representación del objeto para asegurar valores correctos."""
         data = super().to_representation(instance)
 
-        # Aseguramos que 'modified_by' esté correctamente inicializado como null si no ha sido modificado
+        # Ajustamos el campo 'modified_by' y 'deleted_by' para evitar valores nulos innecesarios
         if instance.modified_by is None:
             data['modified_by'] = None
 
-        # Si nunca ha sido cambiado el status a False, aseguramos que `deleted_by` esté en null
         if not instance.deleted_by and instance.status != False:
             data['deleted_by'] = None
 

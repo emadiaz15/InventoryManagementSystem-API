@@ -1,3 +1,3 @@
-from .category import Category
+from .category_model import Category
 from .type_model import Type
-from .product import Product, CableAttributes
+from .product_model import Product, CableAttributes
