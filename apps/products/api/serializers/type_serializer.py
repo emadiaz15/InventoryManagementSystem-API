@@ -18,12 +18,3 @@ class TypeSerializer(BaseSerializer):
             'created_at', 'modified_at', 'deleted_at',
             'created_by', 'modified_by', 'deleted_by'
         ]
-
-    def update(self, instance, validated_data):
-        """
-        Personaliza la actualización para registrar quién modificó el tipo.
-        """
-        request = self.context.get('request', None)
-        if request and hasattr(request, "user"):
-            validated_data['modified_by'] = request.user  # 🔥 Guarda el usuario que edita
-        return super().update(instance, validated_data)
