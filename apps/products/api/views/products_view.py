@@ -151,4 +151,4 @@ def product_detail(request, pk):
     elif request.method == 'DELETE':
         # Soft delete del producto
         ProductRepository.soft_delete(product, request.user)
-        return Response({"detail": "Producto marcado como inactivo correctamente."}, status=status.HTTP_204_NO_CONTENT)
+        return Response({"detail": "Producto eliminado (soft) correctamente."}, status=status.HTTP_204_NO_CONTENT)
