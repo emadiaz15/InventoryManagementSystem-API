@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.db.models import Sum
 from .base_model import BaseModel
 from .category import Category
-from .type import Type
+from .type_model import Type
 
 class Product(BaseModel):
     """✅ Modelo de Producto reutilizando lógica de BaseModel con validación de código único"""
