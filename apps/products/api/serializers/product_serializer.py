@@ -1,45 +1,14 @@
 from rest_framework import serializers
 from django.db.models import Sum
-from apps.comments.api.serializers import CommentSerializer
 from apps.stocks.models import Stock
-from apps.products.models import Category, Type, Product, CableAttributes
-from .base_serializer import BaseSerializer  # 🚀 Importamos la clase base
-
-class CategorySerializer(BaseSerializer):
-    class Meta:
-        model = Category
-        fields = ['id', 'name', 'description', 'status']
-
-    def update(self, instance, validated_data):
-        """
-        Personaliza la actualización para registrar quién modificó la categoría.
-        """
-        request = self.context.get('request', None)
-        if request and hasattr(request, "user"):
-            validated_data['modified_by'] = request.user  # 🔥 Guarda el usuario que edita
-        return super().update(instance, validated_data)
-    
-class TypeSerializer(BaseSerializer):
-    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=True)
-
-    class Meta:
-        model = Type
-        fields = ['id', 'name', 'description', 'category', 'status']
-
-class CableAttributesSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CableAttributes
-        fields = '__all__'
-        extra_kwargs = {'status': {'required': False}}
-
-class NestedProductSerializer(serializers.ModelSerializer):
-    category = CategorySerializer(read_only=True)
-    type = TypeSerializer(read_only=True)
-    user = serializers.StringRelatedField(read_only=True)
-
-    class Meta:
-        model = Product
-        fields = ['id', 'name', 'code', 'description', 'image', 'category', 'type', 'created_at', 'modified_at', 'deleted_at', 'status', 'user']
+from apps.comments.api.serializers import CommentSerializer
+from apps.products.models import Product
+from .base_serializer import BaseSerializer
+from apps.products.api.serializers.nested_product_serializer import NestedProductSerializer
+from apps.stocks.api.serializers import StockSerializer
+from apps.products.api.serializers.cable_attributes_serializer import CableAttributesSerializer
+from apps.products.api.serializers.type_serializer import TypeSerializer
+from apps.products.api.serializers.category_serializer import CategorySerializer
 
 class ProductSerializer(BaseSerializer):
     category = CategorySerializer(read_only=True)

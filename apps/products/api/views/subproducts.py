@@ -7,7 +7,7 @@ import base64
 
 from apps.core.pagination import Pagination
 from apps.products.models import Product, CableAttributes
-from apps.products.api.serializers import ProductSerializer
+from apps.products.api.serializers.product_serializer import ProductSerializer
 from apps.users.permissions import IsStaffOrReadOnly
 
 

@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 class BaseModel(models.Model):
-    """✅ Modelo base para categorías, tipos y productos con lógica común"""
+    """Modelo base con lógica común para creación, modificación y eliminación soft."""
     name = models.CharField(max_length=200, unique=True)
     description = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -28,19 +28,18 @@ class BaseModel(models.Model):
     status = models.BooleanField(default=True)
 
     class Meta:
-        abstract = True  # 🚀 Hace que este modelo NO se cree en la BD
+        abstract = True  # No se crea una tabla para este modelo directamente.
 
-    def save(self, *args, **kwargs):
-        """✅ Almacena el usuario que crea o modifica el registro"""
-        user = kwargs.pop("user", None)  # Extrae el usuario de los kwargs
-        if not self.pk and user:  # Si es un nuevo objeto
-            self.created_by = user
-        if user:  # Para modificaciones
-            self.modified_by = user
-        super().save(*args, **kwargs)
+def save(self, *args, **kwargs):
+    user = kwargs.pop("user", None)  # Extrae el usuario de los kwargs
+    if not self.pk and user:  # Si es un nuevo objeto
+        self.created_by = user
+    if user:  # Para modificaciones
+        self.modified_by = user
+    super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        """✅ Soft delete registrando quién elimina el objeto"""
+        """Realiza un soft delete (cambia el status a False y marca deleted_at)."""
         user = kwargs.pop("user", None)
         self.status = False
         self.deleted_at = timezone.now()

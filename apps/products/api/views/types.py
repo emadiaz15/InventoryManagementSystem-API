@@ -8,7 +8,7 @@ from rest_framework.decorators import api_view, permission_classes
 from drf_spectacular.utils import extend_schema
 
 from apps.products.models import Type
-from ..serializers import TypeSerializer
+from apps.products.api.serializers.type_serializer import TypeSerializer
 from apps.users.permissions import IsStaffOrReadOnly  # Importamos el permiso personalizado
 from apps.core.pagination import Pagination  # Importamos la clase de paginación global
 

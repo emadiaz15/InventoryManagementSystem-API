@@ -10,7 +10,7 @@ from apps.stocks.models import Stock
 from apps.comments.models import Comment
 from apps.stocks.api.serializers import StockSerializer
 from apps.comments.api.serializers import CommentSerializer
-from ..serializers import ProductSerializer
+from apps.products.api.serializers.product_serializer import ProductSerializer
 from apps.users.permissions import IsStaffOrReadOnly
 
 
