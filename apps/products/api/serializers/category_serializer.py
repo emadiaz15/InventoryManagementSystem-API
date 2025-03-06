@@ -4,8 +4,9 @@ from .base_serializer import BaseSerializer
 
 class CategorySerializer(BaseSerializer):
     created_by = serializers.CharField(source='created_by.username', read_only=True)
-    modified_by = serializers.CharField(source='modified_by.username', read_only=True, required=False, default=None)  # Default as None
+    modified_by = serializers.CharField(source='modified_by.username', read_only=True)
     deleted_by = serializers.CharField(source='deleted_by.username', read_only=True, required=False)
+    modified_at = serializers.DateTimeField(required=False, allow_null=True)
 
     class Meta:
         model = Category
@@ -16,38 +17,36 @@ class CategorySerializer(BaseSerializer):
         ]
 
     def update(self, instance, validated_data):
-        """
-        Personaliza la actualización para registrar quién modificó la categoría.
-        También gestiona el campo `deleted_by` si el `status` cambia a False.
-        """
         request = self.context.get('request', None)
         if request and hasattr(request, "user"):
-            validated_data['modified_by'] = request.user  # Guarda el usuario que edita
+            validated_data['modified_by'] = request.user
 
-        # Verificar si el `status` está cambiando a False (eliminación)
         if 'status' in validated_data and validated_data['status'] is False:
-            validated_data['deleted_by'] = request.user  # Guardar el usuario que elimina
+            validated_data['deleted_by'] = request.user
+
+        # Si el status es False, aseguramos que `modified_at` no se sobrescriba
+        if 'status' in validated_data and validated_data['status'] is False:
+            validated_data['modified_at'] = None  # Para que no se sobrescriba el `modified_at` si el status se pone a False
 
         return super().update(instance, validated_data)
 
     def save(self, *args, **kwargs):
-        user = kwargs.pop('user', None)  # Obtiene el usuario de los kwargs
-        if not self.instance.pk and user:  # Si es una nueva categoría
+        user = kwargs.pop('user', None)
+        if not self.instance.pk and user:
             self.created_by = user
-            self.modified_by = None  # Explicitamente se asegura de que modified_by sea null al crear
-        if user:  # Si es una actualización
+            self.modified_at = None  # No asignar `modified_at` al momento de la creación
+        if user:
             self.modified_by = user
+            if not self.instance.modified_at:
+                self.instance.modified_at = None  # Aseguramos que `modified_at` siga siendo null si es una creación
 
         # Cuando el `status` cambia a False, marcar el `deleted_by`
         if self.instance.status is not False and 'status' in kwargs and kwargs['status'] is False:
-            self.deleted_by = user
+            self.instance.deleted_by = user
 
         super().save(*args, **kwargs)
 
     def to_representation(self, instance):
-        """
-        Personaliza la representación de los datos para asegurar que `deleted_by` sea null si no se ha cambiado el status.
-        """
         data = super().to_representation(instance)
 
         # Si nunca ha sido cambiado el status a False, aseguramos que `deleted_by` esté en null

@@ -38,15 +38,18 @@ def create_category(request):
     user = request.user
     serializer = CategorySerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
-        category = CategoryRepository.create(
+        # Crear la categoría con el usuario
+        category = Category(
             name=request.data['name'], 
-            description=request.data['description'], 
-            user=user
+            description=request.data['description'],
         )
+        category.save(user=user)  # Llamamos al método `save` de BaseModel y pasamos el usuario
+
         return Response(CategorySerializer(category).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# Vista con múltiples métodos (GET, PUT, DELETE) juntos
+
+
 @extend_schema(**get_category_by_id_doc)
 @extend_schema(**update_category_by_id_doc)
 @extend_schema(**delete_category_by_id_doc)
@@ -76,6 +79,7 @@ def category_detail(request, pk):
     elif request.method == 'DELETE':
         user = request.user if request.user.is_authenticated else None
         if user:
+            # Realizamos un soft delete usando el repositorio
             updated_category = CategoryRepository.soft_delete(category, user)
             return Response(
                 {"detail": "Categoría eliminada (soft) correctamente."},
