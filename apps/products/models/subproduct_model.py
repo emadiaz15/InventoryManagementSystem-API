@@ -2,8 +2,10 @@ import base64
 from django.db import models
 from django.utils import timezone
 from django.core.files.base import ContentFile
+
 from django.contrib.auth import get_user_model
-from .base_model import BaseModel
+
+from apps.products.models.base_model import BaseModel
 from apps.products.models.product_model import Product
 
 User = get_user_model()

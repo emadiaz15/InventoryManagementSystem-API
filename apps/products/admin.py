@@ -1,6 +1,10 @@
 from django.contrib import admin
 from django.utils.safestring import mark_safe
-from apps.products.models import Category, Type, Product  # 🔥 Corregimos la importación
+
+from apps.products.models.category_model import Category
+from apps.products.models.product_model import Product
+from apps.products.models.type_model import Type
+from apps.products.models.subproduct_model import Subproduct
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):

@@ -1,7 +1,9 @@
 from rest_framework import serializers
+from django.db.models import Sum
+
 from apps.stocks.models import Stock
 from apps.products.models.subproduct_model import Subproduct
-from django.db.models import Sum
+
 from apps.stocks.api.serializers import StockSerializer
 from apps.comments.api.serializers import CommentSerializer
 

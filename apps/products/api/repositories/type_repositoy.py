@@ -1,5 +1,5 @@
 from django.utils import timezone
-from apps.products.models import Type
+from apps.products.models.type_model import Type
 
 class TypeRepository:
     @staticmethod

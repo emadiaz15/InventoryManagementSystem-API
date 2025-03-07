@@ -3,10 +3,15 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
-from apps.products.api.serializers.type_serializer import TypeSerializer
+
 from apps.users.permissions import IsStaffOrReadOnly
+
 from apps.core.pagination import Pagination
+
+from apps.products.api.serializers.type_serializer import TypeSerializer
+
 from apps.products.api.repositories.type_repositoy import TypeRepository
+
 from apps.products.docs.type_doc import (
     list_type_doc, create_type_doc, get_type_by_id_doc, update_type_by_id_doc,
     delete_type_by_id_doc

@@ -1,5 +1,8 @@
 from django.utils import timezone
-from apps.products.models import Product, Subproduct
+
+from apps.products.models.product_model import Product
+from apps.products.models.subproduct_model import Subproduct
+
 from apps.stocks.models import Stock
 
 class SubproductRepository:

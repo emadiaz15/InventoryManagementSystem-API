@@ -1,6 +1,6 @@
 from django.db import models
-from .base_model import BaseModel
-from .category_model import Category
+from apps.products.models.base_model import BaseModel
+from apps.products.models.category_model import Category
 
 class Type(BaseModel):
     """✅ Modelo de Tipo reutilizando lógica de BaseModel"""

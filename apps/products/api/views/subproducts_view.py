@@ -3,11 +3,15 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from drf_spectacular.utils import extend_schema
 from django.shortcuts import get_object_or_404
-from apps.products.models import Product
-from apps.products.api.serializers.product_serializer import ProductSerializer
+
 from apps.users.permissions import IsStaffOrReadOnly
 from apps.core.pagination import Pagination
+
+from apps.products.models.product_model import Product
+from apps.products.api.serializers.product_serializer import ProductSerializer
+
 from apps.products.api.repositories.subproduct_repository import SubproductRepository
+
 from apps.products.docs.subproduct_doc import (
     list_subproducts_doc, create_subproduct_doc, get_subproduct_by_id_doc,
     update_product_by_id_doc, delete_product_by_id_doc

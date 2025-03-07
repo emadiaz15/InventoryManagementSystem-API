@@ -1,5 +1,5 @@
 from django.utils import timezone
-from apps.products.models import Category
+from apps.products.models.category_model import Category
 
 class CategoryRepository:
     @staticmethod

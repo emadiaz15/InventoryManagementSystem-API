@@ -1,9 +1,10 @@
 from django.db import models
-from apps.users.models import User
-from apps.products.models import Product
-from apps.stocks.models import Stock
 from django.utils.timezone import now
 from django.core.exceptions import ValidationError
+
+from apps.users.models import User
+from apps.products.models.product_model import Product
+from apps.stocks.models import Stock
 
 class CuttingOrder(models.Model):
     STATUS_CHOICES = (

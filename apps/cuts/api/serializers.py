@@ -1,7 +1,10 @@
 from rest_framework import serializers
-from apps.cuts.models import CuttingOrder
-from apps.products.models import Product
 from django.utils.timezone import now
+
+from apps.cuts.models import CuttingOrder
+
+from apps.products.models.product_model import Product
+
 
 class CuttingOrderSerializer(serializers.ModelSerializer):
     # Antes se usaba SubProduct, ahora se reemplaza por Product
