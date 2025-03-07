@@ -10,7 +10,23 @@ class CategoryAdmin(admin.ModelAdmin):
     list_display = ('name', 'status', 'created_at', 'deleted_at', 'created_by')  # 🔥 Reemplazamos 'user' por 'created_by'
     list_filter = ('status', 'deleted_at')  
     search_fields = ('name', 'description')  
-    ordering = ('name',)  
+    ordering = ('name',)
+
+    # Asegúrate de que 'created_at', 'deleted_at' y 'created_by' existan en el modelo.
+    def created_at(self, obj):
+        return obj.created_at
+    created_at.admin_order_field = 'created_at'
+    created_at.short_description = 'Fecha de Creación'
+
+    def deleted_at(self, obj):
+        return obj.deleted_at
+    deleted_at.admin_order_field = 'deleted_at'
+    deleted_at.short_description = 'Fecha de Eliminación'
+
+    def created_by(self, obj):
+        return obj.created_by.username if obj.created_by else 'N/A'
+    created_by.short_description = 'Creado por'
+
 
 @admin.register(Type)
 class TypeAdmin(admin.ModelAdmin):
@@ -20,7 +36,22 @@ class TypeAdmin(admin.ModelAdmin):
     list_display = ('name', 'status', 'category', 'created_at', 'deleted_at', 'created_by')  # 🔥 Reemplazamos 'user' por 'created_by'
     list_filter = ('status', 'category', 'deleted_at')  
     search_fields = ('name', 'description')  
-    ordering = ('name',)  
+    ordering = ('name',)
+
+    def created_at(self, obj):
+        return obj.created_at
+    created_at.admin_order_field = 'created_at'
+    created_at.short_description = 'Fecha de Creación'
+
+    def deleted_at(self, obj):
+        return obj.deleted_at
+    deleted_at.admin_order_field = 'deleted_at'
+    deleted_at.short_description = 'Fecha de Eliminación'
+
+    def created_by(self, obj):
+        return obj.created_by.username if obj.created_by else 'N/A'
+    created_by.short_description = 'Creado por'
+
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -28,10 +59,10 @@ class ProductAdmin(admin.ModelAdmin):
     Configuración del panel de administración para el modelo Product.
     """
     list_display = ('name', 'code', 'category', 'type', 'created_at', 'deleted_at', 'created_by', 'technical_sheet_photo_display')  # 🔥 Reemplazamos 'user' por 'created_by'
-    list_filter = ('category', 'type', 'deleted_at')  
+    list_filter = ('category', 'type')  
     search_fields = ('name', 'code', 'description')  
-    ordering = ('name',)  
-    raw_id_fields = ('category', 'type')  
+    ordering = ('name',)
+    raw_id_fields = ('category', 'type')
 
     def technical_sheet_photo_display(self, obj):
         """
@@ -42,3 +73,18 @@ class ProductAdmin(admin.ModelAdmin):
         return "No Image"
     
     technical_sheet_photo_display.short_description = 'Ficha Técnica'
+
+    # Agregar los campos 'created_at', 'deleted_at' y 'created_by'
+    def created_at(self, obj):
+        return obj.created_at
+    created_at.admin_order_field = 'created_at'
+    created_at.short_description = 'Fecha de Creación'
+
+    def deleted_at(self, obj):
+        return obj.deleted_at
+    deleted_at.admin_order_field = 'deleted_at'
+    deleted_at.short_description = 'Fecha de Eliminación'
+
+    def created_by(self, obj):
+        return obj.created_by.username if obj.created_by else 'N/A'
+    created_by.short_description = 'Creado por'

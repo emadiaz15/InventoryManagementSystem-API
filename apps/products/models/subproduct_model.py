@@ -8,7 +8,7 @@ from apps.products.models.product_model import Product
 
 User = get_user_model()
 
-class CableAttributes(BaseModel):
+class Subproduct(BaseModel):
     """Modelo OneToOne para atributos especiales de 'cables'."""
     parent = models.OneToOneField(Product, on_delete=models.CASCADE, related_name='cable_subproduct')
     brand = models.CharField(max_length=100, null=True, blank=True)
@@ -30,7 +30,7 @@ class CableAttributes(BaseModel):
             self.technical_sheet_photo = ContentFile(base64.b64decode(imgstr), name=f"{self.parent.name}_tech_sheet.{ext}")
         
         # Llamamos al método `save` de BaseModel, asegurando que el usuario esté pasando si se requiere
-        super(CableAttributes, self).save(*args, **kwargs)
+        super(Subproduct).save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         """Soft delete con fecha."""

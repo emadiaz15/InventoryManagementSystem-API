@@ -10,7 +10,7 @@ from apps.comments.models import Comment
 from apps.products.api.serializers.product_serializer import ProductSerializer
 from apps.stocks.api.serializers import StockSerializer
 from apps.comments.api.serializers import CommentSerializer
-from apps.products.api.serializers.nested_product_serializer import NestedProductSerializer
+from apps.products.api.serializers.subproduct_serializer import SubProductSerializer
 from apps.users.permissions import IsStaffOrReadOnly
 from drf_spectacular.utils import extend_schema
 from apps.products.api.repositories.product_repository import ProductRepository
@@ -93,19 +93,16 @@ def product_detail(request, pk):
 
     # Obtener subproductos activos
     subproducts = product.subproducts.filter(status=True)  # Solo subproductos activos
-
-    # Serializamos los subproductos usando el NestedProductSerializer
-    subproduct_serializer = NestedProductSerializer(subproducts, many=True)
+    subproduct_serializer = SubProductSerializer(subproducts, many=True)
 
     # Creamos la respuesta
     response_data = {
-        'product': ProductSerializer(product).data,  # Incluimos los subproductos aquí
-        'stock': stock_serializer.data,
+        'product': ProductSerializer(product).data,  # Incluimos los detalles del producto
+        'stock': stock_serializer.data,  # Incluimos el stock del producto
         'comments': comment_serializer.data,  # Los comentarios se incluyen aquí
     }
 
-    # Los subproductos ya están dentro de los datos del producto, 
-    # solo necesitas asegurarte de que la respuesta tenga la estructura correcta
+    # Los subproductos ya están dentro de los datos del producto, solo los agregamos correctamente
     response_data['product']['subproducts'] = subproduct_serializer.data
 
     # Devolvemos la respuesta

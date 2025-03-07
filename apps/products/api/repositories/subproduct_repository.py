@@ -1,5 +1,5 @@
 from django.utils import timezone
-from apps.products.models import Product, CableAttributes
+from apps.products.models import Product, Subproduct
 from apps.stocks.models import Stock
 
 class SubproductRepository:
@@ -7,7 +7,9 @@ class SubproductRepository:
     def get_by_id(subproduct_id: int):
         """Recupera un subproducto por su ID y estado activo"""
         try:
-            return Product.objects.get(id=subproduct_id, status=True, parent__isnull=False)
+            # Ensure we are getting a subproduct that belongs to a parent product
+            subproduct = Product.objects.get(id=subproduct_id, status=True, parent__isnull=False)
+            return subproduct
         except Product.DoesNotExist:
             return None
 
@@ -40,9 +42,9 @@ class SubproductRepository:
         if stock_quantity is not None and stock_quantity >= 0:
             Stock.objects.create(product=subproduct, quantity=stock_quantity, user=user)
         
-        # Si la categoría es 'Cables', crear o actualizar los atributos de CableAttributes
+        # Si la categoría es 'Cables', crear o actualizar los atributos de Subproduct
         if subproduct.category.name == "Cables":
-            cable_attrs, created = CableAttributes.objects.get_or_create(parent=subproduct)
+            cable_attrs, created = Subproduct.objects.get_or_create(parent=subproduct)
             cable_attrs.save()
 
         return subproduct
@@ -72,9 +74,9 @@ class SubproductRepository:
             subproduct_instance.modified_at = timezone.now()
             subproduct_instance.save()
 
-        # Si la categoría es 'Cables', se crea o actualiza los atributos de CableAttributes
+        # Si la categoría es 'Cables', se crea o actualiza los atributos de Subproduct
         if subproduct_instance.category.name == "Cables":
-            cable_attrs, created = CableAttributes.objects.get_or_create(parent=subproduct_instance)
+            cable_attrs, created = Subproduct.objects.get_or_create(parent=subproduct_instance)
             cable_attrs.save()
 
         return subproduct_instance
@@ -90,9 +92,9 @@ class SubproductRepository:
         # Eliminar stock relacionado
         Stock.objects.filter(product=subproduct_instance).delete()
 
-        # Si la categoría es 'Cables', eliminamos los atributos de CableAttributes
+        # Si la categoría es 'Cables', eliminamos los atributos de Subproduct
         if subproduct_instance.category.name == "Cables":
-            cable_attrs = CableAttributes.objects.filter(parent=subproduct_instance).first()
+            cable_attrs = Subproduct.objects.filter(parent=subproduct_instance).first()
             if cable_attrs:
                 cable_attrs.delete()
 

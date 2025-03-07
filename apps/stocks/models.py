@@ -1,7 +1,7 @@
 from django.db import models, transaction
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from apps.products.models import Product
+from apps.products.models.product_model import Product  # Usamos una importación local
 
 User = get_user_model()
 
