@@ -10,6 +10,7 @@ from apps.comments.models import Comment
 from apps.products.api.serializers.product_serializer import ProductSerializer
 from apps.stocks.api.serializers import StockSerializer
 from apps.comments.api.serializers import CommentSerializer
+from apps.products.api.serializers.nested_product_serializer import NestedProductSerializer
 from apps.users.permissions import IsStaffOrReadOnly
 from drf_spectacular.utils import extend_schema
 from apps.products.api.repositories.product_repository import ProductRepository
@@ -78,77 +79,34 @@ def product_detail(request, pk):
     if not product:
         return Response({"detail": "Producto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
-    if request.method == 'GET':
-        # Obtener stock y comentarios
-        stock, created = Stock.objects.get_or_create(
-            product=product,
-            defaults={'quantity': 0, 'user': request.user}
-        )
-        stock_serializer = StockSerializer(stock)
+    # Aseguramos la existencia de al menos un registro de stock, si no existe
+    stock, created = Stock.objects.get_or_create(
+        product=product,
+        defaults={'quantity': 0, 'user': request.user}
+    )
+    stock_serializer = StockSerializer(stock)
 
-        content_type = ContentType.objects.get_for_model(Product)
-        comments = Comment.active_objects.filter(content_type=content_type, object_id=product.id)
-        comment_serializer = CommentSerializer(comments, many=True)
+    # Obtener comentarios del producto
+    content_type = ContentType.objects.get_for_model(Product)
+    comments = Comment.active_objects.filter(content_type=content_type, object_id=product.id)
+    comment_serializer = CommentSerializer(comments, many=True)
 
-        product_serializer = ProductSerializer(product)
-        return Response({
-            'product': product_serializer.data,
-            'stock': stock_serializer.data,
-            'comments': comment_serializer.data
-        }, status=status.HTTP_200_OK)
+    # Obtener subproductos activos
+    subproducts = product.subproducts.filter(status=True)  # Solo subproductos activos
 
-    elif request.method == 'PUT':
-        # Actualizar producto
-        serializer = ProductSerializer(product, data=request.data, partial=True)
-        if serializer.is_valid():
-            code = request.data.get('code')
-            if code is not None:
-                try:
-                    # Verificar que el código sea válido
-                    product = ProductRepository.update(
-                        product,
-                        name=serializer.validated_data.get('name'),
-                        description=serializer.validated_data.get('description'),
-                        category=serializer.validated_data.get('category'),
-                        type=serializer.validated_data.get('type'),
-                        status=serializer.validated_data.get('status'),
-                        code=code,  # Validamos el código también en la actualización
-                        user=request.user
-                    )
-                except ValueError as e:
-                    return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-            else:
-                # Solo actualizamos sin cambiar el código
-                product = ProductRepository.update(
-                    product,
-                    name=serializer.validated_data.get('name'),
-                    description=serializer.validated_data.get('description'),
-                    category_id=serializer.validated_data.get('category'),
-                    type_id=serializer.validated_data.get('type'),
-                    status=serializer.validated_data.get('status'),
-                    user=request.user
-                )
+    # Serializamos los subproductos usando el NestedProductSerializer
+    subproduct_serializer = NestedProductSerializer(subproducts, many=True)
 
-            # Validar y actualizar stock_quantity
-            stock_quantity = request.data.get('stock_quantity')
-            if stock_quantity is not None:
-                try:
-                    # Verificamos que 'stock_quantity' sea un número entero
-                    stock_quantity = int(stock_quantity)
-                    if stock_quantity < 0:
-                        return Response({"detail": "La cantidad de stock no puede ser negativa."}, status=status.HTTP_400_BAD_REQUEST)
-                except ValueError:
-                    return Response({"detail": "La cantidad de stock debe ser un número entero."}, status=status.HTTP_400_BAD_REQUEST)
+    # Creamos la respuesta
+    response_data = {
+        'product': ProductSerializer(product).data,  # Incluimos los subproductos aquí
+        'stock': stock_serializer.data,
+        'comments': comment_serializer.data,  # Los comentarios se incluyen aquí
+    }
 
-                # Actualizar stock
-                stock = Stock.objects.get(product=product)
-                stock.quantity = stock_quantity
-                stock.save()
+    # Los subproductos ya están dentro de los datos del producto, 
+    # solo necesitas asegurarte de que la respuesta tenga la estructura correcta
+    response_data['product']['subproducts'] = subproduct_serializer.data
 
-            return Response(ProductSerializer(product).data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    elif request.method == 'DELETE':
-        # Soft delete del producto
-        ProductRepository.soft_delete(product, request.user)
-        return Response({"detail": "Producto eliminado (soft) correctamente."}, status=status.HTTP_204_NO_CONTENT)
+    # Devolvemos la respuesta
+    return Response(response_data, status=status.HTTP_200_OK)
