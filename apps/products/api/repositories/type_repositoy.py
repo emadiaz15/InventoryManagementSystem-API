@@ -34,23 +34,21 @@ class TypeRepository:
         Actualiza un tipo de producto.
         """
         changes_made = False
-        if name:
+        if name is not None:
             type_instance.name = name
             changes_made = True
-        if description:
+        if description is not None:
             type_instance.description = description
             changes_made = True
         if status is not None:
             type_instance.status = status
             changes_made = True
-
         if user:
             type_instance.modified_by = user
-
         if changes_made:
             type_instance.modified_at = timezone.now()
-            type_instance.save(user=user)
-
+            type_instance.save(update_fields=['name', 'description', 'status', 'modified_at', 'deleted_at', 'modified_by'])
+            
         return type_instance
 
     @staticmethod
