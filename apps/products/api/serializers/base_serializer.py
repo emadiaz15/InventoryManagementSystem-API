@@ -2,7 +2,6 @@ from rest_framework import serializers
 from django.utils import timezone
 from django.db.models import Q
 
-
 class BaseSerializer(serializers.ModelSerializer):
     """Clase base para serializers con métodos reutilizables."""
 
@@ -60,4 +59,9 @@ class BaseSerializer(serializers.ModelSerializer):
         if not instance.deleted_by and instance.status != False:
             data['deleted_by'] = None
 
+        # Aseguramos que 'created_by' esté presente
+        if instance.created_by:
+            data['created_by'] = instance.created_by.username  # O el campo que prefieras mostrar
+
         return data
+

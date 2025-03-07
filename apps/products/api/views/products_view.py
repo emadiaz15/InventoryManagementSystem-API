@@ -99,7 +99,6 @@ def product_detail(request, pk):
     response_data = {
         'product': ProductSerializer(product).data,  # Incluimos los detalles del producto
         'stock': stock_serializer.data,  # Incluimos el stock del producto
-        'comments': comment_serializer.data,  # Los comentarios se incluyen aquí
     }
 
     # Los subproductos ya están dentro de los datos del producto, solo los agregamos correctamente

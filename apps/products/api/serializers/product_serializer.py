@@ -12,15 +12,12 @@ class ProductSerializer(serializers.ModelSerializer):
     
     category = CategorySerializer(read_only=True)
     type = TypeSerializer(read_only=True)
-    user = serializers.StringRelatedField(read_only=True)
-    parent = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), required=False, allow_null=True)
     total_stock = serializers.SerializerMethodField()
     subproducts = SubProductSerializer(many=True, read_only=True)
-    comments = CommentSerializer(many=True, read_only=True)  # Aquí se incluyen los comentarios del producto
 
     class Meta:
         model = Product
-        fields = '__all__'
+        fields = ['id', 'name', 'code', 'category', 'type', 'status', 'total_stock', 'subproducts', 'image']  # Aseguramos que 'user' esté incluido
 
     def get_total_stock(self, obj):
         """Calcula el stock total sumando el stock del producto y el de sus subproductos."""
