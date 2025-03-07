@@ -1,27 +1,21 @@
 from django.utils import timezone
-
 from apps.products.models.product_model import Product
 from apps.products.models.subproduct_model import Subproduct
-
 from apps.stocks.models import Stock
 
 class SubproductRepository:
     @staticmethod
     def get_by_id(subproduct_id: int):
         """Recupera un subproducto por su ID y estado activo"""
-        try:
-            # Ensure we are getting a subproduct that belongs to a parent product
-            subproduct = Product.objects.get(id=subproduct_id, status=True, parent__isnull=False)
-            return subproduct
-        except Product.DoesNotExist:
-            return None
+        subproduct = Subproduct.objects.filter(id=subproduct_id, status=True).first()
+        return subproduct  # Regresa None si no se encuentra
 
     @staticmethod
     def get_all_active(parent_product_id: int, active=True):
         """Recupera todos los subproductos activos de un producto padre"""
         try:
             parent_product = Product.objects.get(id=parent_product_id, status=True)
-            subproducts = parent_product.subproducts.filter(status=active)
+            subproducts = parent_product.subproduct_set.filter(status=active)  # Relación inversa de Product
             return subproducts
         except Product.DoesNotExist:
             return []
@@ -30,8 +24,8 @@ class SubproductRepository:
     def create(name: str, description: str, parent: Product, user, stock_quantity: int = None):
         """Crea un nuevo subproducto para el producto padre especificado"""
         
-        # Creación del subproducto sin necesidad de un 'code'
-        subproduct = Product(name=name, description=description, category=parent.category, type=parent.type, parent=parent)
+        # Creación del subproducto
+        subproduct = Subproduct(name=name, description=description, parent=parent)
         
         # Guardar el subproducto
         subproduct.save()
@@ -42,19 +36,15 @@ class SubproductRepository:
         subproduct.save()
 
         # Crear el stock si se proporciona la cantidad
-        if stock_quantity is not None and stock_quantity >= 0:
+        stock_quantity = stock_quantity or 0  # Asignar 0 por defecto si no se pasa cantidad
+        if stock_quantity >= 0:
             Stock.objects.create(product=subproduct, quantity=stock_quantity, user=user)
-        
-        # Si la categoría es 'Cables', crear o actualizar los atributos de Subproduct
-        if subproduct.category.name == "Cables":
-            cable_attrs, created = Subproduct.objects.get_or_create(parent=subproduct)
-            cable_attrs.save()
 
         return subproduct
 
     @staticmethod
-    def update(subproduct_instance: Product, name: str = None, description: str = None, 
-               status: bool = None, user=None):
+    def update(subproduct_instance: Subproduct, name: str = None, description: str = None,
+            status: bool = None, user=None):
         """Actualiza un subproducto existente con los cambios proporcionados"""
         changes_made = False
         
@@ -77,15 +67,10 @@ class SubproductRepository:
             subproduct_instance.modified_at = timezone.now()
             subproduct_instance.save()
 
-        # Si la categoría es 'Cables', se crea o actualiza los atributos de Subproduct
-        if subproduct_instance.category.name == "Cables":
-            cable_attrs, created = Subproduct.objects.get_or_create(parent=subproduct_instance)
-            cable_attrs.save()
-
         return subproduct_instance
 
     @staticmethod
-    def soft_delete(subproduct_instance: Product, user):
+    def soft_delete(subproduct_instance: Subproduct, user):
         """Realiza un soft delete, estableciendo status a False"""
         subproduct_instance.status = False
         subproduct_instance.deleted_at = timezone.now()
@@ -94,11 +79,5 @@ class SubproductRepository:
 
         # Eliminar stock relacionado
         Stock.objects.filter(product=subproduct_instance).delete()
-
-        # Si la categoría es 'Cables', eliminamos los atributos de Subproduct
-        if subproduct_instance.category.name == "Cables":
-            cable_attrs = Subproduct.objects.filter(parent=subproduct_instance).first()
-            if cable_attrs:
-                cable_attrs.delete()
 
         return subproduct_instance

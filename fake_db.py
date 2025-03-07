@@ -23,7 +23,7 @@ User = get_user_model()
 
 from apps.products.models import Category, Type, Product
 from apps.cuts.models import CuttingOrder
-from apps.comments.models import Comment
+from apps.comments.models.models import Comment
 from apps.stocks.models import Stock  # Para crear stocks iniciales
 from apps.stocks.models import StockHistory  # Si deseas poblar historial adicional
 

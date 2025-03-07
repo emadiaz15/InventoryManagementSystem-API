@@ -8,7 +8,7 @@ from apps.users.permissions import IsStaffOrReadOnly
 from apps.core.pagination import Pagination
 
 from apps.products.models.product_model import Product
-from apps.products.api.serializers.product_serializer import ProductSerializer
+from apps.products.api.serializers.subproduct_serializer import SubProductSerializer
 
 from apps.products.api.repositories.subproduct_repository import SubproductRepository
 
@@ -24,10 +24,15 @@ def subproduct_list(request, product_pk):
     """Obtiene una lista de subproductos con paginación y filtros"""
     parent_product = get_object_or_404(Product, pk=product_pk, status=True)  # Obtenemos el producto padre
     subproducts = SubproductRepository.get_all_active(parent_product.pk)
+    
+    # Paginación
     paginator = Pagination()
     paginated_subproducts = paginator.paginate_queryset(subproducts, request)
-    serializer = ProductSerializer(paginated_subproducts, many=True)
+    
+    # Usamos el serializer de subproductos
+    serializer = SubProductSerializer(paginated_subproducts, many=True)
     return paginator.get_paginated_response(serializer.data)
+
 
 @extend_schema(**create_subproduct_doc)
 @api_view(['POST'])
@@ -35,24 +40,25 @@ def subproduct_list(request, product_pk):
 def create_subproduct(request, product_pk):
     """Crea un nuevo subproducto asociado a un producto padre"""
     parent_product = get_object_or_404(Product, pk=product_pk, status=True)  # Obtenemos el producto padre
-    data = request.data.copy()
-    data['parent'] = parent_product.pk
-    serializer = ProductSerializer(data=data)
 
+    # Usamos el serializer para subproductos
+    serializer = SubProductSerializer(data=request.data)
     if serializer.is_valid():
         try:
-            # Creación del subproducto
+            # Creamos el subproducto y lo asociamos con el producto padre
             new_subproduct = SubproductRepository.create(
                 name=serializer.validated_data['name'],
                 description=serializer.validated_data['description'],
                 parent=parent_product,
                 user=request.user,
-                stock_quantity=request.data.get('stock_quantity'),
+                stock_quantity=request.data.get('stock_quantity', 0),  # Default 0 si no se pasa cantidad
             )
-            return Response(ProductSerializer(new_subproduct).data, status=status.HTTP_201_CREATED)
+            return Response(SubProductSerializer(new_subproduct).data, status=status.HTTP_201_CREATED)
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @extend_schema(**get_subproduct_by_id_doc)
 @extend_schema(**update_product_by_id_doc)
@@ -65,7 +71,7 @@ def subproduct_detail(request, product_pk, pk):
     subproduct = SubproductRepository.get_by_id(pk)
 
     if not subproduct or subproduct.parent != parent_product:
-        return Response({"detail": "Subproduct not found or does not belong to the given parent product."}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"detail": "Subproducto no encontrado o no pertenece al producto padre."}, status=status.HTTP_404_NOT_FOUND)
 
     # Según el método, realizar la acción correspondiente (GET, PUT, DELETE)
     if request.method == 'GET':
@@ -75,21 +81,24 @@ def subproduct_detail(request, product_pk, pk):
     elif request.method == 'DELETE':
         return soft_delete_subproduct(subproduct)
 
+
 def retrieve_subproduct(subproduct):
     """Obtiene los detalles del subproducto"""
-    serializer = ProductSerializer(subproduct)
+    serializer = SubProductSerializer(subproduct)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 def update_subproduct(request, subproduct):
     """Actualiza los detalles de un subproducto"""
-    serializer = ProductSerializer(subproduct, data=request.data, partial=True)
+    serializer = SubProductSerializer(subproduct, data=request.data, partial=True)
     if serializer.is_valid():
         updated_subproduct = serializer.save(user=request.user)
-        return Response(ProductSerializer(updated_subproduct).data, status=status.HTTP_200_OK)
+        return Response(SubProductSerializer(updated_subproduct).data, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 def soft_delete_subproduct(subproduct):
     """Realiza un soft delete de un subproducto"""
     subproduct.status = False
     subproduct.save()
-    return Response({"detail": "Subproduct deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+    return Response({"detail": "Subproducto eliminado con éxito."}, status=status.HTTP_204_NO_CONTENT)

@@ -1,8 +1,6 @@
-# Este archivo define el serializer para manejar la creación, validación, y eliminación suave de comentarios genéricos.
-
 from rest_framework import serializers
 from django.contrib.contenttypes.models import ContentType
-from apps.comments.models import Comment
+from apps.comments.models.models import Comment
 
 class CommentSerializer(serializers.ModelSerializer):
     # Campos adicionales para manejar el comentario genérico
@@ -20,7 +18,6 @@ class CommentSerializer(serializers.ModelSerializer):
         """
         # Validación de campo `text` obligatorio
         if not data.get('text'):
-            # Mensaje en inglés:
             raise serializers.ValidationError("The comment cannot be empty.")
 
         # Validación de `content_type` y `object_id`
@@ -31,10 +28,8 @@ class CommentSerializer(serializers.ModelSerializer):
         try:
             model_class = ContentType.objects.get(model=content_type_str).model_class()
             if not model_class.objects.filter(id=object_id).exists():
-                # Mensaje en inglés:
                 raise serializers.ValidationError("The referenced object does not exist.")
         except ContentType.DoesNotExist:
-            # Mensaje en inglés:
             raise serializers.ValidationError("Invalid content type.")
 
         return data
@@ -47,7 +42,11 @@ class CommentSerializer(serializers.ModelSerializer):
         object_id = validated_data.pop('object_id')
 
         # Obtiene la instancia de ContentType y crea el comentario genérico
-        content_type_instance = ContentType.objects.get(model=content_type_str)
+        try:
+            content_type_instance = ContentType.objects.get(model=content_type_str)
+        except ContentType.DoesNotExist:
+            raise serializers.ValidationError("Invalid content type provided.")
+
         comment = Comment.objects.create(
             content_type=content_type_instance,
             object_id=object_id,
@@ -59,10 +58,16 @@ class CommentSerializer(serializers.ModelSerializer):
         """
         Realiza la eliminación suave del comentario estableciendo `deleted_at`.
         """
+        if not self.instance:
+            raise serializers.ValidationError("No instance of the comment to delete.")
+        
         self.instance.delete()  # Llama al método delete del modelo (soft delete)
 
     def restore(self):
         """
         Restaura un comentario eliminado estableciendo `deleted_at` a None.
         """
+        if not self.instance:
+            raise serializers.ValidationError("No instance of the comment to restore.")
+        
         self.instance.restore()

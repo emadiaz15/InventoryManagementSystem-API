@@ -5,7 +5,7 @@ from apps.products.models.product_model import Product
 from apps.products.models.category_model import Category
 from apps.products.models.type_model import Type
 
-from apps.comments.models import Comment
+from apps.comments.models.models import Comment
 from apps.stocks.models import Stock
 
 from apps.products.api.serializers.base_serializer import BaseSerializer

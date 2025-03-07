@@ -1,7 +1,7 @@
-import base64
 from django.db import models
 from django.utils import timezone
 from django.core.files.base import ContentFile
+import base64
 
 from django.contrib.auth import get_user_model
 
@@ -20,6 +20,8 @@ class Subproduct(BaseModel):
     total_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     coil_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     technical_sheet_photo = models.ImageField(upload_to='technical_sheets/', null=True, blank=True)
+    # Relación con comentarios
+    comments = models.ManyToManyField('comments.Comment', related_name='subproducts', blank=True)  # Utilizamos la cadena 'comments.Comment' para evitar la importación circular
     
     name = models.CharField(max_length=200, unique=True, default='No especificado')  # Valor por defecto
 
@@ -32,7 +34,7 @@ class Subproduct(BaseModel):
             self.technical_sheet_photo = ContentFile(base64.b64decode(imgstr), name=f"{self.parent.name}_tech_sheet.{ext}")
         
         # Llamamos al método `save` de BaseModel, asegurando que el usuario esté pasando si se requiere
-        super(Subproduct).save(*args, **kwargs)
+        super(Subproduct, self).save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         """Soft delete con fecha."""

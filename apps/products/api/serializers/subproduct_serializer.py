@@ -6,8 +6,9 @@ from apps.products.models.subproduct_model import Subproduct
 
 from apps.stocks.api.serializers import StockSerializer
 from apps.comments.api.serializers import CommentSerializer
+from apps.products.api.serializers.base_serializer import BaseSerializer
 
-class SubProductSerializer(serializers.ModelSerializer):
+class SubProductSerializer(BaseSerializer):
     """Serializer para subproductos con la lógica de stock y atributos de cable."""
 
     stock_quantity = serializers.SerializerMethodField()

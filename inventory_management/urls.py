@@ -10,6 +10,9 @@ api_patterns = [
     path('inventory/', include('apps.products.api.urls')),  # Rutas de la app `products`
     path('cutting/', include('apps.cuts.api.urls')),  # Rutas de la app `cutting`
     path('', include('apps.core.urls')),  # Rutas de la app `core`
+    # Rutas para los comentarios
+    path('products/<int:product_id>/comments/', include('apps.comments.api.urls')),  # Rutas de comentarios sobre productos
+    path('products/<int:product_id>/subproducts/<int:subproduct_id>/comments/', include('apps.comments.api.urls')),  # Rutas de comentarios sobre subproductos
 ]
 
 # Rutas para la documentación de la API con drf-spectacular
