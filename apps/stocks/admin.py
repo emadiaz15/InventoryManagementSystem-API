@@ -1,55 +1,36 @@
 from django.contrib import admin
-from apps.stocks.models import Stock, StockHistory
+from .models import Stock, StockEvent
+from django.utils.translation import gettext_lazy as _
 
-
+# Registra el modelo Stock en el Admin
 @admin.register(Stock)
 class StockAdmin(admin.ModelAdmin):
-    """
-    Configuración del panel de administración para el modelo Stock.
-    """
-    list_display = ('id', 'product', 'quantity', 'created_at', 'updated_at', 'user')  # Columnas a mostrar
-    list_filter = ('product', 'created_at', 'updated_at', 'user')  # Filtros laterales
-    search_fields = ('product__name', 'user__username')  # Campos para búsqueda
-    ordering = ('-created_at',)  # Orden descendente por fecha de creación
-    readonly_fields = ('created_at', 'updated_at')  # Evitar la edición de las marcas de tiempo
+    list_display = ['id', 'quantity', 'location', 'created_at', 'created_by', 'modified_at', 'modified_by']
+    search_fields = ['location', 'created_by__username']
+    list_filter = ['location', 'created_at']
+    ordering = ['created_at']
 
-    fieldsets = (
-        (None, {
-            'fields': ('product', 'quantity', 'user')
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-        }),
-    )
+    # Propiedad para mostrar eventos de stock relacionados
+    def events(self, obj):
+        return obj.events.count()
+    events.short_description = _('Stock Events')
 
-    def view_stock_history(self, obj):
-        """
-        Muestra un resumen del historial relacionado con el registro de stock.
-        """
-        return ", ".join(
-            [f"{history.change_reason} ({history.recorded_at})" for history in obj.product.stock_history.all()]
-        )
+    # Campos de solo lectura para mostrar los eventos sin poder editar directamente
+    readonly_fields = ['events']
 
-    view_stock_history.short_description = 'Historial de Cambios'
-    list_display += ('view_stock_history',)
+# Registra el modelo StockEvent en el Admin
+@admin.register(StockEvent)
+class StockEventAdmin(admin.ModelAdmin):
+    list_display = ['id', 'stock', 'quantity_change', 'event_type', 'created_at', 'user', 'modified_at', 'modified_by']
+    search_fields = ['stock__id', 'user__username']
+    list_filter = ['event_type', 'created_at', 'user']
+    ordering = ['created_at']
 
+    # Propiedad para mostrar detalles adicionales sobre el evento
+    def stock_details(self, obj):
+        return f"Stock {obj.stock.id} - {obj.stock.quantity} unidades"
+    stock_details.short_description = _('Stock Details')
 
-@admin.register(StockHistory)
-class StockHistoryAdmin(admin.ModelAdmin):
-    """
-    Configuración del panel de administración para el modelo StockHistory.
-    """
-    list_display = ('id', 'product', 'stock_before', 'stock_after', 'change_reason', 'recorded_at', 'user')  # Columnas a mostrar
-    list_filter = ('product', 'recorded_at', 'user')  # Filtros laterales
-    search_fields = ('product__name', 'change_reason', 'user__username')  # Campos para búsqueda
-    ordering = ('-recorded_at',)  # Orden descendente por fecha de registro
+    # Campos de solo lectura para evitar modificaciones en los eventos de stock
+    readonly_fields = ['stock_details']
 
-    readonly_fields = ('recorded_at',)  # Evitar la edición directa del campo de fecha
-    fieldsets = (
-        (None, {
-            'fields': ('product', 'stock_before', 'stock_after', 'change_reason', 'user')
-        }),
-        ('Timestamps', {
-            'fields': ('recorded_at',),
-        }),
-    )

@@ -1,9 +1,9 @@
 from rest_framework.test import APITestCase
 from django.urls import reverse
 from rest_framework import status
-from apps.cuts.models import CuttingOrder
+from apps.cuts.models.cutting_order_model import CuttingOrder
 from apps.products.models import Product
-from apps.stocks.models import Stock
+from apps.stocks.models.stock_model import Stock
 from apps.users.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from apps.cuts.models import CuttingOrder
+from apps.cuts.models.cutting_order_model import CuttingOrder
 
 
 @admin.register(CuttingOrder)

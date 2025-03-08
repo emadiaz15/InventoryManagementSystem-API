@@ -1,16 +1,21 @@
 from rest_framework import serializers
 from django.contrib.contenttypes.models import ContentType
-from apps.comments.models.models import Comment
+from apps.comments.models.comment_model import Comment
+from apps.users.models import User
 
 class CommentSerializer(serializers.ModelSerializer):
     # Campos adicionales para manejar el comentario genérico
-    content_type = serializers.CharField(write_only=True)
-    object_id = serializers.IntegerField(write_only=True)
+    content_type = serializers.CharField(write_only=True)  # El tipo de contenido, ej. 'product' o 'subproduct'
+    object_id = serializers.IntegerField(write_only=True)  # El ID del objeto asociado (producto o subproducto)
+
+    
+    # Campo 'user' es un ForeignKey, por lo que se serializa con un campo nested
+    user = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = Comment
-        fields = ['id', 'content_type', 'object_id', 'user', 'text', 'created_at', 'modified_at', 'deleted_at']
-        read_only_fields = ['id', 'created_at', 'modified_at', 'deleted_at']
+        fields = ['id', 'content_type', 'object_id', 'user', 'text', 'created_at', 'modified_at', 'deleted_at', 'deleted_by', 'status']
+        read_only_fields = ['id', 'created_at', 'modified_at', 'deleted_at', 'deleted_by', 'status']
 
     def validate(self, data):
         """
@@ -56,7 +61,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def soft_delete(self):
         """
-        Realiza la eliminación suave del comentario estableciendo `deleted_at`.
+        Realiza la eliminación suave del comentario estableciendo `deleted_at` y `status` a False.
         """
         if not self.instance:
             raise serializers.ValidationError("No instance of the comment to delete.")
@@ -65,7 +70,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def restore(self):
         """
-        Restaura un comentario eliminado estableciendo `deleted_at` a None.
+        Restaura un comentario eliminado estableciendo `deleted_at` a None y `status` a True.
         """
         if not self.instance:
             raise serializers.ValidationError("No instance of the comment to restore.")

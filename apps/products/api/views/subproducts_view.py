@@ -56,6 +56,8 @@ def create_subproduct(request, product_pk):
             return Response(SubProductSerializer(new_subproduct).data, status=status.HTTP_201_CREATED)
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:  # Captura errores generales
+            return Response({"detail": f"Error inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -101,4 +103,8 @@ def soft_delete_subproduct(subproduct):
     """Realiza un soft delete de un subproducto"""
     subproduct.status = False
     subproduct.save()
+
+    # Mover la eliminación del stock al repositorio
+    SubproductRepository.soft_delete(subproduct, subproduct.modified_by)
+    
     return Response({"detail": "Subproducto eliminado con éxito."}, status=status.HTTP_204_NO_CONTENT)

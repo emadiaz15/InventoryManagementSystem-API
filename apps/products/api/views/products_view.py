@@ -9,15 +9,13 @@ from apps.users.permissions import IsStaffOrReadOnly
 from apps.core.pagination import Pagination
 
 from apps.products.models.product_model import Product
-from apps.stocks.models import Stock
-from apps.comments.models.models import Comment
-from apps.products.models.category_model import Category
-from apps.products.models.type_model import Type
+from apps.stocks.models.stock_model import Stock
+from apps.comments.models.comment_model import Comment
 
 from apps.products.api.serializers.product_serializer import ProductSerializer
 from apps.products.api.serializers.subproduct_serializer import SubProductSerializer
-from apps.stocks.api.serializers import StockSerializer
-from apps.comments.api.serializers import CommentSerializer
+from apps.stocks.api.serializers.stock_serializer import StockSerializer
+from apps.comments.api.serializers.comment_serializer import CommentSerializer
 
 from apps.products.api.repositories.product_repository import ProductRepository
 from apps.products.docs.product_doc import (

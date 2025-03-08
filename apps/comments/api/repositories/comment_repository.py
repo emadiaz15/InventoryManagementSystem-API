@@ -1,29 +1,25 @@
-from apps.comments.models.models import Comment
-from django.contrib.contenttypes.models import ContentType
-from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
+
+from apps.comments.models.comment_model import Comment
+from django.contrib.contenttypes.models import ContentType
+
 
 class CommentRepository:
     """Repositorio para manejar operaciones sobre los comentarios."""
 
     @staticmethod
     def create_comment(content_type_str, object_id, user, text):
-        """
-        Crea un comentario y lo asigna a un modelo genérico (Product, Subproduct, etc.)
-        """
         try:
-            # Verificar si el ContentType existe
-            content_type = ContentType.objects.get(model=content_type_str.lower())
-            
-            # Crear comentario
-            comment = Comment.objects.create(
-                content_type=content_type,
-                object_id=object_id,
-                user=user,
-                text=text
-            )
-            return comment
-
+            with transaction.atomic():
+                content_type = ContentType.objects.get(model=content_type_str.lower())
+                comment = Comment.objects.create(
+                    content_type=content_type,
+                    object_id=object_id,
+                    user=user,
+                    text=text
+                )
+                return comment
         except ContentType.DoesNotExist:
             raise ValueError(f"Content type '{content_type_str}' does not exist.")
     

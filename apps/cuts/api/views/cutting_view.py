@@ -3,37 +3,31 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from drf_spectacular.utils import extend_schema
-from apps.cuts.models import CuttingOrder
-from apps.cuts.api.serializers import CuttingOrderSerializer
-from apps.stocks.models import Stock
-from django.utils.timezone import now
+from apps.cuts.api.repositories.cutting_order_repository import CuttingOrderRepository
+from apps.cuts.api.serializers.cutting_order_serializer import CuttingOrderSerializer
 from django.core.exceptions import ValidationError
 
-
-@extend_schema(
-    methods=['GET'],
-    operation_id="list_cutting_orders",
-    description="Recupera una lista de todas las órdenes de corte activas",
-    responses={200: CuttingOrderSerializer(many=True)},
+from apps.cuts.docs.cutting_order_doc import (
+    list_cutting_orders_doc,
+    create_cutting_order_doc,
+    get_cutting_order_by_id_doc,
+    update_cutting_order_by_id_doc,
+    delete_cutting_order_by_id_doc
 )
+
+@extend_schema(**list_cutting_orders_doc)
 @api_view(['GET'])
-@permission_classes([AllowAny])  # Todos los usuarios tienen permiso CRUD, por lo tanto AllowAny
+@permission_classes([AllowAny])  # Permiso para todos los usuarios
 def cutting_orders_list_view(request):
     """
     Endpoint para listar todas las órdenes de corte activas.
     """
-    orders = CuttingOrder.objects.filter(deleted_at__isnull=True)
+    orders = CuttingOrderRepository.get_cutting_orders_for_user(request.user)
     serializer = CuttingOrderSerializer(orders, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@extend_schema(
-    methods=['POST'],
-    operation_id="create_cutting_order",
-    description="Crea una nueva orden de corte, verificando si hay suficiente stock",
-    request=CuttingOrderSerializer,
-    responses={201: CuttingOrderSerializer, 400: "Datos inválidos", 409: "Stock insuficiente"},
-)
+@extend_schema(**create_cutting_order_doc)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def cutting_order_create_view(request):
@@ -42,44 +36,26 @@ def cutting_order_create_view(request):
     """
     serializer = CuttingOrderSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
-        order = serializer.save(assigned_by=request.user if request.user.is_authenticated else None)
         try:
-            check_stock(order)  # Verificación de stock antes de devolver la respuesta
+            order = CuttingOrderRepository.create_cutting_order(serializer.validated_data, request.user)
             return Response(CuttingOrderSerializer(order).data, status=status.HTTP_201_CREATED)
         except ValidationError as e:
             return Response({'detail': str(e)}, status=status.HTTP_409_CONFLICT)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(
-    methods=['GET'],
-    operation_id="retrieve_cutting_order",
-    description="Recupera los detalles de una orden de corte específica",
-    responses={200: CuttingOrderSerializer, 404: "Orden de corte no encontrada"},
-)
-@extend_schema(
-    methods=['PUT', 'PATCH'],
-    operation_id="update_cutting_order",
-    description="Actualiza una orden de corte específica",
-    request=CuttingOrderSerializer,
-    responses={200: CuttingOrderSerializer, 400: "Datos inválidos"},
-)
-@extend_schema(
-    methods=['DELETE'],
-    operation_id="delete_cutting_order",
-    description="Elimina suavemente una orden de corte específica",
-    responses={204: "Orden de corte eliminada (soft)", 404: "Orden de corte no encontrada"},
-)
+@extend_schema(**get_cutting_order_by_id_doc)
+@extend_schema(**update_cutting_order_by_id_doc)
+@extend_schema(**delete_cutting_order_by_id_doc)
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([AllowAny])
 def cutting_order_detail_view(request, pk):
     """
     Endpoint para obtener, actualizar o eliminar suavemente una orden de corte específica.
-    Todos los usuarios tienen CRUD (crear, leer, actualizar, eliminar suave).
     """
     try:
-        order = CuttingOrder.objects.get(pk=pk, deleted_at__isnull=True)
-    except CuttingOrder.DoesNotExist:
+        order = CuttingOrderRepository.get_cutting_order_by_id(pk)
+    except ValidationError:
         return Response({"detail": "Orden de corte no encontrada."}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
@@ -103,33 +79,20 @@ def update_cutting_order(request, order):
         if 'status' in serializer.validated_data and serializer.validated_data['status'] == 'completed':
             # Completar la orden de corte verificando la lógica definida en el modelo
             try:
-                order.complete_cutting()
+                order = CuttingOrderRepository.complete_cutting_order(order)
             except ValidationError as e:
                 return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
             return Response(CuttingOrderSerializer(order).data, status=status.HTTP_200_OK)
         else:
-            order = serializer.save()
+            order = CuttingOrderRepository.update_cutting_order(order, serializer.validated_data)
             return Response(CuttingOrderSerializer(order).data, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 def soft_delete_cutting_order(order):
     """Realiza un soft delete de la orden de corte."""
-    order.deleted_at = now()
-    order.save()
+    try:
+        CuttingOrderRepository.delete_cutting_order(order, order.assigned_by)
+    except ValidationError as e:
+        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     return Response({"detail": "Orden de corte eliminada (soft) correctamente."}, status=status.HTTP_204_NO_CONTENT)
-
-
-def check_stock(order):
-    """
-    Verifica si hay suficiente stock para la orden de corte.
-    """
-    # Dado que ahora usamos product en lugar de subproduct
-    # Ajustamos la lógica para filtrar el stock por product
-    stock = Stock.objects.filter(product=order.product).first()
-    if not stock:
-        raise ValidationError(f"No stock found for product {order.product.name}.")
-
-    if stock.quantity < order.cutting_quantity:
-        raise ValidationError(f"Insufficient stock for {order.product.name}. Available: {stock.quantity}")
-    return True

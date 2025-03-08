@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.utils.timezone import now
 
-from apps.cuts.models import CuttingOrder
+from apps.cuts.models.cutting_order_model import CuttingOrder
 
 from apps.products.models.product_model import Product
 

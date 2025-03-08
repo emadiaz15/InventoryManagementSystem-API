@@ -1,5 +1,5 @@
 from django.contrib import admin
-from apps.comments.models.models import Comment
+from apps.comments.models.comment_model import Comment
 
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):

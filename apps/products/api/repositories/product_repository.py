@@ -1,13 +1,13 @@
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from apps.products.models.product_model import Product
-from apps.stocks.models import Stock
+from apps.stocks.models.stock_model import Stock
 from apps.products.models.category_model import Category
 from apps.products.models.type_model import Type
 
 from django.utils import timezone
 from apps.products.models.product_model import Product
-from apps.stocks.models import Stock
+from apps.stocks.models.stock_model import Stock
 from apps.products.models.category_model import Category
 from apps.products.models.type_model import Type
 

@@ -1,6 +1,6 @@
 from django.test import TestCase
 from apps.products.models import Product
-from apps.stocks.models import Stock
+from apps.stocks.models.stock_model import Stock
 from django.contrib.auth import get_user_model
 
 User = get_user_model()

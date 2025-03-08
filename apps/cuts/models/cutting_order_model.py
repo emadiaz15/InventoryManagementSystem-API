@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 
 from apps.users.models import User
 from apps.products.models.product_model import Product
-from apps.stocks.models import Stock
+from apps.stocks.models.stock_model import Stock
 
 class CuttingOrder(models.Model):
     STATUS_CHOICES = (

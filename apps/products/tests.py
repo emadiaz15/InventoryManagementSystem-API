@@ -2,7 +2,7 @@ import os
 from django.test import TestCase
 from apps.products.models import Product, Category, Type
 from django.contrib.auth import get_user_model
-from apps.stocks.models import Stock
+from apps.stocks.models.stock_model import Stock
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status

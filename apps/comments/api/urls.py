@@ -1,19 +1,15 @@
 from django.urls import path
-from apps.comments.api.views.comment_view import (
-    comment_list_view, 
-    comment_create_view, 
-    comment_detail_view
-)
+from apps.comments.api.views import comment_view as views
 
 urlpatterns = [
-    # Comentarios sobre productos
-    path('products/<int:product_id>/comments/', comment_list_view, name='product-comment-list'),
-    path('products/<int:product_id>/comments/create/', comment_create_view, name='product-comment-create'),
+    # Ruta para listar los comentarios de un producto o subproducto
+    path('comments/<int:product_id>/', views.comment_list_view, name='comment-list'),  # Para productos
+    path('comments/<int:product_id>/subproducts/<int:subproduct_id>/', views.comment_list_view, name='comment-list-subproduct'),  # Para subproductos
     
-    # Comentarios sobre subproductos
-    path('products/<int:product_id>/subproducts/<int:subproduct_id>/comments/', comment_list_view, name='subproduct-comment-list'),
-    path('products/<int:product_id>/subproducts/<int:subproduct_id>/comments/create/', comment_create_view, name='subproduct-comment-create'),
+    # Ruta para crear un comentario sobre un producto o subproducto
+    path('comments/<int:product_id>/create/', views.comment_create_view, name='comment-create'),  # Para productos
+    path('comments/<int:product_id>/subproducts/<int:subproduct_id>/create/', views.comment_create_view, name='comment-create-subproduct'),  # Para subproductos
     
-    # Detalles de un comentario
-    path('comments/<int:pk>/', comment_detail_view, name='comment-detail'),
+    # Rutas para obtener, actualizar y eliminar un comentario específico
+    path('comments/<int:pk>/', views.comment_detail_view, name='comment-detail'),
 ]

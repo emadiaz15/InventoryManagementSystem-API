@@ -1,16 +1,18 @@
 from rest_framework import serializers
 from django.db.models import Sum
 
-from apps.stocks.models import Stock
+from apps.stocks.models.stock_model import Stock
 from apps.products.models.subproduct_model import Subproduct
 
-from apps.stocks.api.serializers import StockSerializer
-from apps.comments.api.serializers import CommentSerializer
+from apps.stocks.api.serializers.stock_serializer import StockSerializer
+from apps.comments.api.serializers.comment_serializer import CommentSerializer
 from apps.products.api.serializers.base_serializer import BaseSerializer
 
 class SubProductSerializer(BaseSerializer):
     """Serializer para subproductos con la lógica de stock y atributos de cable."""
-
+    name=serializers.CharField(max_length=200,default="unnamed")
+    description = serializers.CharField(max_length=500, required=False, allow_blank=True)
+    status=serializers.BooleanField(default=True)
     stock_quantity = serializers.SerializerMethodField()
     brand = serializers.SerializerMethodField()
     number_coil = serializers.SerializerMethodField()
@@ -19,7 +21,7 @@ class SubProductSerializer(BaseSerializer):
     total_weight = serializers.SerializerMethodField()
     coil_weight = serializers.SerializerMethodField()
     technical_sheet_photo = serializers.SerializerMethodField()
-    comments = CommentSerializer(many=True)  # Añadir comentarios
+    comments = CommentSerializer(many=True, required=False)  # Añadir comentarios
 
     class Meta:
         model = Subproduct  # Asegúrate de que es Subproduct, no Product
@@ -64,9 +66,16 @@ class SubProductSerializer(BaseSerializer):
         return technical_sheet_photo.url if technical_sheet_photo else None
 
     def _get_subproduct_attribute(self, obj, attribute):
-        """Obtiene un atributo específico de Subproduct."""
+        """Obtiene un atributo específico del subproducto.
+
+        Si el atributo es un campo relacionado, accede a él y devuelve el valor.
+        Si el atributo es nulo o no existe, devuelve None.
+        """
         try:
-            subproduct = obj.cable_subproduct  # Asegúrate de que la relación es correcta
-            return getattr(subproduct, attribute, None) if subproduct else None
-        except Subproduct.DoesNotExist:
+            # Si el atributo es una relación, intenta obtener el campo relacionado
+            value = getattr(obj, attribute, None)
+            if value and hasattr(value, 'url'):  # Si es un archivo, devuelve la URL
+                return value
+            return value
+        except AttributeError:
             return None
