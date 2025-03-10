@@ -1,0 +1,1 @@
+from .stock_event_doc import stock_event_history_doc

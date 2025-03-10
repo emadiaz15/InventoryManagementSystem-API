@@ -1,0 +1,2 @@
+from .stock_event_subproduct_view import subproduct_stock_event_history
+from .stock_event_product_view import product_stock_event_history

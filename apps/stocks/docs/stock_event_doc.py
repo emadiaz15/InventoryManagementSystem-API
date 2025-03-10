@@ -1,25 +1,57 @@
 stock_event_history_doc = {
-    'operation_id': "get_stock_event_history",
-    'description': "Obtiene el historial de eventos de stock para un producto o subproducto. Los eventos incluyen entradas, salidas y ajustes.",
+    'operation_id': 'stockEventHistory',
+    'responses': {
+        200: {
+            'description': 'Historial de eventos de stock recuperado correctamente.',
+            'content': {
+                'application/json': {
+                    'example': [
+                        {
+                            "id": 1,
+                            "stock": 1,
+                            "quantity_change": 10,
+                            "event_type": "entrada",
+                            "location": "Almacén A",
+                            "created_at": "2025-03-10T12:00:00Z",
+                            "user": {
+                                "id": 1,
+                                "username": "admin"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        400: {
+            'description': 'Tipo de entidad no válido. Usa "product" o "subproduct".'
+        },
+        404: {
+            'description': 'No se encontró stock o la entidad no existe.'
+        },
+        500: {
+            'description': 'Error interno del servidor.'
+        }
+    },
     'parameters': [
         {
             'name': 'pk',
             'in': 'path',
-            'description': 'ID del producto o subproducto',
             'required': True,
-            'schema': {'type': 'integer'}
+            'description': 'ID del producto o subproducto para el cual se obtiene el historial de eventos.',
+            'schema': {
+                'type': 'integer',
+                'example': 1
+            }
         },
         {
             'name': 'entity_type',
             'in': 'path',
-            'description': 'Tipo de entidad (producto o subproducto)',
             'required': True,
-            'schema': {'type': 'string', 'enum': ['product', 'subproduct']}
+            'description': 'Tipo de entidad, puede ser "product" o "subproduct".',
+            'schema': {
+                'type': 'string',
+                'example': 'product'
+            }
         }
-    ],
-    'responses': {
-        200: "Historial de eventos de stock obtenido correctamente",
-        400: "Tipo de entidad no válido o parámetros incorrectos",
-        404: "Producto o subproducto no encontrado"
-    }
+    ]
 }

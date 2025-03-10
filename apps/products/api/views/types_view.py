@@ -10,7 +10,7 @@ from apps.core.pagination import Pagination
 
 from apps.products.api.serializers.type_serializer import TypeSerializer
 
-from apps.products.api.repositories.type_repositoy import TypeRepository
+from apps.products.api.repositories.type_repository import TypeRepository
 
 from apps.products.docs.type_doc import (
     list_type_doc, create_type_doc, get_type_by_id_doc, update_type_by_id_doc,

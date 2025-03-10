@@ -1,9 +1,11 @@
 from django.urls import path
-from apps.stocks.api.views.stock_event_view import stock_event_history
+from apps.stocks.api.views.stock_event_product_view import product_stock_event_history
+from apps.stocks.api.views.stock_event_subproduct_view import subproduct_stock_event_history
 
 urlpatterns = [
-    # Rutas para ver el historial de eventos de stock
-    path('products/<int:pk>/stock/events/', stock_event_history, {'entity_type': 'product'}, name='product-stock-events'),
-    path('products/<int:product_pk>/subproducts/<int:pk>/stock/events/', stock_event_history, {'entity_type': 'subproduct'}, name='subproduct-stock-events'),
-    path('history/', stock_event_history, name='stock-event-history'),
+    # Historial de eventos de stock para productos
+    path('products/<int:pk>/stock/events/', product_stock_event_history, name='product-stock-events'),
+
+    # Historial de eventos de stock para subproductos
+    path('products/<int:product_pk>/subproducts/<int:pk>/stock/events/', subproduct_stock_event_history, name='subproduct-stock-events'),
 ]

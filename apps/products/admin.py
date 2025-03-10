@@ -1,7 +1,6 @@
 from django.contrib import admin
 from .models import Category, Type, Product, Subproduct
 
-
 # Admin para categorías
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -10,7 +9,6 @@ class CategoryAdmin(admin.ModelAdmin):
     list_filter = ['status']
     ordering = ['name']
 
-
 # Admin para tipos
 @admin.register(Type)
 class TypeAdmin(admin.ModelAdmin):
@@ -18,7 +16,6 @@ class TypeAdmin(admin.ModelAdmin):
     search_fields = ['name']
     list_filter = ['status', 'category']
     ordering = ['category', 'name']
-
 
 # Admin genérico para productos
 class GenericProductAdmin(admin.ModelAdmin):
@@ -34,8 +31,20 @@ class GenericProductAdmin(admin.ModelAdmin):
         return obj.total_stock
     total_stock.short_description = 'Total Stock'
 
-
 # Herencia para extender el comportamiento de ProductAdmin sin registrarlo de nuevo
 @admin.register(Product)
 class ProductAdmin(GenericProductAdmin):
-    pass  # Esto usará las configuraciones de GenericProductAdmin
+    pass
+
+# Admin para subproductos
+@admin.register(Subproduct)
+class SubproductAdmin(admin.ModelAdmin):
+    list_display = ['id', 'name', 'parent', 'status', 'total_stock', 'created_at']
+    search_fields = ['name', 'parent__name']
+    list_filter = ['status', 'parent__category']
+    ordering = ['name', 'parent']
+
+    def total_stock(self, obj):
+        """Devuelve el stock total del subproducto."""
+        return obj.total_stock
+    total_stock.short_description = 'Total Stock'

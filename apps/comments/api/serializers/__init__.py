@@ -1,0 +1,3 @@
+from .base_comment_serializer import BaseCommentSerializer
+from .comment_product import ProductCommentSerializer
+from .comment_subproduct import SubproductCommentSerializer

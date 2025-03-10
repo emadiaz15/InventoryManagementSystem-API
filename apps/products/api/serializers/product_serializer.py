@@ -1,20 +1,16 @@
 from rest_framework import serializers
 from django.db.models import Sum
-
 from apps.products.models.product_model import Product
 from apps.products.models.category_model import Category
 from apps.products.models.type_model import Type
-
-from apps.comments.models.comment_model import Comment
-from apps.stocks.models.stock_model import Stock
-
+from apps.comments.models.comment_product_model import ProductComment
+from apps.stocks.models import ProductStock
 from apps.products.api.serializers.base_serializer import BaseSerializer
 from apps.products.api.serializers.subproduct_serializer import SubProductSerializer
 from apps.products.api.serializers.category_serializer import CategorySerializer
 from apps.products.api.serializers.type_serializer import TypeSerializer
-
-from apps.comments.api.serializers.comment_serializer import CommentSerializer
-from apps.stocks.api.serializers.stock_serializer import StockSerializer
+from apps.comments.api.serializers import ProductCommentSerializer 
+from apps.stocks.api.serializers import StockProductSerializer
 
 class ProductSerializer(BaseSerializer):
     """Serializer para el producto con la lógica de validaciones y manejo de subproductos."""
@@ -23,9 +19,8 @@ class ProductSerializer(BaseSerializer):
     type = serializers.PrimaryKeyRelatedField(queryset=Type.objects.all())
     total_stock = serializers.SerializerMethodField()
     subproducts = SubProductSerializer(many=True, read_only=True)
-    comments = CommentSerializer(many=True, read_only=True)
+    comments = ProductCommentSerializer(many=True, read_only=True)
 
-    # Añadimos modified_at y deleted_at como campos a representar
     class Meta:
         model = Product
         fields = [
@@ -36,9 +31,13 @@ class ProductSerializer(BaseSerializer):
 
     def get_total_stock(self, obj):
         """Calcula el stock total sumando el stock del producto y el de sus subproductos."""
-        own_stock = obj.stocks.filter(is_active=True).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
-        subproduct_stock = Stock.objects.filter(product__in=obj.subproducts.all(), is_active=True).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
-        return own_stock + subproduct_stock
+        # Stock del producto principal
+        product_stock = ProductStock.objects.filter(product=obj, status=True).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+
+        # Stock de los subproductos
+        subproduct_stock = ProductStock.objects.filter(subproduct__parent=obj, status=True).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+        
+        return product_stock + subproduct_stock
 
     def validate(self, data):
         """Valida datos de nombre, código y restricciones para productos de categoría 'Cables'."""
@@ -55,12 +54,12 @@ class ProductSerializer(BaseSerializer):
         if code is not None:
             if not isinstance(code, int) or code <= 0:
                 raise serializers.ValidationError({"code": "El código del producto debe ser un número entero positivo."})
-            
-            # Verificación de unicidad, optimizada para productos nuevos y existentes.
+
+            # Verificación de unicidad
             if self.instance is None:
                 if Product.objects.filter(code=code).exists():
                     raise serializers.ValidationError({"code": "El código del producto ya está en uso."})
-            else:  # Solo verificar unicidad si el producto está siendo actualizado y no hay cambios en el código.
+            else:
                 if Product.objects.exclude(id=self.instance.id).filter(code=code).exists():
                     raise serializers.ValidationError({"code": "El código del producto ya está en uso."})
 
@@ -70,22 +69,13 @@ class ProductSerializer(BaseSerializer):
         """Ajusta la representación del objeto para asegurar valores correctos."""
         data = super().to_representation(instance)
 
-        # Ajustamos los campos 'created_by', 'modified_by', 'deleted_by', 'created_at', 'modified_at', y 'deleted_at'
+        # Ajuste de campos para asegurar la correcta representación de las fechas y usuarios
         data['created_at'] = instance.created_at
-        data['modified_at'] = instance.modified_at if instance.modified_at else None  # Si no existe, devolverá None
-        data['deleted_at'] = instance.deleted_at if instance.deleted_at else None  # Si no existe, devolverá None
+        data['modified_at'] = instance.modified_at or None
+        data['deleted_at'] = instance.deleted_at or None
 
-        if instance.modified_by:
-            data['modified_by'] = instance.modified_by.username
-        else:
-            data['modified_by'] = None
-
-        if instance.deleted_by:
-            data['deleted_by'] = instance.deleted_by.username
-        else:
-            data['deleted_by'] = None
-
-        if instance.created_by:
-            data['created_by'] = instance.created_by.username  # O el campo que prefieras mostrar
+        data['modified_by'] = instance.modified_by.username if instance.modified_by else None
+        data['deleted_by'] = instance.deleted_by.username if instance.deleted_by else None
+        data['created_by'] = instance.created_by.username if instance.created_by else None
 
         return data

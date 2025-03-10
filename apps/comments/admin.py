@@ -1,15 +1,32 @@
 from django.contrib import admin
-from apps.comments.models.comment_model import Comment
+from django.apps import apps
 
-@admin.register(Comment)
-class CommentAdmin(admin.ModelAdmin):
-    list_display = ('id', 'get_related_object', 'user', 'text', 'created_at', 'deleted_at')
+ProductComment = apps.get_model('comments', 'ProductComment')
+SubproductComment = apps.get_model('comments', 'SubproductComment')
+
+@admin.register(ProductComment)
+class ProductCommentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'product','text', 'created_at', 'deleted_at')
     list_filter = ('deleted_at', 'created_at')
-    search_fields = ('text', 'user__username', 'content_type__model')
+    search_fields = ('text', 'user__username', 'product__name')
     readonly_fields = ('created_at', 'modified_at')
 
-    def get_related_object(self, obj):
-        # Devuelve el nombre del objeto relacionado (Product o SubProduct)
-        return obj.content_object  # Usa content_object para obtener el objeto relacionado
+    def get_related_product(self, obj):
+        """Devuelve el producto relacionado con el comentario."""
+        return obj.product.name if obj.product else "Sin Producto"
 
-    get_related_object.short_description = 'Related Object'
+    get_related_product.short_description = 'Producto'
+
+
+@admin.register(SubproductComment)
+class SubproductCommentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'subproduct', 'text', 'created_at', 'deleted_at')
+    list_filter = ('deleted_at', 'created_at')
+    search_fields = ('text', 'user__username', 'subproduct__name')
+    readonly_fields = ('created_at', 'modified_at')
+
+    def get_related_subproduct(self, obj):
+        """Devuelve el subproducto relacionado con el comentario."""
+        return obj.subproduct.name if obj.subproduct else "Sin Subproducto"
+
+    get_related_subproduct.short_description = 'Subproducto'

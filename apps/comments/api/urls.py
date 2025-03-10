@@ -1,15 +1,25 @@
 from django.urls import path
-from apps.comments.api.views import comment_view as views
+from apps.comments.api.views.comment_product_view import (
+    comment_product_list_view,
+    comment_product_detail_view,
+    comment_product_create_view,
+)
+from apps.comments.api.views.comment_subproduct_view import (
+    comment_subproduct_list_view,
+    comment_subproduct_detail_view,
+    comment_subproduct_create_view,
+)
 
 urlpatterns = [
-    # Ruta para listar los comentarios de un producto o subproducto
-    path('comments/<int:product_id>/', views.comment_list_view, name='comment-list'),  # Para productos
-    path('comments/<int:product_id>/subproducts/<int:subproduct_id>/', views.comment_list_view, name='comment-list-subproduct'),  # Para subproductos
-    
-    # Ruta para crear un comentario sobre un producto o subproducto
-    path('comments/<int:product_id>/create/', views.comment_create_view, name='comment-create'),  # Para productos
-    path('comments/<int:product_id>/subproducts/<int:subproduct_id>/create/', views.comment_create_view, name='comment-create-subproduct'),  # Para subproductos
-    
+    # Rutas para listar comentarios de productos y subproductos
+    path('products/<int:product_pk>/comments/',comment_product_list_view, name='comment-list-product'),  # Para productos
+    path('products/<int:product_pk>/subproducts/<int:subproduct_pk>/comments/',comment_subproduct_list_view, name='comment-list-subproduct'),  # Para subproductos
+
+    # Rutas para crear comentarios
+    path('products/<int:product_pk>/comments/create/',comment_product_create_view, name='comment-create-product'),  # Para productos
+    path('products/<int:product_pk>/subproducts/<int:subproduct_pk>/comments/create/',comment_subproduct_create_view, name='comment-create-subproduct'),  # Para subproductos
+
     # Rutas para obtener, actualizar y eliminar un comentario específico
-    path('comments/<int:pk>/', views.comment_detail_view, name='comment-detail'),
+    path('products/<int:product_pk>/comments/<int:pk>/',comment_product_detail_view, name='comment-detail-product'),  # Para productos
+    path('products/<int:product_pk>/subproducts/<int:subproduct_pk>/comments/<int:pk>/',comment_subproduct_detail_view, name='comment-detail-subproduct'),  # Para subproductos
 ]
