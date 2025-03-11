@@ -5,7 +5,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from django.core.exceptions import ObjectDoesNotExist
 from drf_spectacular.utils import extend_schema
-
+from apps.core.pagination import Pagination
 from apps.comments.api.repositories import SubproductCommentRepository
 from apps.comments.api.serializers import SubproductCommentSerializer
 from apps.products.models import Subproduct
@@ -18,21 +18,29 @@ from apps.comments.docs.comment_subproduct_view import (
     delete_comment_doc
 )
 
-# ✅ Vista para listar comentarios de un subproducto
 @extend_schema(**list_comments_doc)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def comment_subproduct_list_view(request, subproduct_id=None):
+def comment_subproduct_list_view(request, product_pk, subproduct_pk):
     """
     Obtiene la lista de comentarios activos de un subproducto.
     """
-    if subproduct_id:
-        comments = SubproductCommentRepository.get_comments(subproduct_id)
-        serializer = SubproductCommentSerializer(comments, many=True)
-    else:
-        return Response({"error": "Debe proporcionar 'subproduct_id'."}, status=status.HTTP_400_BAD_REQUEST)
+    if subproduct_pk:
+        comments = SubproductCommentRepository.get_comments(subproduct_pk)
 
-    return Response(serializer.data, status=status.HTTP_200_OK)
+        # Aplicando paginación
+        pagination = Pagination()  # Inicializa el paginador
+        paginated_comments = pagination.paginate_queryset(comments, request)  # Paginamos los comentarios
+
+        # Serializamos los comentarios paginados
+        serializer = SubproductCommentSerializer(paginated_comments, many=True)
+
+        # Devolvemos la respuesta paginada
+        return pagination.get_paginated_response(serializer.data)
+
+    else:
+        return Response({"error": "Debe proporcionar 'subproduct_pk'."}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @extend_schema(**create_comment_doc)

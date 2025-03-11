@@ -34,7 +34,6 @@ def comment_product_list_view(request, product_pk=None):
         return pagination.get_paginated_response(serializer.data)
     else:
         return Response({"error": "Debe proporcionar 'product_pk'."}, status=status.HTTP_400_BAD_REQUEST)
-
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 

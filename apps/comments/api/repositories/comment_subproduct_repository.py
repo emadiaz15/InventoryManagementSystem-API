@@ -28,13 +28,13 @@ class SubproductCommentRepository:
     @staticmethod
     def get_comments(subproduct_id):
         """Obtiene los comentarios activos de un subproducto específico."""
-        return SubproductComment.active_objects.filter(subproduct_id=subproduct_id)
+        return SubproductComment.objects.filter(subproduct_id=subproduct_id, status=True)
 
     @staticmethod
     def get_comment_by_id(comment_id):
         """Obtiene un comentario específico por su ID."""
         try:
-            return SubproductComment.objects.get(id=comment_id)
+            return SubproductComment.objects.get(id=comment_id, status=True)
         except SubproductComment.DoesNotExist:
             raise ObjectDoesNotExist(f"Comentario con id {comment_id} no existe.")
 
@@ -57,11 +57,14 @@ class SubproductCommentRepository:
     def soft_delete_comment(comment_id, user):
         """Realiza un soft delete de un comentario de subproducto."""
         try:
-            comment = SubproductComment.objects.get(id=comment_id)
-            comment.delete(user=user)  # Usa el método delete con el usuario
+            comment = SubproductComment.objects.get(id=comment_id, status=True)
+            comment.status = False  # Marcamos el estado como eliminado
+            comment.deleted_at = timezone.now()  # Asignamos la fecha de eliminación
+            comment.deleted_by = user  # Guardamos quién realizó la eliminación
+            comment.save(update_fields=['status', 'deleted_at', 'deleted_by'])  # Solo actualizamos los campos relevantes
             return comment
         except SubproductComment.DoesNotExist:
-            raise ObjectDoesNotExist(f"Comentario con id {comment_id} no existe.")
+            raise ObjectDoesNotExist(f"Comentario con id {comment_id} no existe o ya está eliminado.")
 
     @staticmethod
     def restore_comment(comment_id):
