@@ -1,4 +1,4 @@
-from django.db.models.signals import post_save, post_delete
+"""from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from apps.products.models.subproduct_model import Subproduct
 from apps.stocks.models import ProductStock, SubproductStock
@@ -7,11 +7,6 @@ from django.contrib.auth import get_user_model
 
 @receiver(post_save, sender=Subproduct)
 def sync_stock_for_subproduct(sender, instance, created, **kwargs):
-    """
-    Cada vez que se crea o actualiza un Subproduct, se ajusta el stock del Product relacionado.
-    - Si es nuevo, se crea un Stock si no existe.
-    - Si ya existe, se actualiza la cantidad total sumando los subproductos.
-    """
     product = instance.parent  # Producto padre del Subproduct
 
     if not product:
@@ -53,9 +48,6 @@ def sync_stock_for_subproduct(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=Subproduct)
 def remove_stock_for_deleted_subproduct(sender, instance, **kwargs):
-    """
-    Cuando se elimina un Subproduct, se ajusta el stock del Product relacionado.
-    """
     product = instance.parent  # Producto padre del Subproduct
 
     if not product:
@@ -81,3 +73,4 @@ def remove_stock_for_deleted_subproduct(sender, instance, **kwargs):
         product_stock.quantity = total_subproduct_stock
         product_stock.modified_by = default_user
         product_stock.save()
+"""
