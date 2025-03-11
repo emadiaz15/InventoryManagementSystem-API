@@ -4,6 +4,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from django.core.exceptions import ObjectDoesNotExist
 from drf_spectacular.utils import extend_schema
+
+from apps.core.pagination import Pagination
 from apps.products.models import Product
 from apps.comments.api.repositories import ProductCommentRepository
 from apps.comments.api.serializers import ProductCommentSerializer
@@ -16,19 +18,21 @@ from apps.comments.docs.comment_product_view import (
     delete_comment_doc
 )
 
-# ✅ Vista para listar comentarios de un producto
 @extend_schema(**list_comments_doc)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def comment_product_list_view(request, product_id=None):
+def comment_product_list_view(request, product_pk=None):
     """
     Obtiene la lista de comentarios activos de un producto.
     """
-    if product_id:
-        comments = ProductCommentRepository.get_comments(product_id)
-        serializer = ProductCommentSerializer(comments, many=True)
+    if product_pk:
+        comments = ProductCommentRepository.get_comments(product_pk)
+        pagination = Pagination() 
+        paginated_comments = pagination.paginate_queryset(comments, request)
+        serializer = ProductCommentSerializer(paginated_comments, many=True)
+        return pagination.get_paginated_response(serializer.data)
     else:
-        return Response({"error": "Debe proporcionar 'product_id'."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "Debe proporcionar 'product_pk'."}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(serializer.data, status=status.HTTP_200_OK)
 
