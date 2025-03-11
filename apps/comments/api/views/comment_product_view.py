@@ -4,6 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from django.core.exceptions import ObjectDoesNotExist
 from drf_spectacular.utils import extend_schema
+from django.utils import timezone
 
 from apps.core.pagination import Pagination
 from apps.products.models import Product
@@ -68,33 +69,41 @@ def comment_product_create_view(request, product_pk):
         # Manejar otros errores
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-
-
 @extend_schema(**get_comment_by_id_doc)
 @extend_schema(**update_comment_doc)
 @extend_schema(**delete_comment_doc)
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
-def comment_product_detail_view(request, pk):
+def comment_product_detail_view(request, product_pk, pk):
     """
     Obtiene, actualiza o elimina un comentario específico de producto.
     """
     try:
+        # Obtener el comentario por su ID
         comment = ProductCommentRepository.get_comment_by_id(pk)
     except ObjectDoesNotExist:
         return Response({'detail': 'Comentario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
+        # Serializamos y devolvemos el comentario
         serializer = ProductCommentSerializer(comment)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     elif request.method in ['PUT', 'PATCH']:
+        # Actualizamos el comentario
         serializer = ProductCommentSerializer(comment, data=request.data, partial=(request.method == 'PATCH'))
+
         if serializer.is_valid():
-            serializer.save()
+            # Se pasa el usuario actual para que 'modified_by' y 'modified_at' se actualicen
+            serializer.save(modified_by=request.user, modified_at=timezone.now())
             return Response(serializer.data, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
-        ProductCommentRepository.soft_delete_comment(pk, request.user)
-        return Response({'message': 'Comentario eliminado correctamente (soft delete).'}, status=status.HTTP_204_NO_CONTENT)
+        # Realizamos el soft delete del comentario
+        try:
+            ProductCommentRepository.soft_delete_comment(pk, request.user)
+            return Response({'message': 'Comentario eliminado correctamente (soft delete).'}, status=status.HTTP_204_NO_CONTENT)
+        except ObjectDoesNotExist:
+            return Response({'detail': 'Comentario no encontrado o ya ha sido eliminado.'}, status=status.HTTP_404_NOT_FOUND)
