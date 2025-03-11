@@ -13,25 +13,38 @@ from apps.core.pagination import Pagination
 from apps.products.api.serializers.subproduct_serializer import SubProductSerializer
 from apps.products.api.repositories.subproduct_repository import SubproductRepository
 from apps.products.models.product_model import Product
+from apps.comments.models.comment_subproduct_model import SubproductComment
+from apps.comments.api.serializers.comment_subproduct_serializer import SubproductCommentSerializer
 from apps.products.models.subproduct_model import Subproduct
 from apps.products.docs.subproduct_doc import (
     list_subproducts_doc, create_subproduct_doc, get_subproduct_by_id_doc,
     update_product_by_id_doc, delete_product_by_id_doc
 )
-
 @extend_schema(**list_subproducts_doc)
 @api_view(['GET'])
 @permission_classes([IsStaffOrReadOnly])
 def subproduct_list(request, product_pk):
     """
-    Vista para listar todos los subproductos activos asociados a un producto padre, con paginación.
+    Vista para listar todos los subproductos activos asociados a un producto padre, con paginación, incluyendo comentarios.
     """
     parent_product = get_object_or_404(Product, pk=product_pk, status=True)  # Obtener el producto padre
     subproducts = SubproductRepository.get_all_active(parent_product.pk).order_by('id')  # Listar subproductos activos
-    paginator = Pagination()  # Inicializar paginador
+    
+    # Inicializar el paginador
+    paginator = Pagination()
     paginated_subproducts = paginator.paginate_queryset(subproducts, request)  # Paginación de subproductos
-    serializer = SubProductSerializer(paginated_subproducts, many=True)  # Serializar subproductos
-    return paginator.get_paginated_response(serializer.data)  # Responder con los subproductos paginados
+
+    # Serializar subproductos
+    serializer = SubProductSerializer(paginated_subproducts, many=True)
+
+    # Agregar comentarios de subproducto
+    for subproduct_data in serializer.data:
+        subproduct = Subproduct.objects.get(id=subproduct_data['id'])  # Obtener el subproducto
+        subproduct_comments = SubproductComment.objects.filter(subproduct=subproduct, status=True)  # Obtener los comentarios activos
+        subproduct_data['comments'] = SubproductCommentSerializer(subproduct_comments, many=True).data  # Asignar comentarios
+
+    # Devolver la respuesta con los subproductos paginados, incluyendo comentarios
+    return paginator.get_paginated_response(serializer.data)
 
 
 @extend_schema(**create_subproduct_doc)
