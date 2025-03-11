@@ -35,6 +35,16 @@ class StockSubproductSerializer(BaseSerializer):
             if total_sub_stock + new_subproduct_stock > product_stock.quantity:
                 raise serializers.ValidationError("El stock de subproductos no puede exceder el stock del producto.")
         
+        # Nueva validación: Si el producto tiene subproductos, asegurarse de que el stock total del producto sea igual a la suma de los subproductos
+        if product_stock.product.subproducts.exists():  # Verificar si el producto tiene subproductos
+            total_subproduct_stock = SubproductStock.objects.filter(product_stock=product_stock).aggregate(Sum('quantity'))['quantity__sum'] or 0
+            if total_subproduct_stock != product_stock.quantity:
+                raise serializers.ValidationError("El stock del producto debe ser igual a la suma del stock de sus subproductos.")
+
+        # Validación en caso de que el producto no tenga subproductos
+        elif not product_stock.product.subproducts.exists() and product_stock.quantity != data.get('quantity'):
+            raise serializers.ValidationError("El stock del producto debe ser independiente y no depender de subproductos si no hay subproductos asociados.")
+
         return data
 
     def update(self, instance, validated_data):

@@ -1,76 +1,39 @@
-"""from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save
 from django.dispatch import receiver
-from apps.products.models.subproduct_model import Subproduct
-from apps.stocks.models import ProductStock, SubproductStock
-from django.contrib.auth import get_user_model
+from apps.products.models import Product, Subproduct
+from apps.stocks.models.stock_product_model import ProductStock
+from apps.stocks.models.stock_subproduct_model import SubproductStock
 
+# Crear o actualizar el stock de productos cuando se guarda un producto
+@receiver(post_save, sender=Product)
+def create_or_update_stock_product(sender, instance, created, **kwargs):
+    if created:  # Si el producto es recién creado
+        # Crear el stock de producto con un valor inicial de quantity, por ejemplo, 0
+        ProductStock.objects.create(product=instance, quantity=instance.quantity or 0)
+    else:  # Si el producto ya existe y se actualiza
+        try:
+            stock_product = ProductStock.objects.get(product=instance)
+            # Solo actualizar si el stock ha cambiado
+            if stock_product.quantity != instance.quantity:
+                stock_product.quantity = instance.quantity
+                stock_product.save()
+        except ProductStock.DoesNotExist:
+            # Si no existe, crear uno nuevo
+            ProductStock.objects.create(product=instance, quantity=instance.quantity or 0)
 
+# Crear o actualizar el stock de subproductos cuando se guarda un subproducto
 @receiver(post_save, sender=Subproduct)
-def sync_stock_for_subproduct(sender, instance, created, **kwargs):
-    product = instance.parent  # Producto padre del Subproduct
-
-    if not product:
-        return  # Si no hay producto padre, no hacemos nada
-
-    # Obtener usuario predeterminado (el primer staff disponible o cualquier usuario)
-    User = get_user_model()
-    default_user = User.objects.filter(is_staff=True).first() or User.objects.first()
-
-    # ✅ Obtener el stock del producto padre
-    product_stock, created_stock = ProductStock.objects.get_or_create(
-        product=product,
-        defaults={'quantity': 0, 'created_by': default_user}
-    )
-
-    # ✅ Obtener o crear el stock del subproducto
-    subproduct_stock, created_sub_stock = SubproductStock.objects.get_or_create(
-        subproduct=instance,
-        defaults={'quantity': instance.initial_length or 0, 'created_by': default_user}
-    )
-
-    # ✅ Si el subproducto ya tenía stock, actualizamos la cantidad
-    if not created_sub_stock:
-        subproduct_stock.quantity = instance.initial_length or 0
-        subproduct_stock.modified_by = default_user
-        subproduct_stock.save()
-
-    # ✅ Recalcular el stock total de subproductos activos relacionados
-    subproducts = Subproduct.objects.filter(parent=product, status=True)
-    total_subproduct_stock = sum(
-        subproduct.stock.quantity for subproduct in subproducts if subproduct.stock
-    )
-
-    # ✅ Actualizar la cantidad total del stock del producto con la suma de los subproductos
-    product_stock.quantity = total_subproduct_stock
-    product_stock.modified_by = default_user
-    product_stock.save()
-
-
-@receiver(post_delete, sender=Subproduct)
-def remove_stock_for_deleted_subproduct(sender, instance, **kwargs):
-    product = instance.parent  # Producto padre del Subproduct
-
-    if not product:
-        return  # Si no hay producto padre, no hacemos nada
-
-    # ✅ Si el subproducto tenía stock, eliminarlo
-    if instance.stock:
-        instance.stock.delete()
-
-    # ✅ Obtener usuario predeterminado
-    User = get_user_model()
-    default_user = User.objects.filter(is_staff=True).first() or User.objects.first()
-
-    # ✅ Recalcular el stock total del producto padre
-    subproducts = Subproduct.objects.filter(parent=product, status=True)
-    total_subproduct_stock = sum(
-        subproduct.stock.quantity for subproduct in subproducts if subproduct.stock
-    )
-
-    # ✅ Actualizar el stock del producto padre
-    product_stock = ProductStock.objects.filter(product=product).first()
-    if product_stock:
-        product_stock.quantity = total_subproduct_stock
-        product_stock.modified_by = default_user
-        product_stock.save()
-"""
+def create_or_update_stock_subproduct(sender, instance, created, **kwargs):
+    if created:  # Si el subproducto es recién creado
+        # Crear el stock de subproducto con un valor inicial de quantity, por ejemplo, 0
+        SubproductStock.objects.create(subproduct=instance, quantity=instance.quantity or 0)
+    else:  # Si el subproducto ya existe y se actualiza
+        try:
+            stock_subproduct = SubproductStock.objects.get(subproduct=instance)
+            # Solo actualizar si el stock ha cambiado
+            if stock_subproduct.quantity != instance.quantity:
+                stock_subproduct.quantity = instance.quantity
+                stock_subproduct.save()
+        except SubproductStock.DoesNotExist:
+            # Si no existe, crear uno nuevo
+            SubproductStock.objects.create(subproduct=instance, quantity=instance.quantity or 0)

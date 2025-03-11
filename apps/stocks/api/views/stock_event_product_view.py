@@ -1,5 +1,3 @@
-# apps/stocks/api/views/product_stock_event_history.py
-
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -9,7 +7,6 @@ from apps.users.permissions import IsStaffOrReadOnly
 from apps.stocks.api.serializers.stock_event_serializer import StockEventSerializer
 from apps.stocks.api.repositories import ProductRepository
 from apps.stocks.docs.stock_event_doc import stock_event_history_doc
-from apps.products.models.product_model import Product
 
 @extend_schema(**stock_event_history_doc)
 @api_view(['GET'])
@@ -28,7 +25,7 @@ def product_stock_event_history(request, pk):
             return Response({"detail": "No se encontró stock para el producto."}, status=status.HTTP_404_NOT_FOUND)
 
         # Obtener eventos de stock optimizados
-        stock_events = stock.events.select_related("user").order_by('-created_at')
+        stock_events = stock.events.select_related("user", "product").order_by('-created_at')
 
         # Si no hay eventos registrados, responder con un mensaje claro
         if not stock_events.exists():
@@ -39,7 +36,6 @@ def product_stock_event_history(request, pk):
 
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    except Product.DoesNotExist:
-        return Response({"detail": "El producto no existe."}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
-        return Response({"detail": f"Error inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # En producción, no exponer detalles del error
+        return Response({"detail": "Error inesperado."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

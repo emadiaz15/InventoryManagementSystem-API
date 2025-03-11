@@ -1,7 +1,6 @@
 from django.utils import timezone
 from django.db import models
 from django.core.exceptions import ValidationError
-
 from apps.stocks.models import ProductStock
 from apps.stocks.models.stock_event_model import StockEvent
 from apps.products.models.product_model import Product
@@ -23,14 +22,19 @@ class ProductRepository:
         if not location:
             raise ValidationError("Debe proporcionar una ubicación válida.")
 
-        # Crear stock para el producto
-        stock = ProductStock(
-            quantity=quantity,
-            location=location,
-            product=product,
-            created_by=user
-        )
-        stock.save()
+        existing_stock = ProductStock.objects.filter(product=product).first()
+        
+        if existing_stock:
+            existing_stock.quantity += quantity
+            existing_stock.save()
+        else:
+            stock = ProductStock(
+                quantity=quantity,
+                location=location,
+                product=product,
+                created_by=user
+            )
+            stock.save()
 
         # Registrar un evento de stock (entrada)
         StockEvent.objects.create(
@@ -62,11 +66,12 @@ class ProductRepository:
 
         stock.save()
 
-        # Registrar un evento de stock (ajuste)
+        # Registrar un evento de stock (ajuste o entrada si cantidad positiva)
+        event_type = "ajuste" if quantity_change != 0 else "entrada"
         StockEvent.objects.create(
             stock=stock,
             quantity_change=quantity_change,
-            event_type="ajuste" if quantity_change != 0 else "entrada",
+            event_type=event_type,
             user=user,
             location=location or stock.location
         )
@@ -86,7 +91,7 @@ class ProductRepository:
         # Registrar un evento de salida
         StockEvent.objects.create(
             stock=stock,
-            quantity_change=-stock.quantity,
+            quantity_change=-stock.quantity,  # Aquí podrías ajustarlo si se elimina una parte del stock
             event_type="salida",
             user=user,
             location=stock.location
@@ -110,5 +115,6 @@ class ProductRepository:
             total=models.Sum("quantity")
         )["total"] or 0
 
+        # Aquí podrías incluir validación adicional si necesitas verificar el stock total frente a subproductos.
         if product_stock < 0:
             raise ValidationError(f"El stock total del producto (ID: {product_id}) es negativo.")

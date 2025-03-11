@@ -1,12 +1,10 @@
+from django.utils import timezone
 from django.db import models
 from django.core.exceptions import ValidationError
-from django.utils import timezone
-
 from apps.stocks.models import ProductStock
 from apps.stocks.models import SubproductStock
 from apps.stocks.models.stock_event_model import StockEvent
 from apps.products.models.subproduct_model import Subproduct
-
 from apps.stocks.api.repositories.stock_product_repository import ProductRepository
 
 class SubproductRepository:
