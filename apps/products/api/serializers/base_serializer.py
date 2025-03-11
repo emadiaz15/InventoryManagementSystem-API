@@ -22,46 +22,38 @@ class BaseSerializer(serializers.ModelSerializer):
         if self.Meta.model.objects.filter(Q(code=code) & ~Q(id=self.instance.id if self.instance else None)).exists():
             raise serializers.ValidationError(f"El código '{code}' ya existe. Debe ser único.")
 
-    def create(self, validated_data):
-        """Sobreescribe el método create para agregar 'created_by', 'modified_by'."""
-        user = self.context['request'].user  # Obtener el usuario autenticado
-        validated_data['created_by'] = user
-        validated_data['modified_by'] = None  # Inicialmente, 'modified_by' es None
-        validated_data['created_at'] = timezone.now()
-        validated_data['modified_at'] = None
-        validated_data['deleted_at'] = None
-        return super().create(validated_data)
-
     def update(self, instance, validated_data):
         """Sobreescribe el método update para actualizar 'modified_by' y 'modified_at'."""
-        request = self.context.get('request', None)
-        user = request.user if request and hasattr(request, "user") else None
+
+        user = self.context['request'].user if self.context.get('request') else None
 
         if user:
+            # Si hay cambios relevantes en nombre, descripción o estado, actualizamos la fecha y usuario de modificación
             if any(field in validated_data for field in ['name', 'description', 'status']):
-                validated_data['modified_by'] = user
+                validated_data['modified_by'] = user.username  # Usamos el username
                 validated_data['modified_at'] = timezone.now()
 
-        if 'status' in validated_data and validated_data['status'] is False:
-            validated_data['deleted_by'] = user
-            validated_data['deleted_at'] = timezone.now()
+            # Si el estado se pone a False, indicamos el usuario que eliminó el producto
+            if 'status' in validated_data and validated_data['status'] is False:
+                validated_data['deleted_by'] = user.username  # Usamos el username
+                validated_data['deleted_at'] = timezone.now()
 
-        return super().update(instance, validated_data)
+        # Aquí actualizamos la instancia con los datos validados
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+
+        # Guardamos la instancia actualizada
+        instance.save()
+
+        return instance
 
     def to_representation(self, instance):
         """Ajusta la representación del objeto para asegurar valores correctos."""
         data = super().to_representation(instance)
 
-        # Ajustamos el campo 'modified_by' y 'deleted_by' para evitar valores nulos innecesarios
-        if instance.modified_by is None:
-            data['modified_by'] = None
-
-        if not instance.deleted_by and instance.status != False:
-            data['deleted_by'] = None
-
-        # Aseguramos que 'created_by' esté presente
-        if instance.created_by:
-            data['created_by'] = instance.created_by.username  # O el campo que prefieras mostrar
+        # Ajustamos los campos 'modified_by' y 'deleted_by' para asegurarnos que se muestren correctamente
+        data['created_by'] = instance.created_by.username if instance.created_by else None
+        data['modified_by'] = instance.modified_by.username if instance.modified_by else None
+        data['deleted_by'] = instance.deleted_by.username if instance.deleted_by else None
 
         return data
-

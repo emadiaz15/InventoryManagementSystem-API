@@ -10,7 +10,7 @@ api_patterns = [
     path('users/', include('apps.users.api.urls')),  # Rutas de la app `users`
     path('inventory/', include('apps.products.api.urls')),  # Rutas de la app `products`
     path('cutting/', include('apps.cuts.api.urls')),  # Rutas de la app `cutting`
-    path('stock-events/', include('apps.stocks.api.urls')),  # Rutas para los eventos de stock
+    #path('stock-events/', include('apps.stocks.api.urls')),  # Rutas para los eventos de stock
     path('comments/', include('apps.comments.api.urls')),  # Rutas de la app `comments`
 ]
 

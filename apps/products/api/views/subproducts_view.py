@@ -39,6 +39,7 @@ def create_subproduct(request, product_pk):
     """Crea un nuevo subproducto asociado a un producto padre"""
     parent_product = get_object_or_404(Product, pk=product_pk, status=True)
 
+    # Validar la presencia de los datos requeridos
     serializer = SubProductSerializer(data=request.data)
     if serializer.is_valid():
         try:
@@ -113,12 +114,16 @@ def update_subproduct(request, subproduct):
 # ✅ Soft delete con mejor manejo de usuario
 def soft_delete_subproduct(request, subproduct):
     """Realiza un soft delete del subproducto"""
-    subproduct.status = False
-    subproduct.deleted_at = timezone.now()
-    subproduct.deleted_by = request.user  # Asegura que se asigna el usuario autenticado
-    subproduct.save()
+    try:
+        subproduct.status = False
+        subproduct.deleted_at = timezone.now()
+        subproduct.deleted_by = request.user  # Asegura que se asigna el usuario autenticado
+        subproduct.save()
 
-    # Eliminar el stock del subproducto si es necesario
-    SubproductRepository.soft_delete(subproduct, request.user)
+        # Eliminar el stock del subproducto si es necesario
+        SubproductRepository.soft_delete(subproduct, request.user)
 
-    return Response({"detail": "Subproducto eliminado con éxito."}, status=status.HTTP_204_NO_CONTENT)
+        return Response({"detail": "Subproducto eliminado con éxito."}, status=status.HTTP_204_NO_CONTENT)
+    
+    except Exception as e:
+        return Response({"detail": f"Error inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

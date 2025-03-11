@@ -1,13 +1,12 @@
 from django.db import models
 from apps.stocks.models import BaseStock
 from django.contrib.auth import get_user_model
-
+from apps.stocks.models.stock_event_model import StockEvent
 User = get_user_model()
 
 class ProductStock(BaseStock):
     """Modelo para manejar el stock total de un producto."""
         
-    product = models.ForeignKey('products.Product', on_delete=models.CASCADE, related_name='product_stock_set', default=1)
     stock_event = models.ForeignKey('stocks.StockEvent', on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
     

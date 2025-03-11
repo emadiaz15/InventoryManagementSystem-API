@@ -25,41 +25,53 @@ from apps.products.docs.product_doc import (
 @api_view(['GET'])
 @permission_classes([IsStaffOrReadOnly])
 def product_list(request):
-    products = ProductRepository.get_all_active_products()
-    paginator = Pagination()
-    paginated_products = paginator.paginate_queryset(products, request)
-    serializer = ProductSerializer(paginated_products, many=True)
-    return paginator.get_paginated_response(serializer.data)
+    """
+    Vista para listar todos los productos activos con paginación.
+    """
+    products = ProductRepository.get_all_active_products().order_by('id')  # Ordenar los productos por ID (o cualquier otro campo)
+    paginator = Pagination()  # Inicializar paginador
+    paginated_products = paginator.paginate_queryset(products, request)  # Paginación de los productos
+    serializer = ProductSerializer(paginated_products, many=True)  # Serializar los productos
+    return paginator.get_paginated_response(serializer.data)  # Responder con los productos paginados
 
 
 @extend_schema(**create_product_doc)
 @api_view(['POST'])
-@permission_classes([IsStaffOrReadOnly])
+@permission_classes([IsStaffOrReadOnly])  # Define tu clase de permisos según tu necesidad
 def create_product(request):
-    serializer = ProductSerializer(data=request.data, context={'request': request})
-    
+    """
+    Vista para crear un nuevo producto.
+    """
+    serializer = ProductSerializer(data=request.data, context={'request': request})  # Serializar los datos de entrada
+
     if serializer.is_valid():
         try:
-            # Crear el producto usando la función de repositorio, pasando solo los IDs
+            # Extraer los datos validados del serializador
+            category_id = serializer.validated_data['category'].id  # Usar solo el ID de la categoría
+            type_id = serializer.validated_data['type'].id  # Usar solo el ID del tipo
+            
+            # Crear el producto utilizando el repositorio
             product = ProductRepository.create(
                 name=serializer.validated_data['name'],
                 description=serializer.validated_data['description'],
-                category=serializer.validated_data['category'],  # Pasar solo el ID de la categoría
-                type=serializer.validated_data['type'],  # Pasar solo el ID del tipo
+                category_id=category_id,  # Pasar solo el ID de la categoría
+                type_id=type_id,  # Pasar solo el ID del tipo
                 user=request.user,
-                code=serializer.validated_data['code']
+                code=serializer.validated_data['code'],
+                quantity=serializer.validated_data['quantity']  # Pasar la cantidad del producto
             )
             
-            # Devolver la respuesta con el producto creado
+            # Responder con el producto creado
             return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
         
         except ValidationError as e:
+            # Manejo de excepciones
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
+    # Responder con errores si el serializador no es válido
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# ✅ Vista para obtener, actualizar y eliminar un producto
 @extend_schema(**get_product_by_id_doc)
 @extend_schema(**update_product_by_id_doc)
 @extend_schema(**delete_product_by_id_doc)
@@ -67,44 +79,45 @@ def create_product(request):
 @permission_classes([IsStaffOrReadOnly])
 def product_detail(request, pk):
     """
-    Obtiene, actualiza o realiza un soft delete de un producto específico.
+    Vista para obtener, actualizar o realizar un soft delete de un producto específico.
     """
-    product = ProductRepository.get_by_id(pk)
+    product = ProductRepository.get_by_id(pk)  # Obtener el producto por ID
 
     if not product:
+        # Si no existe el producto, devolver 404
         return Response({"detail": "Producto no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
-        stock, _ = ProductStock.objects.get_or_create(product=product, defaults={'quantity': 0, 'created_by': request.user})
-        stock_serializer = StockProductSerializer(stock)
-
-        comments = ProductComment.objects.filter(product=product, status=True)
-        comment_serializer = ProductCommentSerializer(comments, many=True)
-
-        subproducts = product.subproducts.filter(status=True)
-        subproduct_serializer = SubProductSerializer(subproducts, many=True)
-
+        # Solo devolver el producto serializado
         return Response({
             'product': ProductSerializer(product).data,
-            'stock': stock_serializer.data,
-            'comments': comment_serializer.data,
-            'subproducts': subproduct_serializer.data
         }, status=status.HTTP_200_OK)
 
     elif request.method == 'PUT':
+        # Actualizar el producto utilizando el repositorio
         serializer = ProductSerializer(product, data=request.data, partial=True)
         if serializer.is_valid():
-            updated_product = serializer.save(modified_by=request.user, modified_at=timezone.now())
-            
-            # Actualizar stock solo si se pasa el valor en el request
-            stock_quantity = request.data.get('stock_quantity')
-            if stock_quantity is not None:
-                ProductRepository.update_or_create_stock(updated_product, stock_quantity, request.user)
-            
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            # Aquí utilizamos el repositorio para actualizar el producto
+            updated_product = ProductRepository.update(
+                product_id=pk,
+                name=serializer.validated_data['name'],
+                description=serializer.validated_data['description'],
+                category_id=serializer.validated_data['category'].id,
+                type_id=serializer.validated_data['type'].id,
+                code=serializer.validated_data['code'],
+                quantity=serializer.validated_data['quantity'],
+                status=serializer.validated_data['status'],
+                user=request.user
+            )
+            if updated_product:
+                return Response(ProductSerializer(updated_product).data, status=status.HTTP_200_OK)
+            else:
+                return Response({"detail": "Error al actualizar el producto."}, status=status.HTTP_400_BAD_REQUEST)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
+        # Eliminar el producto con soft delete
         if request.user.is_authenticated:
             ProductRepository.soft_delete(product, request.user)
             return Response({"detail": "Producto eliminado correctamente (soft delete)."}, status=status.HTTP_204_NO_CONTENT)

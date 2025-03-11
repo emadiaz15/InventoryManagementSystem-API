@@ -10,7 +10,6 @@ class SubproductStock(BaseStock):
     """Modelo para manejar el stock de subproductos y validar que su suma no supere el stock total del producto."""
 
     # Usamos apps.get_model() para evitar la importación circular
-    subproduct = models.OneToOneField('products.Subproduct',on_delete=models.CASCADE,related_name="stock_record")
     stock_event = models.ForeignKey('stocks.StockEvent', on_delete=models.CASCADE)
     status = models.BooleanField(default=True)
     def save(self, *args, **kwargs):

@@ -4,7 +4,6 @@ from apps.products.models.subproduct_model import Subproduct
 from apps.stocks.models import SubproductStock
 from typing import Optional, List
 
-
 class SubproductRepository:
 
     @staticmethod
@@ -24,6 +23,9 @@ class SubproductRepository:
         if not isinstance(parent, Product):
             raise ValueError("El parámetro 'parent' debe ser una instancia de Product.")
 
+        if not parent.status:
+            raise ValueError("El producto padre no está activo.")
+
         subproduct = Subproduct(
             name=name, 
             description=description, 
@@ -37,7 +39,7 @@ class SubproductRepository:
         if stock_quantity is not None:
             if stock_quantity < 0:
                 raise ValueError("La cantidad de stock no puede ser negativa.")
-            SubproductStock.objects.create(product=subproduct, quantity=stock_quantity, created_by=user)
+            SubproductStock.objects.create(subproduct=subproduct, quantity=stock_quantity, created_by=user)
 
         return subproduct
 
@@ -63,7 +65,7 @@ class SubproductRepository:
 
         if changes_made:
             subproduct_instance.modified_at = timezone.now()
-            subproduct_instance.save()
+            subproduct_instance.save(update_fields=['name', 'description', 'status', 'modified_by', 'modified_at'])
 
         return subproduct_instance
 
@@ -75,7 +77,7 @@ class SubproductRepository:
         subproduct_instance.deleted_by = user
         subproduct_instance.save(update_fields=['status', 'deleted_at', 'deleted_by'])
 
-        # Eliminar el stock relacionado solo si está activo
-        SubproductStock.objects.filter(product=subproduct_instance, is_active=True).delete()
+        # Marcar el stock relacionado como inactivo en lugar de eliminarlo
+        SubproductStock.objects.filter(subproduct=subproduct_instance, status=True).update(status=False)
 
         return subproduct_instance
