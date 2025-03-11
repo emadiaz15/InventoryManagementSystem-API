@@ -104,7 +104,7 @@ def create_product(request):
 @permission_classes([IsStaffOrReadOnly])
 def product_detail(request, pk):
     """
-    Vista para obtener, actualizar o realizar un soft delete de un producto específico.
+    Vista para obtener, actualizar o realizar un soft delete de un producto específico, con sus comentarios.
     """
     product = ProductRepository.get_by_id(pk)  # Obtener el producto por ID
 
@@ -113,10 +113,28 @@ def product_detail(request, pk):
         return Response({"detail": "Producto no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
-        # Solo devolver el producto serializado
-        return Response({
-            'product': ProductSerializer(product).data,
-        }, status=status.HTTP_200_OK)
+        # Serializar el producto
+        product_data = ProductSerializer(product).data
+        
+        # Obtener los comentarios del producto
+        product_comments = ProductComment.objects.filter(product=product, status=True)
+        product_data['comments'] = ProductCommentSerializer(product_comments, many=True).data  # Asignar comentarios
+
+        # Obtener los subproductos asociados al producto
+        subproducts = Subproduct.objects.filter(parent=product, status=True)  # Obtener subproductos activos
+        subproduct_data = SubProductSerializer(subproducts, many=True).data  # Serializar subproductos
+
+        # Agregar comentarios de subproductos dentro de cada subproducto
+        for subproduct in subproduct_data:
+            subproduct_obj = Subproduct.objects.get(id=subproduct['id'])  # Obtener el subproducto por ID
+            subproduct_comments = SubproductComment.objects.filter(subproduct=subproduct_obj, status=True)  # Obtener comentarios del subproducto
+            subproduct['comments'] = SubproductCommentSerializer(subproduct_comments, many=True).data  # Asignar comentarios al subproducto
+
+        # Asignar los subproductos con sus comentarios al producto
+        product_data['subproducts'] = subproduct_data
+
+        # Devolver los detalles del producto con los comentarios de producto y subproductos
+        return Response(product_data, status=status.HTTP_200_OK)
 
     elif request.method == 'PUT':
         # Actualizar el producto utilizando el repositorio

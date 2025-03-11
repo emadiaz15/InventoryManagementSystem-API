@@ -105,7 +105,7 @@ def create_subproduct(request, product_pk):
 @permission_classes([IsStaffOrReadOnly])
 def subproduct_detail(request, product_pk, pk):
     """
-    Vista para obtener, actualizar o realizar un soft delete de un subproducto específico.
+    Vista para obtener, actualizar o realizar un soft delete de un subproducto específico, con sus comentarios.
     """
     parent_product = get_object_or_404(Product, pk=product_pk, status=True)  # Obtener el producto padre
     subproduct = SubproductRepository.get_by_id(pk)  # Obtener el subproducto por ID
@@ -115,8 +115,15 @@ def subproduct_detail(request, product_pk, pk):
         return Response({"detail": "Subproducto no encontrado o no pertenece al producto padre."}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
-        # Devolver los detalles del subproducto
-        return Response(SubProductSerializer(subproduct).data, status=status.HTTP_200_OK)
+        # Serializar el subproducto
+        subproduct_data = SubProductSerializer(subproduct).data
+        
+        # Obtener los comentarios del subproducto
+        subproduct_comments = SubproductComment.objects.filter(subproduct=subproduct, status=True)
+        subproduct_data['comments'] = SubproductCommentSerializer(subproduct_comments, many=True).data  # Asignar comentarios
+
+        # Devolver los detalles del subproducto con los comentarios
+        return Response(subproduct_data, status=status.HTTP_200_OK)
 
     elif request.method == 'PUT':
         # Actualizar el subproducto
@@ -132,3 +139,4 @@ def subproduct_detail(request, product_pk, pk):
         # Eliminar el subproducto con soft delete
         subproduct = SubproductRepository.soft_delete(subproduct, request.user)
         return Response({"detail": "Subproducto eliminado con éxito."}, status=status.HTTP_204_NO_CONTENT)
+
