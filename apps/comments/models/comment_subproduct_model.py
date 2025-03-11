@@ -1,7 +1,7 @@
 from django.db import models
 from apps.users.models import User
 from apps.comments.models.base_model import BaseModel
-from apps.products.models.product_model import Product
+
 from apps.products.models.subproduct_model import Subproduct
 
 

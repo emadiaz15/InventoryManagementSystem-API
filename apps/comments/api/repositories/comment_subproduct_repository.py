@@ -12,10 +12,16 @@ class SubproductCommentRepository:
     def create_comment(subproduct, user, text):
         """Crea un nuevo comentario asociado a un subproducto."""
         with transaction.atomic():
+            # Usamos 'created_by' en lugar de 'user'
             comment = SubproductComment.objects.create(
                 subproduct=subproduct,
-                user=user,
-                text=text
+                text=text,
+                created_by=user,  # Asociamos al usuario con 'created_by'
+                modified_by=None,  # 'modified_by' es None al principio
+                modified_at=None,
+                deleted_at=None,
+                deleted_by=None,
+                status=True  # El comentario está activo por defecto
             )
             return comment
 
@@ -36,11 +42,13 @@ class SubproductCommentRepository:
     def update_comment(comment_id, text, user):
         """Actualiza un comentario de subproducto."""
         try:
-            comment = SubproductComment.objects.get(id=comment_id)
-            comment.text = text
-            comment.modified_by = user
-            comment.modified_at = timezone.now()
-            comment.save()
+            comment = SubproductComment.objects.get(id=comment_id, status=True)
+            # Solo actualizamos si el texto cambia, para evitar una actualización innecesaria
+            if comment.text != text:
+                comment.text = text
+                comment.modified_by = user
+                comment.modified_at = timezone.now()  # Actualizamos la fecha de modificación
+                comment.save()
             return comment
         except SubproductComment.DoesNotExist:
             raise ObjectDoesNotExist(f"Comentario con id {comment_id} no existe.")

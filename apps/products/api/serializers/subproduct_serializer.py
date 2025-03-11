@@ -7,7 +7,7 @@ class SubProductSerializer(BaseSerializer):
     """Serializer para subproductos con atributos de cable."""
     class Meta:
         model = Subproduct
-        fields = ['name', 'description', 'status', 'brand', 'number_coil', 
+        fields = ['id','name', 'description', 'status', 'brand', 'number_coil', 
                   'initial_length', 'final_length', 'total_weight', 'coil_weight', 'parent', 'quantity', 'technical_sheet_photo',
                   'created_at', 'created_by', 'modified_at', 'modified_by', 'deleted_at', 'deleted_by']
 
