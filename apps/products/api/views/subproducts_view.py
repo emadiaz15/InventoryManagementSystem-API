@@ -109,7 +109,9 @@ def subproduct_detail(request, product_pk, pk):
         # Actualizar el subproducto
         serializer = SubProductSerializer(subproduct, data=request.data, partial=True)
         if serializer.is_valid():
-            subproduct = SubproductRepository.update(subproduct, **serializer.validated_data)
+            user = request.user  # Obtener el usuario autenticado
+            # Pasar 'user' al método de actualización
+            subproduct = SubproductRepository.update(subproduct, user=user, **serializer.validated_data)
             return Response(SubProductSerializer(subproduct).data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

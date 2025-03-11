@@ -68,33 +68,31 @@ class SubproductRepository:
         return subproduct
 
     @staticmethod
-    def update(subproduct_instance: Subproduct, name: Optional[str] = None, 
-               description: Optional[str] = None, status: Optional[bool] = None, 
-               user: Optional[int] = None) -> Subproduct:
+    def update(subproduct_instance: Subproduct, user=None, **validated_data) -> Subproduct:
         """
         Actualiza un subproducto existente con los cambios proporcionados.
+        Acepta un diccionario de datos validados para actualizar cualquier campo.
         """
         changes_made = False
 
-        if name and name != subproduct_instance.name:
-            subproduct_instance.name = name
-            changes_made = True
-        if description and description != subproduct_instance.description:
-            subproduct_instance.description = description
-            changes_made = True
-        if status is not None and status != subproduct_instance.status:
-            subproduct_instance.status = status
-            changes_made = True
+        # Iteramos sobre los campos que vienen en validated_data y actualizamos los campos correspondientes
+        for field, value in validated_data.items():
+            if hasattr(subproduct_instance, field) and getattr(subproduct_instance, field) != value:
+                setattr(subproduct_instance, field, value)
+                changes_made = True
 
-        if user:
-            subproduct_instance.modified_by = user
-
-        # Actualizar solo si hubo cambios
+        # Si hubo cambios, asignamos los campos de fecha y usuario
         if changes_made:
             subproduct_instance.modified_at = timezone.now()
-            subproduct_instance.save(update_fields=['name', 'description', 'status', 'modified_by', 'modified_at'])
+
+            # Si 'user' está presente, actualizamos los campos de auditoría
+            if user:
+                subproduct_instance.modified_by = user  # Asignar el usuario que realizó la modificación
+
+            subproduct_instance.save()
 
         return subproduct_instance
+
 
     @staticmethod
     def soft_delete(subproduct_instance: Subproduct, user) -> Subproduct:
