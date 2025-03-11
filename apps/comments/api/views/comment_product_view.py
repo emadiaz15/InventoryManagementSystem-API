@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from django.core.exceptions import ObjectDoesNotExist
 from drf_spectacular.utils import extend_schema
-
+from apps.products.models import Product
 from apps.comments.api.repositories import ProductCommentRepository
 from apps.comments.api.serializers import ProductCommentSerializer
 
@@ -33,11 +33,10 @@ def comment_product_list_view(request, product_id=None):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-# ✅ Vista para crear un comentario sobre un producto
 @extend_schema(**create_comment_doc)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def comment_product_create_view(request, product_id=None):
+def comment_product_create_view(request, product_pk):
     """
     Crea un nuevo comentario sobre un producto.
     """
@@ -48,16 +47,23 @@ def comment_product_create_view(request, product_id=None):
         return Response({"error": "El comentario no puede estar vacío."}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        if product_id:
-            comment = ProductCommentRepository.create_comment(product_id, user, text)
-            serializer = ProductCommentSerializer(comment)
-        else:
-            return Response({"error": "Debe proporcionar 'product_id'."}, status=status.HTTP_400_BAD_REQUEST)
+        # Obtener el producto usando 'product_pk' como argumento
+        product = Product.objects.get(pk=product_pk)
 
+        # Crear el comentario asociado al producto
+        comment = ProductCommentRepository.create_comment(product, user, text)
+        serializer = ProductCommentSerializer(comment)
+
+        # Responder con el comentario creado
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    except Product.DoesNotExist:
+        # Si el producto no se encuentra, enviar error 404
+        return Response({"error": "Producto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
     except ValueError as e:
+        # Manejar otros errores
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @extend_schema(**get_comment_by_id_doc)

@@ -13,21 +13,22 @@ class ProductCommentRepository:
         with transaction.atomic():
             comment = ProductComment.objects.create(
                 product=product,
-                user=user,
-                text=text
+                text=text,
+                created_by=user,  # Usamos 'created_by' en lugar de 'user'
+                modified_by=None,  # 'modified_by' es None al principio
             )
             return comment
 
     @staticmethod
     def get_comments(product_id):
         """Obtiene los comentarios activos de un producto específico."""
-        return ProductComment.active_objects.filter(product_id=product_id)
+        return ProductComment.objects.filter(product_id=product_id, status=True)  # Filtrar por estado activo
 
     @staticmethod
     def get_comment_by_id(comment_id):
         """Obtiene un comentario específico por su ID."""
         try:
-            return ProductComment.objects.get(id=comment_id)
+            return ProductComment.objects.get(id=comment_id, status=True)
         except ProductComment.DoesNotExist:
             raise ObjectDoesNotExist(f"Comentario con id {comment_id} no existe.")
 
