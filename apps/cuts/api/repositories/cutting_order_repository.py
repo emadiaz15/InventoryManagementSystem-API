@@ -5,6 +5,7 @@ from apps.cuts.models.cutting_order_model import CuttingOrder
 from apps.stocks.models import SubproductStock
 from apps.users.models import User
 from apps.stocks.models import StockEvent
+from apps.core.notifications.tasks import send_cutting_order_assigned_email
 
 class CuttingOrderRepository:
 
@@ -149,3 +150,23 @@ class CuttingOrderRepository:
             return CuttingOrder.objects.get(pk=order_id)
         except CuttingOrder.DoesNotExist:
             raise ValidationError(f"No se encontró la orden de corte con ID {order_id}.")
+
+    @transaction.atomic
+    def assign_cutting_order(self, cutting_order, assigned_to_user, user):
+        """
+        Asigna una orden de corte a un operario (usuario no staff), solo si el usuario es staff.
+        """
+        if not user.is_staff:
+            raise ValidationError("Solo los usuarios staff pueden asignar una orden de corte.")
+        
+        if assigned_to_user.is_staff:
+            raise ValidationError("No se puede asignar una orden de corte a un usuario staff.")
+        
+        cutting_order.assigned_to = assigned_to_user
+        cutting_order.status = 'pending'  # El estado se cambia a pendiente cuando se asigna
+        cutting_order.save()
+
+        # Llamar a la tarea de Celery para enviar el correo
+        send_cutting_order_assigned_email.delay(cutting_order.id)
+
+        return cutting_order

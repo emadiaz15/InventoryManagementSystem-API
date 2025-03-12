@@ -13,11 +13,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar el resto del código del proyecto Django al contenedor
 COPY . /app/
 
+# Instalar dependencias de sistemas operativos si es necesario (como Redis y Celery)
+RUN apt-get update && apt-get install -y gcc libpq-dev
+
 # Establecer las variables de entorno para Django
 ENV PYTHONUNBUFFERED 1
 
 # Exponer el puerto donde correrá el servidor
 EXPOSE 8000
 
-# Ejecutar el servidor de desarrollo de Django
+# Comando por defecto para correr el servidor de desarrollo de Django
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

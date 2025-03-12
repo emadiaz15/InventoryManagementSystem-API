@@ -15,7 +15,7 @@ from apps.cuts.docs.cutting_order_doc import (
     delete_cutting_order_by_id_doc
 )
 from apps.core.pagination import Pagination
-
+from apps.core.notifications.tasks import send_cutting_order_assigned_email
 
 @extend_schema(**list_cutting_orders_doc)
 @api_view(['GET'])
@@ -64,12 +64,17 @@ def cutting_order_create_view(request):
     serializer = CuttingOrderSerializer(data=request.data, context={'request': request})
 
     if serializer.is_valid():
+        # Crear la orden de corte a través del repositorio
         order = CuttingOrderRepository.create_cutting_order(
             serializer.validated_data,  
             request.user,  
             serializer.validated_data['assigned_to'].id  
         )
 
+        # Enviar correo electrónico de notificación al usuario asignado
+        send_cutting_order_assigned_email(order)  # Llamar a la función para enviar el email
+
+        # Retornar la respuesta con los detalles de la orden de corte creada
         return Response(CuttingOrderSerializer(order).data, status=status.HTTP_201_CREATED)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
