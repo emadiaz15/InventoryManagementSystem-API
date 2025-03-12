@@ -14,6 +14,7 @@ DEBUG = False
 
 # Asegúrate de agregar tus dominios reales aquí
 ALLOWED_HOSTS = ['inventarioweb.up.railway.app']
+CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app']
 
 # Configuración de la base de datos, cargando las credenciales de las variables de entorno
 DATABASES = {
