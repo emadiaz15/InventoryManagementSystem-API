@@ -9,25 +9,23 @@ from pathlib import Path
 load_dotenv()  # Cargar las variables de entorno
 SECRET_KEY = os.getenv('SECRET_KEY')
 
+
 # Configuración básica
 DEBUG = False
 ALLOWED_HOSTS = ['inventarioweb.up.railway.app', '*.railway.app']
 CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app', 'https://*.railway.app']
 
-# Base de datos
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL')
+        default=os.getenv('DATABASE_URL'),
+        conn_max_age=600  # Agrega un tiempo máximo de conexión
     )
 }
 
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'inventory_management/static'),
-]
+# Asegúrate de que el ENGINE esté especificado correctamente
+DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
 
 # Archivos estáticos y multimedia
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Usa la ruta correcta para los archivos estáticos
 
 STORAGES = {
     "staticfiles": {
@@ -36,7 +34,7 @@ STORAGES = {
 }
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = '/mediafiles'  # Usa la ruta correcta para los archivos multimedia
+MEDIA_ROOT = BASE_DIR / 'media'  # Usa la ruta correcta para los archivos multimedia
 
 # Seguridad
 SECURE_SSL_REDIRECT = True
@@ -109,3 +107,10 @@ CORS_ALLOW_HEADERS = [
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
+
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = '/static/'
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'apps.core','static'),
+]
