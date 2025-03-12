@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import dj_database_url
 import os
 from datetime import timedelta
+from pathlib import Path
 
 # Cargar las variables del archivo .env
 load_dotenv()  # Cargar las variables de entorno
@@ -20,7 +21,8 @@ DATABASES = {
 
 # Archivos estáticos y multimedia
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Usa la ruta correcta para los archivos estáticos
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # Usa la ruta correcta para los archivos estáticos
+
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
@@ -28,7 +30,7 @@ STORAGES = {
 }
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')  # Usa la ruta correcta para los archivos multimedia
+MEDIA_ROOT = BASE_DIR / 'media'  # Usa la ruta correcta para los archivos multimedia
 
 # Seguridad
 SECURE_SSL_REDIRECT = True

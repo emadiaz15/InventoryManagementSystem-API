@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar el código del proyecto al contenedor
 COPY . /app/
 
-# Crear el directorio para los archivos estáticos y los logs
-RUN mkdir -p /app/staticfiles /app/logs
+# Crear el directorio para los archivos estáticos y los logs, asignar permisos
+RUN mkdir -p /app/staticfiles /app/logs && chmod -R 777 /app/staticfiles /app/logs
 
 # Instalar dependencias del sistema necesarias (si las hay)
 RUN apt-get update && apt-get install -y gcc libpq-dev netcat-openbsd
