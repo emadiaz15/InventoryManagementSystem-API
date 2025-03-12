@@ -1,7 +1,10 @@
 from .base import *
-
 import os
 from datetime import timedelta
+from dotenv import load_dotenv
+
+# Cargar las variables del archivo .env
+load_dotenv()  # Cargar las variables de entorno
 
 # Cargar la clave secreta desde las variables de entorno
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
@@ -10,9 +13,9 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 DEBUG = False
 
 # Asegúrate de agregar tus dominios reales aquí
-ALLOWED_HOSTS = ['yourdomain.com', 'www.yourdomain.com']
+ALLOWED_HOSTS = ['inventarioweb.up.railway.app']
 
-# Configuración de la base de datos, asegurándose de cargar las credenciales de las variables de entorno
+# Configuración de la base de datos, cargando las credenciales de las variables de entorno
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -24,11 +27,16 @@ DATABASES = {
     }
 }
 
-# Configuraciones de archivos estáticos
+# Configuración de archivos estáticos
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'  # Asegúrate de que esta carpeta exista en tu servidor de producción
-
-# Configuraciones de archivos multimedia
+STORAGES = {
+    # ...
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+# Configuración de archivos multimedia
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'mediafiles'  # Asegúrate de que esta carpeta también exista
 
@@ -83,5 +91,29 @@ DEFAULT_FROM_EMAIL = 'noreply@tuempresa.com'
 EMAIL_HOST = 'smtp.tuempresa.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'usuario@tuempresa.com'
-EMAIL_HOST_PASSWORD = 'contraseña'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')  # Asegúrate de que esté configurado en .env
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')  # Asegúrate de que esté configurado en .env
+
+# Configuración de Celery con Redis
+CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Configura Redis como el broker de Celery
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # Almacena los resultados de las tareas en Redis
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+# Configuración de CORS
+CORS_ALLOWED_ORIGINS = [
+    "https://yourfrontend.com",  # Frontend de producción
+]
+CORS_ALLOW_HEADERS = [
+    'authorization',
+    'content-type',
+    'accept',
+    'origin',
+    'x-csrftoken',
+    'x-requested-with',
+]
+CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
