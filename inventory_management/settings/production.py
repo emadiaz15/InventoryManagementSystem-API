@@ -16,7 +16,9 @@ CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app', 'https://*.railw
 
 # Base de datos
 DATABASES = {
-    'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
+    'default': dj_database_url.config(
+        default=os.getenv('DATABASE_URL')
+    )
 }
 
 STATICFILES_DIRS = [
