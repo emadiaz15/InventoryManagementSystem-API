@@ -4,9 +4,12 @@ FROM python:3.10-slim
 # Establecer el directorio de trabajo dentro del contenedor
 WORKDIR /app
 
-# Copiar los archivos de requerimientos y luego instalar las dependencias
+# Copiar solo el archivo requirements.txt y luego instalar las dependencias
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar el archivo .env al contenedor para que las variables de entorno estén disponibles
+COPY .env /app/.env
 
 # Crear los directorios necesarios y asignar permisos
 RUN mkdir -p /app/staticfiles /app/logs && chmod -R 777 /app/staticfiles /app/logs
@@ -19,11 +22,6 @@ ENV PYTHONUNBUFFERED 1
 
 # Exponer el puerto donde correrá el servidor
 EXPOSE 8000
-
-# Ejecutar las migraciones y colectar los archivos estáticos
-RUN python manage.py makemigrations
-RUN python manage.py migrate
-RUN python manage.py collectstatic
 
 # Copiar el script de entrada y hacerlo ejecutable
 COPY entrypoint.sh /entrypoint.sh

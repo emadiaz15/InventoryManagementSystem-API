@@ -1,10 +1,16 @@
-# Esperar que Redis esté disponible
-./wait-for-redis.sh
+# Ejecutar las migraciones
+echo "Ejecutando las migraciones..."
+python manage.py makemigrations
+python manage.py migrate
 
-# Si el primer argumento es "celery", iniciar el worker
+# Recolectar archivos estáticos
+echo "Recolectando archivos estáticos..."
+python manage.py collectstatic --noinput
+
+# Iniciar el servidor de Django o Celery dependiendo del comando
 if [ "$1" = 'celery' ]; then
-    exec celery -A inventory_management worker --loglevel=info
+    exec "$@"
 else
-    # De lo contrario, ejecutar el servidor de Django
-    exec gunicorn inventory_management.wsgi:application --bind 0.0.0.0:8000
+    echo "Iniciando el servidor de Django..."
+    exec python manage.py runserver 0.0.0.0:8000
 fi
