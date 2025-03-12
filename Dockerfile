@@ -10,6 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar el código del proyecto al contenedor
 COPY . /app/
+# Ejecutar collectstatic sin pedir confirmación
+RUN python manage.py collectstatic --no-input
 
 # Instalar dependencias del sistema necesarias (si las hay)
 RUN apt-get update && apt-get install -y gcc libpq-dev netcat-openbsd
@@ -22,9 +24,6 @@ ENV PYTHONUNBUFFERED 1
 
 # Exponer el puerto que el contenedor va a usar
 EXPOSE 8000
-
-# Ejecutar collectstatic sin pedir confirmación
-RUN python manage.py collectstatic --no-input
 
 # Copiar el script de entrada y hacerlo ejecutable
 COPY entrypoint.sh /entrypoint.sh
