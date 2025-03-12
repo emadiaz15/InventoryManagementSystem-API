@@ -1,20 +1,17 @@
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from django.utils.timezone import now
-
+from django.utils import timezone
 from apps.cuts.models.cutting_order_model import CuttingOrder
 from apps.stocks.models import SubproductStock
 from apps.users.models import User
-from apps.products.models.subproduct_model import Subproduct
 
 class CuttingOrderRepository:
-    
+
     @transaction.atomic
     def create_cutting_order(data, user, assigned_to_id):
         """
         Crea una nueva orden de corte asegurando que haya stock suficiente y asignando el usuario adecuado.
         """
-        # Validar si el usuario que está creando la orden es staff o no.
         if not user.is_staff:
             raise ValidationError("Solo los usuarios staff pueden crear una orden de corte.")
 
@@ -26,25 +23,22 @@ class CuttingOrderRepository:
         if not stock or stock.quantity < cutting_quantity:
             raise ValidationError(f"No hay suficiente stock para el subproducto {subproduct.name}.")
 
-        # Obtener el usuario al que se asignará la orden usando el ID
         try:
             assigned_to_user = User.objects.get(id=assigned_to_id)
         except User.DoesNotExist:
             raise ValidationError(f"Usuario con ID {assigned_to_id} no encontrado.")
         
-        # Crear la orden de corte vinculada a un subproducto
         cutting_order = CuttingOrder(
             subproduct=subproduct,
             customer=data.get('customer'),
             cutting_quantity=cutting_quantity,
-            assigned_by=user,  # Asignamos el usuario autenticado
-            assigned_to=assigned_to_user,  # Asignamos el usuario correcto
+            assigned_by=user,
+            assigned_to=assigned_to_user,
         )
 
-        cutting_order.save(user=user)  # Pasamos el `user` al método `save()`
-
+        # Guardar la orden de corte
+        cutting_order.save() 
         return cutting_order
-
 
     @staticmethod
     @transaction.atomic
@@ -52,29 +46,31 @@ class CuttingOrderRepository:
         """
         Actualiza una orden de corte, modificando su estado o cantidad de corte.
         """
-        # Validar que solo los usuarios no staff puedan actualizar el estado.
-        if not user.is_staff and 'status' not in data:
-            raise ValidationError("Solo los usuarios no staff pueden actualizar el estado.")
-
+        # Validación: Si el estado cambia a 'completed', debe ser desde 'in_process'
         new_status = data.get('status', cutting_order.status)
-        
-        # Si cambia a 'completed', actualizamos stock y validamos
-        if new_status == 'completed' and cutting_order.status != 'completed':
-            if cutting_order.status != 'in_process':
-                raise ValidationError("Cannot complete an order that is not 'in_process'.")
-            
-            # Completar la orden de corte
-            cutting_order.complete_cutting()
 
-            # Actualizamos el estado de la asignación
-            cutting_order.assigned_to = cutting_order.assigned_to
-            cutting_order.save()
+        if new_status != cutting_order.status:
+            if new_status == 'completed' and cutting_order.status != 'in_process':
+                raise ValidationError("No se puede completar una orden que no esté 'en_proceso'.")
         
-        else:
+        # Si el usuario es staff, puede actualizar cualquier campo
+        if user.is_staff:
             cutting_order.status = new_status
+            cutting_order.modified_by = user
+            cutting_order.modified_at = timezone.now()  # Fecha y hora actual al modificar
             cutting_order.save()
-        
-        return cutting_order
+            return cutting_order
+
+        # Si el usuario no es staff, solo puede actualizar el estado
+        if 'status' in data:
+            cutting_order.status = new_status
+            cutting_order.modified_by = user
+            cutting_order.modified_at = timezone.now()
+            cutting_order.save()
+            return cutting_order
+
+        # Si no hay cambios válidos en el estado
+        raise ValidationError("Solo puedes actualizar el estado de la orden.")
 
     @staticmethod
     @transaction.atomic
@@ -106,7 +102,8 @@ class CuttingOrderRepository:
             raise ValidationError("La orden debe estar en estado 'in_process' para completarse.")
 
         cutting_order.complete_cutting()
-        cutting_order.status = 'completed'  # Aseguramos que se cambue a completada
+        cutting_order.status = 'completed'
+        cutting_order.completed_at = timezone.now()  # Marcar la fecha de completado
         cutting_order.save()
         return cutting_order
 
@@ -119,8 +116,15 @@ class CuttingOrderRepository:
         if not user.is_staff:
             raise ValidationError("Solo un usuario staff puede eliminar una orden de corte.")
         
-        cutting_order.deleted_at = now()
-        cutting_order.save()
+        # Validación: Verificamos si la orden ya está eliminada
+        if cutting_order.deleted_at is not None:
+            raise ValidationError("La orden ya ha sido eliminada previamente.")
+        
+        # Asignar el usuario que está realizando el soft delete y la fecha de eliminación
+        cutting_order.deleted_at = timezone.now()  # Establece la fecha de eliminación
+        cutting_order.deleted_by = user  # Asigna al usuario que está eliminando la orden
+        cutting_order.save()  # Guardamos la orden con el soft delete
+
         return cutting_order
 
     @staticmethod

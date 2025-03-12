@@ -54,16 +54,11 @@ class CuttingOrder(BaseModel):
         Sobrescribe el método `save` para incluir validaciones y asignación de usuario.
         """
         self.clean()
-        
-        # Extraemos el 'user' de kwargs si está presente
-        user = kwargs.pop("user", None)
-        
-        if not user:
-            raise ValidationError("User must be provided.")
-        
-        # Asignamos el usuario como 'assigned_by'
-        self.assigned_by = user
-        
+
+        # Asegúrate de que el 'user' se pase correctamente a través del serializer o la vista.
+        if not self.assigned_by:
+            raise ValidationError("Assigned by user must be provided.")
+
         # Llamamos al método `save` de la clase base
         super().save(*args, **kwargs)
 

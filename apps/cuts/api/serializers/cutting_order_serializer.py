@@ -14,7 +14,7 @@ class CuttingOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = CuttingOrder
         fields = '__all__'
-        read_only_fields = ['status', 'created_at', 'modified_at', 'completed_at', 'assigned_by']
+        read_only_fields = ['id', 'created_at', 'created_by', 'assigned_by', 'status', 'completed_at', 'deleted_at', 'modified_at', 'modified_by']
 
     def validate_cutting_quantity(self, value):
         """Valida que la cantidad de corte sea mayor a cero."""
@@ -25,20 +25,31 @@ class CuttingOrderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Asigna automáticamente el usuario autenticado al crear la orden de corte."""
         user = self.context['request'].user
-        validated_data['assigned_by'] = user
+        validated_data['assigned_by'] = user  # Asignamos al usuario autenticado como el creador
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
         """
-        Actualiza la orden de corte.
+        Actualiza una orden de corte.
         Si el estado cambia a 'completed' desde 'in_process', se establece 'completed_at'.
         """
+        # Capturamos el nuevo estado desde los datos validados
         new_status = validated_data.get('status', instance.status)
 
+        # Si el estado cambia a 'completed', se valida y asigna la fecha de completado
         if new_status == 'completed' and instance.status != 'completed':
             if instance.status != 'in_process':
                 raise serializers.ValidationError("No se puede completar una orden que no esté 'en_proceso'.")
-
             validated_data['completed_at'] = now()
+
+        # Si hay una modificación en el estado o en los datos de la orden, actualizamos `modified_at` y `modified_by`
+        user = self.context['request'].user
+        validated_data['modified_by'] = user
+        validated_data['modified_at'] = now()
+
+        # Evitamos que se actualicen campos que no deben ser modificados como `created_at`, `created_by`, etc.
+        validated_data.pop('created_at', None)
+        validated_data.pop('created_by', None)
+        validated_data.pop('deleted_at', None)
 
         return super().update(instance, validated_data)

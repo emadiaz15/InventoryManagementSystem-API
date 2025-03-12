@@ -16,6 +16,7 @@ from apps.cuts.docs.cutting_order_doc import (
 )
 from apps.core.pagination import Pagination
 
+
 @extend_schema(**list_cutting_orders_doc)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -24,25 +25,23 @@ def cutting_orders_list_view(request):
     Fetch all cutting orders for the logged-in user. 
     Staff users can view all orders, 
     non-staff users can only view orders assigned to them.
+    Excludes orders that have been soft-deleted (i.e., deleted_by is not NULL).
     """
     user = request.user
 
-    # Verificar si el usuario es staff o no
-    print(f"Usuario logueado: {user.username}, Staff: {user.is_staff}")
-
-    # Si el usuario es staff, puede ver todas las órdenes
+    # Filtra las órdenes según el estado del usuario (staff o no staff)
     if user.is_staff:
-        orders = CuttingOrder.objects.all()  # Mostrar todas las órdenes para staff
+        # Si es staff, mostramos todas las órdenes excepto las eliminadas (deleted_by no es NULL)
+        orders = CuttingOrder.objects.exclude(deleted_by__isnull=False)
     else:
-        # Los usuarios no staff solo pueden ver las órdenes asignadas a ellos
-        orders = CuttingOrder.objects.filter(assigned_to=user)
-
-    print(f"Órdenes encontradas: {orders.count()}")  # Muestra el número de órdenes encontradas
+        # Si no es staff, mostramos solo las órdenes asignadas al usuario, excepto las eliminadas
+        orders = CuttingOrder.objects.filter(assigned_to=user).exclude(deleted_by__isnull=False)
 
     # Paginación
-    paginator = Pagination()  # Puedes usar el paginador predeterminado de DRF
-    paginator.page_size = 10  # Establece el número de resultados por página
-    paginated_orders = paginator.paginate_queryset(orders, request)  # Aplica la paginación al queryset
+    page_size = request.query_params.get('page_size', 10)  # Default to 10 if not provided
+    paginator = Pagination()
+    paginator.page_size = page_size
+    paginated_orders = paginator.paginate_queryset(orders, request)
 
     # Serializa las órdenes paginadas
     serializer = CuttingOrderSerializer(paginated_orders, many=True)
@@ -59,18 +58,16 @@ def cutting_order_create_view(request):
     """
     Vista para crear una nueva orden de corte. Solo disponible para usuarios staff.
     """
-    # Verificar si el usuario es staff
     if not request.user.is_staff:
         return Response({"detail": "No tienes permisos para crear órdenes de corte."}, status=status.HTTP_403_FORBIDDEN)
 
     serializer = CuttingOrderSerializer(data=request.data, context={'request': request})
 
     if serializer.is_valid():
-        # Llamamos al repositorio pasándole los datos validados por el serializer
         order = CuttingOrderRepository.create_cutting_order(
-            serializer.validated_data,  # Datos validados del serializer
-            request.user,  # Usuario autenticado
-            serializer.validated_data['assigned_to'].id  # Usamos el ID validado del usuario asignado
+            serializer.validated_data,  
+            request.user,  
+            serializer.validated_data['assigned_to'].id  
         )
 
         return Response(CuttingOrderSerializer(order).data, status=status.HTTP_201_CREATED)
@@ -89,9 +86,7 @@ def cutting_order_detail_view(request, pk):
     except ValidationError:
         return Response({"detail": "Orden de corte no encontrada."}, status=status.HTTP_404_NOT_FOUND)
 
-    # Verificar si el usuario es staff
     if request.user.is_staff:
-        # Los usuarios staff pueden realizar todas las acciones
         if request.method == 'GET':
             return retrieve_cutting_order(order)
         elif request.method in ['PUT', 'PATCH']:
@@ -99,7 +94,6 @@ def cutting_order_detail_view(request, pk):
         elif request.method == 'DELETE':
             return soft_delete_cutting_order(order)
     else:
-        # Los usuarios no staff solo pueden ver la orden y actualizar el estado
         if request.method == 'GET':
             return retrieve_cutting_order(order)
         elif request.method in ['PUT', 'PATCH']:
@@ -121,13 +115,15 @@ def retrieve_cutting_order(order):
 def update_cutting_order(request, order):
     serializer = CuttingOrderSerializer(order, data=request.data, partial=True)
     if serializer.is_valid():
-        # Solo permitimos que los usuarios no staff actualicen el estado
+        if request.user.is_staff:
+            order = CuttingOrderRepository.update_cutting_order(order, serializer.validated_data, request.user)
+            return Response(CuttingOrderSerializer(order).data, status=status.HTTP_200_OK)
+        
         if 'status' in serializer.validated_data:
-            # Si el estado se cambia a 'completed', completamos la orden
             if serializer.validated_data['status'] == 'completed':
                 return complete_cutting_order(order)
             else:
-                order = CuttingOrderRepository.update_cutting_order(order, serializer.validated_data)
+                order = CuttingOrderRepository.update_cutting_order(order, serializer.validated_data, request.user)
                 return Response(CuttingOrderSerializer(order).data, status=status.HTTP_200_OK)
         else:
             return Response({"detail": "Solo puedes actualizar el estado de la orden."}, status=status.HTTP_400_BAD_REQUEST)
