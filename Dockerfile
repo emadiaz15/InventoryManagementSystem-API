@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app/
 
 # Crear el directorio para los archivos estáticos y los logs, y asignar permisos
-RUN mkdir -p /app/staticfiles /app/logs && chmod -R 777 /app/staticfiles /app/logs
+RUN mkdir -p /staticfiles /logs && chmod -R 777 /staticfiles /logs
 
 # Instalar dependencias del sistema necesarias (si las hay)
 RUN apt-get update && apt-get install -y gcc libpq-dev netcat-openbsd
@@ -25,9 +25,6 @@ ENV PYTHONUNBUFFERED 1
 
 # Exponer el puerto donde correrá el servidor
 EXPOSE 8000
-
-# Ejecutar collectstatic sin pedir confirmación
-RUN python manage.py collectstatic --no-input
 
 # Copiar el script de entrada y hacerlo ejecutable
 COPY entrypoint.sh /entrypoint.sh
