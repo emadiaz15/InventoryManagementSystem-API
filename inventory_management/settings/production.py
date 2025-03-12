@@ -19,9 +19,13 @@ DATABASES = {
     'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
 }
 
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'inventory_management/static'),
+]
+
 # Archivos estáticos y multimedia
 STATIC_URL = '/static/'
-STATIC_ROOT = '/staticfiles'  # Usa la ruta correcta para los archivos estáticos
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Usa la ruta correcta para los archivos estáticos
 
 STORAGES = {
     "staticfiles": {
@@ -49,7 +53,7 @@ LOGGING = {
         'file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
-            'filename': '/logs/django-error.log',
+            'filename': './logs/django-error.log',
         },
     },
     'loggers': {
