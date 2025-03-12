@@ -21,7 +21,7 @@ DATABASES = {
 
 # Archivos estáticos y multimedia
 STATIC_URL = '/static/'
-STATIC_ROOT = '/app/staticfiles'  # Usa la ruta correcta para los archivos estáticos
+STATIC_ROOT = '/staticfiles'  # Usa la ruta correcta para los archivos estáticos
 
 STORAGES = {
     "staticfiles": {
@@ -30,7 +30,7 @@ STORAGES = {
 }
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = '/app/mediafiles'  # Usa la ruta correcta para los archivos multimedia
+MEDIA_ROOT = '/mediafiles'  # Usa la ruta correcta para los archivos multimedia
 
 # Seguridad
 SECURE_SSL_REDIRECT = True
@@ -49,7 +49,7 @@ LOGGING = {
         'file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
-            'filename': '.app/logs/django-error.log',  # Asegúrate de que esta ruta exista
+            'filename': './logs/django-error.log',  # Asegúrate de que esta ruta exista
         },
     },
     'loggers': {
