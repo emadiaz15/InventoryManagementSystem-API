@@ -49,7 +49,7 @@ LOGGING = {
         'file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
-            'filename': './logs/django-error.log',  # Asegúrate de que esta ruta exista
+            'filename': '.app/logs/django-error.log',  # Asegúrate de que esta ruta exista
         },
     },
     'loggers': {
