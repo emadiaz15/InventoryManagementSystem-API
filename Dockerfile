@@ -13,9 +13,6 @@ COPY . /app/
 # Ejecutar collectstatic sin pedir confirmación
 RUN python manage.py collectstatic --no-input
 
-# Instalar dependencias del sistema necesarias (si las hay)
-RUN apt-get update && apt-get install -y gcc libpq-dev netcat-openbsd
-
 # Asegurarse de que el script wait-for-redis.sh sea ejecutable
 RUN chmod +x ./wait-for-redis.sh
 
