@@ -10,8 +10,8 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 # Configuración básica
 DEBUG = False
-ALLOWED_HOSTS = ['inventarioweb.up.railway.app']
-CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app']
+ALLOWED_HOSTS = ['inventarioweb.up.railway.app', '*.railway.app']
+CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app', 'https://*.railway.app']
 
 # Base de datos
 DATABASES = {
