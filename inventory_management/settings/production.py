@@ -20,7 +20,7 @@ DATABASES = {
 
 # Archivos estáticos y multimedia
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Usa la ruta correcta para los archivos estáticos
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
@@ -28,7 +28,7 @@ STORAGES = {
 }
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')  # Usa la ruta correcta para los archivos multimedia
 
 # Seguridad
 SECURE_SSL_REDIRECT = True
@@ -47,7 +47,7 @@ LOGGING = {
         'file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
-            'filename': './logs/django.log',
+            'filename': '/app/logs/django-error.log',  # Ruta absoluta para los contenedores Docker
         },
     },
     'loggers': {
