@@ -15,7 +15,7 @@ ALLOWED_HOSTS = ['inventarioweb.up.railway.app', '*.railway.app']
 CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app', 'https://*.railway.app']
 
 # Base de datos
-DATABASES = {
+DATABASE = {
     'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
 }
 
