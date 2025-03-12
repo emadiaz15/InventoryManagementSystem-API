@@ -8,30 +8,27 @@ from datetime import timedelta
 load_dotenv()  # Cargar las variables de entorno
 SECRET_KEY = os.getenv('SECRET_KEY')
 
-# Desactivar DEBUG para producción
+# Configuración básica
 DEBUG = False
-
-# Asegúrate de agregar tus dominios reales aquí
 ALLOWED_HOSTS = ['inventarioweb.up.railway.app']
 CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app']
 
-# Configuración de la base de datos, cargando las credenciales de las variables de entorno
+# Base de datos
 DATABASES = {
     'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
 }
 
-# Configuración de archivos estáticos
+# Archivos estáticos y multimedia
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
-# Configuración de archivos multimedia
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'mediafiles'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 
 # Seguridad
 SECURE_SSL_REDIRECT = True
@@ -70,7 +67,6 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
-    'VERIFYING_KEY': None,
     'AUTH_HEADER_TYPES': ('Bearer',),
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
@@ -97,15 +93,10 @@ CELERY_TIMEZONE = 'UTC'
 
 # Configuración de CORS
 CORS_ALLOWED_ORIGINS = [
-    "https://yourfrontend.com",
+    "https://yourfrontend.com",  # Frontend de producción
 ]
 CORS_ALLOW_HEADERS = [
-    'authorization',
-    'content-type',
-    'accept',
-    'origin',
-    'x-csrftoken',
-    'x-requested-with',
+    'authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with',
 ]
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
