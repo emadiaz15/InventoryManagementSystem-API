@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
 from django.core.exceptions import ValidationError
-
+from apps.cuts.models.cutting_order_model import CuttingOrder
 from apps.cuts.api.repositories.cutting_order_repository import CuttingOrderRepository
 from apps.cuts.api.serializers.cutting_order_serializer import CuttingOrderSerializer
 from apps.cuts.docs.cutting_order_doc import (
@@ -15,14 +15,35 @@ from apps.cuts.docs.cutting_order_doc import (
     delete_cutting_order_by_id_doc
 )
 
-# Endpoint para listar todas las órdenes de corte activas
 @extend_schema(**list_cutting_orders_doc)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def cutting_orders_list_view(request):
-    orders = CuttingOrderRepository.get_cutting_orders_for_user(request.user)
+    """
+    Fetch all cutting orders for the logged-in user. 
+    Staff users can view all orders, 
+    non-staff users can only view orders assigned to them.
+    """
+    user = request.user
+
+    # Verificar si el usuario es staff o no
+    print(f"Usuario logueado: {user.username}, Staff: {user.is_staff}")
+
+    # Si el usuario es staff, puede ver todas las órdenes
+    if user.is_staff:
+        orders = CuttingOrder.objects.all()  # Mostrar todas las órdenes para staff
+    else:
+        # Los usuarios no staff solo pueden ver las órdenes asignadas a ellos
+        orders = CuttingOrder.objects.filter(assigned_to=user)
+
+    print(f"Órdenes encontradas: {orders.count()}")  # Muestra el número de órdenes encontradas
+    
+    # Serializa las órdenes
     serializer = CuttingOrderSerializer(orders, many=True)
+    
+    # Devuelve la respuesta con la lista de órdenes
     return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 @extend_schema(**create_cutting_order_doc)
