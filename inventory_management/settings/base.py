@@ -5,7 +5,6 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Application definition
-
 BASE_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -19,7 +18,6 @@ THIRD_APPS = [
     'rest_framework',
     'simple_history',
     'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',
     'celery',
     'corsheaders',
@@ -49,7 +47,6 @@ MIDDLEWARE = [
     'simple_history.middleware.HistoryRequestMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-# 'apps.users.middlewares.BlacklistAccessTokenMiddleware',
 ]
 
 ROOT_URLCONF = 'inventory_management.urls'
@@ -90,11 +87,8 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = 'users.User'
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
 # DRF Settings
@@ -107,7 +101,6 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
-
 
 # drf-spectacular settings
 SPECTACULAR_SETTINGS = {
