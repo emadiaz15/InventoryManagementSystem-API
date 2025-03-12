@@ -49,7 +49,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Puerto del dev
     "http://localhost:4174",  # Puerto del preview
 ]
-CORS_ALLOW_HEADERS = ['Authorization', 'Content-Type']
+CORS_ALLOW_HEADERS = [
+    'authorization',
+    'content-type',
+    'accept',
+    'origin',
+    'x-csrftoken',
+    'x-requested-with',
+]
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
