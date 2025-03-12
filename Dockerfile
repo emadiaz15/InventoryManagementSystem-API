@@ -11,12 +11,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar el código del proyecto al contenedor
 COPY . /app/
 
-# Crear el directorio para los archivos estáticos y los logs, y asignar permisos
-RUN mkdir -p /staticfiles /logs && chmod -R 777 /staticfiles /logs
-
-# Instalar dependencias del sistema necesarias (si las hay)
-RUN apt-get update && apt-get install -y gcc libpq-dev netcat-openbsd
-
 # Asegurarse de que el script wait-for-redis.sh sea ejecutable
 RUN chmod +x ./wait-for-redis.sh
 
