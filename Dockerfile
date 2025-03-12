@@ -21,8 +21,9 @@ ENV PYTHONUNBUFFERED 1
 EXPOSE 8000
 
 # Ejecutar las migraciones y colectar los archivos estáticos
-RUN python manage.py migrate --no-input
-RUN python manage.py collectstatic --no-input
+RUN python manage.py makemigrations
+RUN python manage.py migrate
+RUN python manage.py collectstatic
 
 # Copiar el script de entrada y hacerlo ejecutable
 COPY entrypoint.sh /entrypoint.sh
