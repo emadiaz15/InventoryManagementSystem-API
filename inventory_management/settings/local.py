@@ -46,7 +46,7 @@ SIMPLE_JWT = {
 # Configuración de CORS
 # Permite peticiones desde el frontend
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5174",  # Puerto del dev
+    "http://localhost:5173",  # Puerto del dev
     "http://localhost:4174",  # Puerto del preview
 ]
 CORS_ALLOW_HEADERS = ['Authorization', 'Content-Type']
