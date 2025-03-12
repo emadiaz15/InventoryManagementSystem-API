@@ -1,0 +1,2 @@
+from .comment_product_repository  import ProductCommentRepository
+from .comment_subproduct_repository import SubproductCommentRepository

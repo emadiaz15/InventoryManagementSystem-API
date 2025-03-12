@@ -1,79 +1,107 @@
+from django.db import transaction
 from django.utils import timezone
-from apps.products.models import Product
-from apps.stocks.models import Stock
+from apps.products.models.product_model import Product
+from apps.stocks.models import ProductStock
+from apps.products.models.category_model import Category
+from apps.products.models.type_model import Type
 
 class ProductRepository:
+    """Repositorio para manejar las operaciones de Product."""
+
     @staticmethod
-    def get_by_id(product_id: int):
+    def get_all_active_products():
+        """
+        Obtener todos los productos activos.
+        """
+        return Product.objects.filter(status=True)
+
+    @staticmethod
+    def get_by_id(product_id):
+        """
+        Obtener un producto por su ID.
+        """
         try:
             return Product.objects.get(id=product_id, status=True)
         except Product.DoesNotExist:
             return None
 
     @staticmethod
-    def get_all_active(category=None, type=None, active=True):
-        products = Product.objects.filter(status=active)
-        if category:
-            products = products.filter(category=category)
-        if type:
-            products = products.filter(type=type)
-        return products
+    def create(name, description, category_id, type_id, user, code, quantity):
+        """
+        Crear un nuevo producto.
+        """
+        with transaction.atomic():
+            product = Product.objects.create(
+                name=name,
+                description=description,
+                category_id=category_id,
+                type_id=type_id,
+                created_by=user,
+                code=code,
+                quantity=quantity,
+                status=True,  # Producto activo por defecto
+                created_at=timezone.now()
+            )
+            return product
 
     @staticmethod
-    def create(name: str, description: str, category: int, type: int, user, stock_quantity: int = None, code: int = None):
-        if code and Product.objects.filter(code=code).exists():
-            raise ValueError("El código del producto debe ser único.")
-        
-        product = Product(name=name, description=description, category=category, type=type, code=code)
-        product.save(user=user)
-        
-        if stock_quantity is not None and stock_quantity >= 0:
-            Stock.objects.create(product=product, quantity=stock_quantity, user=user)
-        
+    def update(product_id, name, description, category_id, type_id, code, quantity, status, user):
+        """
+        Actualizar un producto existente.
+        """
+        try:
+            # Obtenemos el producto que vamos a actualizar
+            product = Product.objects.get(id=product_id, status=True)
+
+            # Solo actualizamos los campos que han cambiado
+            updated = False
+            if product.name != name:
+                product.name = name
+                updated = True
+
+            if product.description != description:
+                product.description = description
+                updated = True
+
+            if product.category_id != category_id:
+                product.category_id = category_id
+                updated = True
+
+            if product.type_id != type_id:
+                product.type_id = type_id
+                updated = True
+
+            if product.code != code:
+                product.code = code
+                updated = True
+
+            if product.quantity != quantity:
+                product.quantity = quantity
+                updated = True
+
+            if product.status != status:
+                product.status = status
+                updated = True
+
+            # Si hubo algún cambio en los campos principales, actualizamos los metadatos de modificación
+            if updated:
+                product.modified_by = user
+                product.modified_at = timezone.now()
+
+            # Guardamos el producto actualizado solo si hubo cambios
+            if updated:
+                product.save()
+            return product
+        except Product.DoesNotExist:
+            return None
+
+    @staticmethod
+    def soft_delete(product, user):
+        """
+        Realiza un soft delete de un producto, marcando su estado como inactivo.
+        """
+        product.status = False
+        product.deleted_by = user
+        product.deleted_at = timezone.now()
+        product.save()
         return product
-
-    @staticmethod
-    def update(product_instance: Product, name: str = None, description: str = None, 
-               category: int = None, type: int = None, status: bool = None, code: int = None, user=None):
-        changes_made = False
-        if name:
-            product_instance.name = name
-            changes_made = True
-        if description:
-            product_instance.description = description
-            changes_made = True
-        if category:
-            product_instance.category = category
-            changes_made = True
-        if type:
-            product_instance.type = type
-            changes_made = True
-        if status is not None:
-            product_instance.status = status
-            changes_made = True
-        if code and code != product_instance.code:
-            if Product.objects.filter(code=code).exists():
-                raise ValueError("El código del producto debe ser único.")
-            product_instance.code = code
-            changes_made = True
-
-        if user:
-            product_instance.modified_by = user
-
-        if changes_made:
-            product_instance.modified_at = timezone.now()
-            product_instance.save(user=user)
-
-        return product_instance
-
-    @staticmethod
-    def soft_delete(product_instance: Product, user):
-        product_instance.status = False
-        product_instance.deleted_at = timezone.now()
-        product_instance.deleted_by = user
-        product_instance.save(user=user)
-
-        # Eliminar stock relacionado
-        Stock.objects.filter(product=product_instance).delete()
-
-        return product_instance

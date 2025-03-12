@@ -3,10 +3,15 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema
+
 from apps.products.api.serializers.category_serializer import CategorySerializer
+
 from apps.users.permissions import IsStaffOrReadOnly
+
 from apps.core.pagination import Pagination
+
 from apps.products.api.repositories.category_repository import CategoryRepository
+
 from apps.products.docs.category_doc import (
     category_list_doc, create_category_doc, get_category_by_id_doc, update_category_by_id_doc,
     delete_category_by_id_doc

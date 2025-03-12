@@ -1,68 +1,99 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from django.contrib.contenttypes.models import ContentType
-
-from apps.core.pagination import Pagination
-from apps.products.models import Product
-from apps.stocks.models import Stock
-from apps.comments.models import Comment
-from apps.products.api.serializers.product_serializer import ProductSerializer
-from apps.stocks.api.serializers import StockSerializer
-from apps.comments.api.serializers import CommentSerializer
-from apps.products.api.serializers.subproduct_serializer import SubProductSerializer
-from apps.users.permissions import IsStaffOrReadOnly
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
+from rest_framework.exceptions import ValidationError
+
+from apps.users.permissions import IsStaffOrReadOnly
+from apps.core.pagination import Pagination
 from apps.products.api.repositories.product_repository import ProductRepository
+from apps.products.models import Product
+from apps.products.models import Subproduct
+from apps.comments.models import SubproductComment
+from apps.comments.api.serializers import SubproductCommentSerializer
+
+
+from apps.comments.models import ProductComment
+
+from apps.products.api.serializers.product_serializer import ProductSerializer
+from apps.products.api.serializers.subproduct_serializer import SubProductSerializer
+from apps.stocks.api.serializers import StockProductSerializer
+from apps.comments.api.serializers import ProductCommentSerializer
 from apps.products.docs.product_doc import (
     list_product_doc, create_product_doc, get_product_by_id_doc,
     update_product_by_id_doc, delete_product_by_id_doc
 )
 
+# ✅ Vista para listar productos
 @extend_schema(**list_product_doc)
 @api_view(['GET'])
 @permission_classes([IsStaffOrReadOnly])
 def product_list(request):
     """
-    Obtiene una lista de productos con paginación y filtros por categoría, tipo y estado.
+    Vista para listar todos los productos activos con paginación, incluyendo comentarios.
     """
-    category_id = request.query_params.get('category')
-    type_id = request.query_params.get('type')
-    active = request.query_params.get('status', 'true').lower() == 'true'
-
-    products = ProductRepository.get_all_active(category_id, type_id, active)
+    # Obtener los productos activos, ordenados por ID
+    products = ProductRepository.get_all_active_products().order_by('id')
+    
+    # Inicializar el paginador
     paginator = Pagination()
-    paginated_products = paginator.paginate_queryset(products, request)
+    paginated_products = paginator.paginate_queryset(products, request)  # Paginación de los productos
+    
+    # Serializar los productos
     serializer = ProductSerializer(paginated_products, many=True)
+    
+    # Agregar los comentarios de productos y subproductos
+    for product_data in serializer.data:
+        product = Product.objects.get(id=product_data['id'])  # Obtener el producto
+        product_comments = ProductComment.objects.filter(product=product, status=True)  # Obtener comentarios activos
+        product_data['comments'] = ProductCommentSerializer(product_comments, many=True).data  # Asignar comentarios
+
+        # Agregar comentarios de subproductos
+        for subproduct_data in product_data['subproducts']:
+            subproduct = Subproduct.objects.get(id=subproduct_data['id'])  # Obtener el subproducto
+            subproduct_comments = SubproductComment.objects.filter(subproduct=subproduct, status=True)  # Obtener comentarios activos de subproducto
+            subproduct_data['comments'] = SubproductCommentSerializer(subproduct_comments, many=True).data  # Asignar comentarios a subproducto
+
+    # Devolver la respuesta con los productos paginados, incluyendo comentarios
     return paginator.get_paginated_response(serializer.data)
+
+
 
 @extend_schema(**create_product_doc)
 @api_view(['POST'])
-@permission_classes([IsStaffOrReadOnly])
+@permission_classes([IsStaffOrReadOnly])  # Define tu clase de permisos según tu necesidad
 def create_product(request):
     """
-    Crea un nuevo producto con un stock inicial opcional.
+    Vista para crear un nuevo producto.
     """
-    serializer = ProductSerializer(data=request.data)
-    if serializer.is_valid():
-        # Obtener datos del request y validar el código
-        code = request.data.get('code')
-        stock_quantity = request.data.get('stock_quantity')
+    serializer = ProductSerializer(data=request.data, context={'request': request})  # Serializar los datos de entrada
 
+    if serializer.is_valid():
         try:
+            # Extraer los datos validados del serializador
+            category_id = serializer.validated_data['category'].id  # Usar solo el ID de la categoría
+            type_id = serializer.validated_data['type'].id  # Usar solo el ID del tipo
+            
+            # Crear el producto utilizando el repositorio
             product = ProductRepository.create(
                 name=serializer.validated_data['name'],
                 description=serializer.validated_data['description'],
-                category=serializer.validated_data['category'],
-                type=serializer.validated_data['type'],
+                category_id=category_id,  # Pasar solo el ID de la categoría
+                type_id=type_id,  # Pasar solo el ID del tipo
                 user=request.user,
-                stock_quantity=stock_quantity,
-                code=code  # Aseguramos que el `code` sea pasado al crear el producto
+                code=serializer.validated_data['code'],
+                quantity=serializer.validated_data['quantity']  # Pasar la cantidad del producto
             )
-        except ValueError as e:
+            
+            # Responder con el producto creado
+            return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
+        
+        except ValidationError as e:
+            # Manejo de excepciones
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response(ProductSerializer(product).data, status=status.HTTP_201_CREATED)
+    
+    # Responder con errores si el serializador no es válido
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -73,37 +104,65 @@ def create_product(request):
 @permission_classes([IsStaffOrReadOnly])
 def product_detail(request, pk):
     """
-    Obtiene, actualiza o realiza un soft delete de un producto específico.
+    Vista para obtener, actualizar o realizar un soft delete de un producto específico, con sus comentarios.
     """
-    product = ProductRepository.get_by_id(pk)
+    product = ProductRepository.get_by_id(pk)  # Obtener el producto por ID
+
     if not product:
-        return Response({"detail": "Producto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        # Si no existe el producto, devolver 404
+        return Response({"detail": "Producto no encontrado"}, status=status.HTTP_404_NOT_FOUND)
 
-    # Aseguramos la existencia de al menos un registro de stock, si no existe
-    stock, created = Stock.objects.get_or_create(
-        product=product,
-        defaults={'quantity': 0, 'user': request.user}
-    )
-    stock_serializer = StockSerializer(stock)
+    if request.method == 'GET':
+        # Serializar el producto
+        product_data = ProductSerializer(product).data
+        
+        # Obtener los comentarios del producto
+        product_comments = ProductComment.objects.filter(product=product, status=True)
+        product_data['comments'] = ProductCommentSerializer(product_comments, many=True).data  # Asignar comentarios
 
-    # Obtener comentarios del producto
-    content_type = ContentType.objects.get_for_model(Product)
-    comments = Comment.active_objects.filter(content_type=content_type, object_id=product.id)
-    comment_serializer = CommentSerializer(comments, many=True)
+        # Obtener los subproductos asociados al producto
+        subproducts = Subproduct.objects.filter(parent=product, status=True)  # Obtener subproductos activos
+        subproduct_data = SubProductSerializer(subproducts, many=True).data  # Serializar subproductos
 
-    # Obtener subproductos activos
-    subproducts = product.subproducts.filter(status=True)  # Solo subproductos activos
-    subproduct_serializer = SubProductSerializer(subproducts, many=True)
+        # Agregar comentarios de subproductos dentro de cada subproducto
+        for subproduct in subproduct_data:
+            subproduct_obj = Subproduct.objects.get(id=subproduct['id'])  # Obtener el subproducto por ID
+            subproduct_comments = SubproductComment.objects.filter(subproduct=subproduct_obj, status=True)  # Obtener comentarios del subproducto
+            subproduct['comments'] = SubproductCommentSerializer(subproduct_comments, many=True).data  # Asignar comentarios al subproducto
 
-    # Creamos la respuesta
-    response_data = {
-        'product': ProductSerializer(product).data,  # Incluimos los detalles del producto
-        'stock': stock_serializer.data,  # Incluimos el stock del producto
-        'comments': comment_serializer.data,  # Los comentarios se incluyen aquí
-    }
+        # Asignar los subproductos con sus comentarios al producto
+        product_data['subproducts'] = subproduct_data
 
-    # Los subproductos ya están dentro de los datos del producto, solo los agregamos correctamente
-    response_data['product']['subproducts'] = subproduct_serializer.data
+        # Devolver los detalles del producto con los comentarios de producto y subproductos
+        return Response(product_data, status=status.HTTP_200_OK)
 
-    # Devolvemos la respuesta
-    return Response(response_data, status=status.HTTP_200_OK)
+    elif request.method == 'PUT':
+        # Actualizar el producto utilizando el repositorio
+        serializer = ProductSerializer(product, data=request.data, partial=True)
+        if serializer.is_valid():
+            # Aquí utilizamos el repositorio para actualizar el producto
+            updated_product = ProductRepository.update(
+                product_id=pk,
+                name=serializer.validated_data['name'],
+                description=serializer.validated_data['description'],
+                category_id=serializer.validated_data['category'].id,
+                type_id=serializer.validated_data['type'].id,
+                code=serializer.validated_data['code'],
+                quantity=serializer.validated_data['quantity'],
+                status=serializer.validated_data['status'],
+                user=request.user
+            )
+            if updated_product:
+                return Response(ProductSerializer(updated_product).data, status=status.HTTP_200_OK)
+            else:
+                return Response({"detail": "Error al actualizar el producto."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        # Eliminar el producto con soft delete
+        if request.user.is_authenticated:
+            ProductRepository.soft_delete(product, request.user)
+            return Response({"detail": "Producto eliminado correctamente (soft delete)."}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response({"detail": "No autorizado para eliminar este producto."}, status=status.HTTP_403_FORBIDDEN)

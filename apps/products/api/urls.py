@@ -1,5 +1,4 @@
 from django.urls import path
-from rest_framework.urlpatterns import format_suffix_patterns
 from apps.products.api.views.category_view import category_list, category_detail, create_category
 from apps.products.api.views.types_view import type_list, type_detail, create_type
 from apps.products.api.views.products_view import product_list, product_detail, create_product

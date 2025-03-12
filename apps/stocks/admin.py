@@ -1,55 +1,77 @@
 from django.contrib import admin
-from apps.stocks.models import Stock, StockHistory
+from django.utils.translation import gettext_lazy as _
+from .models import ProductStock, SubproductStock, StockEvent
+
+# Admin para ProductStock
+@admin.register(ProductStock)
+class ProductStockAdmin(admin.ModelAdmin):
+    list_display = ['id', 'quantity', 'location', 'total_stock_events', 'created_at', 'created_by', 'modified_at', 'modified_by']
+    search_fields = ['location', 'created_by__username']
+    list_filter = ['location', 'created_at']
+    ordering = ['-created_at']
+    readonly_fields = ['total_stock_events']
+
+    def total_stock_events(self, obj):
+        """Devuelve la cantidad de eventos de stock relacionados con este stock de producto."""
+        return obj.events.count()
+    total_stock_events.short_description = _('Total Stock Events')
 
 
-@admin.register(Stock)
-class StockAdmin(admin.ModelAdmin):
-    """
-    Configuración del panel de administración para el modelo Stock.
-    """
-    list_display = ('id', 'product', 'quantity', 'created_at', 'updated_at', 'user')  # Columnas a mostrar
-    list_filter = ('product', 'created_at', 'updated_at', 'user')  # Filtros laterales
-    search_fields = ('product__name', 'user__username')  # Campos para búsqueda
-    ordering = ('-created_at',)  # Orden descendente por fecha de creación
-    readonly_fields = ('created_at', 'updated_at')  # Evitar la edición de las marcas de tiempo
+# Admin para SubproductStock
+@admin.register(SubproductStock)
+class SubproductStockAdmin(admin.ModelAdmin):
+    list_display = ['id', 'quantity', 'location', 'total_stock_events', 'created_at', 'created_by', 'modified_at', 'modified_by']
+    search_fields = ['location', 'created_by__username']
+    list_filter = ['location', 'created_at']
+    ordering = ['-created_at']
+    readonly_fields = ['total_stock_events']
 
-    fieldsets = (
-        (None, {
-            'fields': ('product', 'quantity', 'user')
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at'),
-        }),
-    )
+    def total_stock_events(self, obj):
+        """Devuelve la cantidad de eventos de stock relacionados con este stock de subproducto."""
+        return obj.events.count()
+    total_stock_events.short_description = _('Total Stock Events')
 
-    def view_stock_history(self, obj):
-        """
-        Muestra un resumen del historial relacionado con el registro de stock.
-        """
-        return ", ".join(
-            [f"{history.change_reason} ({history.recorded_at})" for history in obj.product.stock_history.all()]
-        )
+@admin.register(StockEvent)
+class StockEventAdmin(admin.ModelAdmin):
+    list_display = [
+        'id',
+        'get_stock',         # Método que devuelve el ID del stock
+        'stock_quantity',
+        'quantity_change',
+        'event_type',
+        'created_at',
+        'user',
+        'get_modified_at',   # Método para mostrar modified_at
+        'get_modified_by'    # Método para mostrar modified_by
+    ]
+    search_fields = ['stock__id', 'user__username']
+    list_filter = ['event_type', 'created_at', 'user']
+    ordering = ['-created_at']
+    readonly_fields = ['stock_details']
 
-    view_stock_history.short_description = 'Historial de Cambios'
-    list_display += ('view_stock_history',)
+    def get_stock(self, obj):
+        """Devuelve el ID del stock asociado."""
+        return obj.stock.id if obj.stock else None
+    get_stock.short_description = _('Stock ID')
 
+    def stock_quantity(self, obj):
+        """Devuelve la cantidad actual del stock relacionado con el evento."""
+        return obj.stock.quantity if obj.stock else "No stock"
+    stock_quantity.short_description = _('Stock Quantity')
 
-@admin.register(StockHistory)
-class StockHistoryAdmin(admin.ModelAdmin):
-    """
-    Configuración del panel de administración para el modelo StockHistory.
-    """
-    list_display = ('id', 'product', 'stock_before', 'stock_after', 'change_reason', 'recorded_at', 'user')  # Columnas a mostrar
-    list_filter = ('product', 'recorded_at', 'user')  # Filtros laterales
-    search_fields = ('product__name', 'change_reason', 'user__username')  # Campos para búsqueda
-    ordering = ('-recorded_at',)  # Orden descendente por fecha de registro
+    def get_modified_at(self, obj):
+        """Devuelve la fecha de modificación del evento."""
+        return obj.modified_at
+    get_modified_at.short_description = _('Modified At')
 
-    readonly_fields = ('recorded_at',)  # Evitar la edición directa del campo de fecha
-    fieldsets = (
-        (None, {
-            'fields': ('product', 'stock_before', 'stock_after', 'change_reason', 'user')
-        }),
-        ('Timestamps', {
-            'fields': ('recorded_at',),
-        }),
-    )
+    def get_modified_by(self, obj):
+        """Devuelve el usuario que modificó el evento."""
+        return obj.modified_by
+    get_modified_by.short_description = _('Modified By')
+
+    def stock_details(self, obj):
+        """Devuelve un resumen del stock en la vista de detalle."""
+        if obj.stock:
+            return f"Stock {obj.stock.id} - {obj.stock.quantity} unidades"
+        return "No stock"
+    stock_details.short_description = _('Stock Details')

@@ -46,10 +46,17 @@ SIMPLE_JWT = {
 # Configuración de CORS
 # Permite peticiones desde el frontend
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5174",  # Puerto del dev
+    "http://localhost:5173",  # Puerto del dev
     "http://localhost:4174",  # Puerto del preview
 ]
-CORS_ALLOW_HEADERS = ['Authorization', 'Content-Type']
+CORS_ALLOW_HEADERS = [
+    'authorization',
+    'content-type',
+    'accept',
+    'origin',
+    'x-csrftoken',
+    'x-requested-with',
+]
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
@@ -62,3 +69,11 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+
+
+CELERY_BROKER_URL = 'redis://redis:6379/0'  # Configura Redis como el broker de Celery
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # Almacena los resultados de las tareas en Redis
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'

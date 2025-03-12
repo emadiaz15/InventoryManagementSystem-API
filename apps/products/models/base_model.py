@@ -6,8 +6,6 @@ User = get_user_model()
 
 class BaseModel(models.Model):
     """Modelo base con lógica común para creación, modificación y eliminación soft."""
-    name = models.CharField(max_length=200, unique=True)
-    description = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)  # Se asigna automáticamente al crear
     modified_at = models.DateTimeField(null=True, blank=True)  # Inicialmente null
     deleted_at = models.DateTimeField(null=True, blank=True)

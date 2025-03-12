@@ -1,69 +1,57 @@
 from rest_framework import serializers
-from apps.stocks.models import Stock
+from apps.products.models.product_model import Product
 from apps.products.models.subproduct_model import Subproduct
-from django.db.models import Sum
-from apps.stocks.api.serializers import StockSerializer
-from apps.comments.api.serializers import CommentSerializer
+from apps.products.api.serializers.base_serializer import BaseSerializer
 
-class SubProductSerializer(serializers.ModelSerializer):
-    """Serializer para subproductos con la lógica de stock y atributos de cable."""
-
-    stock_quantity = serializers.SerializerMethodField()
-    brand = serializers.SerializerMethodField()
-    number_coil = serializers.SerializerMethodField()
-    initial_length = serializers.SerializerMethodField()
-    final_length = serializers.SerializerMethodField()
-    total_weight = serializers.SerializerMethodField()
-    coil_weight = serializers.SerializerMethodField()
-    technical_sheet_photo = serializers.SerializerMethodField()
-    comments = CommentSerializer(many=True)  # Añadir comentarios
-
+class SubProductSerializer(BaseSerializer):
+    """Serializer para subproductos con atributos de cable."""
     class Meta:
-        model = Subproduct  # Asegúrate de que es Subproduct, no Product
-        fields = [
-            'id', 'name', 'description', 'status', 'created_at', 'modified_at', 'stock_quantity', 
-            'brand', 'number_coil', 'initial_length', 'final_length', 'total_weight', 'coil_weight', 
-            'technical_sheet_photo', 'created_by', 'modified_by', 'deleted_by', 'comments'
-        ]
+        model = Subproduct
+        fields = ['id','name', 'description', 'status', 'brand', 'number_coil', 
+                  'initial_length', 'final_length', 'total_weight', 'coil_weight', 'parent', 'quantity', 'technical_sheet_photo',
+                  'created_at', 'created_by', 'modified_at', 'modified_by', 'deleted_at', 'deleted_by']
 
-    def get_stock_quantity(self, obj):
-        """Devuelve la cantidad de stock del subproducto."""
-        stock = Stock.objects.filter(product=obj, is_active=True).aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
-        return stock
+        # Asumimos que 'parent' es solo un campo de lectura, no debe ser enviado
+        read_only_fields = ['parent']
 
-    def get_brand(self, obj):
-        """Devuelve la marca del subproducto."""
-        return self._get_subproduct_attribute(obj, 'brand')
+    def validate_name(self, value):
+        """Valida que el nombre del subproducto no esté vacío."""
+        if not value:
+            raise serializers.ValidationError("El nombre del subproducto es obligatorio.")
+        return value
 
-    def get_number_coil(self, obj):
-        """Devuelve el número de bobinas del subproducto."""
-        return self._get_subproduct_attribute(obj, 'number_coil')
+    def validate_quantity(self, value):
+        """Valida que la cantidad sea un número mayor que cero."""
+        if value is None or value <= 0:
+            raise serializers.ValidationError("La cantidad debe ser mayor que cero.")
+        return value
 
-    def get_initial_length(self, obj):
-        """Devuelve la longitud inicial del subproducto."""
-        return self._get_subproduct_attribute(obj, 'initial_length')
+    def validate_total_weight(self, value):
+        """Valida que el peso total sea mayor que cero."""
+        if value <= 0:
+            raise serializers.ValidationError("El peso total debe ser mayor que cero.")
+        return value
 
-    def get_final_length(self, obj):
-        """Devuelve la longitud final del subproducto."""
-        return self._get_subproduct_attribute(obj, 'final_length')
+    def validate_initial_length(self, value):
+        """Valida que la longitud inicial sea mayor o igual a cero."""
+        if value < 0:
+            raise serializers.ValidationError("La longitud inicial no puede ser negativa.")
+        return value
 
-    def get_total_weight(self, obj):
-        """Devuelve el peso total del subproducto."""
-        return self._get_subproduct_attribute(obj, 'total_weight')
+    def validate_final_length(self, value):
+        """Valida que la longitud final sea mayor o igual a cero."""
+        if value < 0:
+            raise serializers.ValidationError("La longitud final no puede ser negativa.")
+        return value
 
-    def get_coil_weight(self, obj):
-        """Devuelve el peso de la bobina del subproducto."""
-        return self._get_subproduct_attribute(obj, 'coil_weight')
-
-    def get_technical_sheet_photo(self, obj):
-        """Devuelve la foto de la hoja técnica del subproducto."""
-        technical_sheet_photo = self._get_subproduct_attribute(obj, 'technical_sheet_photo')
-        return technical_sheet_photo.url if technical_sheet_photo else None
-
-    def _get_subproduct_attribute(self, obj, attribute):
-        """Obtiene un atributo específico de Subproduct."""
-        try:
-            subproduct = obj.cable_subproduct  # Asegúrate de que la relación es correcta
-            return getattr(subproduct, attribute, None) if subproduct else None
-        except Subproduct.DoesNotExist:
-            return None
+    def validate_coil_weight(self, value):
+        """Valida que el peso de la bobina sea mayor o igual a cero."""
+        if value < 0:
+            raise serializers.ValidationError("El peso de la bobina no puede ser negativo.")
+        return value
+    
+    def validate_status(self, value):
+        """Valida que el estado sea un valor booleano (True/False)."""
+        if value not in [True, False]:
+            raise serializers.ValidationError("El estado debe ser True o False.")
+        return value

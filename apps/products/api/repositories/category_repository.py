@@ -1,5 +1,5 @@
 from django.utils import timezone
-from apps.products.models import Category
+from apps.products.models.category_model import Category
 
 class CategoryRepository:
     @staticmethod
@@ -52,15 +52,11 @@ class CategoryRepository:
 
         # Si hubo cambios, actualizar la fecha en deleted_at
         if changes_made:
-            # Si el status cambia a 'false', guardamos la fecha de eliminación en 'deleted_at'
-            if status is not None and status is False:
-                category.deleted_at = timezone.now()  # Marca el tiempo de eliminación
 
             category.modified_at = timezone.now()  # Marca el tiempo de la última modificación
             category.save(update_fields=['name', 'description', 'status', 'modified_at', 'deleted_at', 'modified_by'])
 
         return category
-
 
 
     @staticmethod

@@ -6,10 +6,12 @@ from django.conf.urls.static import static
 
 # Rutas de la API
 api_patterns = [
+    path('', include('apps.core.urls')),  # Rutas de la app `core`
     path('users/', include('apps.users.api.urls')),  # Rutas de la app `users`
     path('inventory/', include('apps.products.api.urls')),  # Rutas de la app `products`
     path('cutting/', include('apps.cuts.api.urls')),  # Rutas de la app `cutting`
-    path('', include('apps.core.urls')),  # Rutas de la app `core`
+    path('stocks/', include('apps.stocks.api.urls')),  # Rutas para los eventos de stock
+    path('comments/', include('apps.comments.api.urls')),  # Rutas de la app `comments`
 ]
 
 # Rutas para la documentación de la API con drf-spectacular
@@ -23,8 +25,9 @@ schema_patterns = [
 urlpatterns = [
     path('admin/', admin.site.urls),  # Ruta al panel de administración de Django
     path('api/v1/', include(api_patterns)),  # Incluye todas las rutas de la API organizadas
-    path('api-docs/', include(schema_patterns)),  # Incluye las rutas para la documentación de la API
+    path('api/v1/docs/', include(schema_patterns)),  # Documentación API bajo /api/v1/docs/
 ]
 
+# Configuración para servir archivos estáticos durante el desarrollo
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

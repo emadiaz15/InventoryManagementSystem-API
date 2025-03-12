@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from apps.products.models import Category, Type
+from apps.products.models.category_model import Category
+from apps.products.models.type_model import Type
 from .base_serializer import BaseSerializer  # 🚀 Importamos la clase base
 
 class TypeSerializer(BaseSerializer):

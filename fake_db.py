@@ -22,10 +22,10 @@ from django.utils.timezone import now
 User = get_user_model()
 
 from apps.products.models import Category, Type, Product
-from apps.cuts.models import CuttingOrder
-from apps.comments.models import Comment
-from apps.stocks.models import Stock  # Para crear stocks iniciales
-from apps.stocks.models import StockHistory  # Si deseas poblar historial adicional
+from apps.cuts.models.cutting_order_model import CuttingOrder
+from apps.comments.models.comment_subproduct_model import Comment
+from apps.stocks.models.stock_model import Stock  # Para crear stocks iniciales
+from apps.stocks.models.stock_model import StockHistory  # Si deseas poblar historial adicional
 
 fake = Faker()
 
