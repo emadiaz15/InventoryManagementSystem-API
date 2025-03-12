@@ -11,6 +11,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar el código del proyecto al contenedor
 COPY . /app/
 
+# Crear el directorio para los archivos estáticos
+RUN mkdir -p /app/staticfiles
+
 # Crear el directorio de logs
 RUN mkdir -p /app/logs
 
@@ -23,7 +26,10 @@ RUN chmod +x ./wait-for-redis.sh
 # Establecer variables de entorno para Django
 ENV PYTHONUNBUFFERED 1
 
-# Exponer el puerto que el contenedor va a usar
+# Asegurarse de que el directorio de archivos estáticos tiene permisos adecuados
+RUN chmod -R 777 /app/staticfiles
+
+# Exponer el puerto donde corre el servidor
 EXPOSE 8000
 
 # Ejecutar collectstatic sin pedir confirmación
