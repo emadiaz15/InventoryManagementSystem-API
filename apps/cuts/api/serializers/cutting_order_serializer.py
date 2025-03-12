@@ -8,8 +8,12 @@ from apps.users.models import User
 class CuttingOrderSerializer(serializers.ModelSerializer):
     """Serializador para las órdenes de corte, ahora basado en Subproducts."""
 
+    # Reemplazamos PrimaryKeyRelatedField por StringRelatedField para mostrar el `username`
     subproduct = serializers.PrimaryKeyRelatedField(queryset=Subproduct.objects.all(), required=True)
-    assigned_to = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=True)
+    assigned_to = serializers.StringRelatedField()  # Muestra el `username` del `assigned_to`
+    created_by = serializers.StringRelatedField()  # Muestra el `username` del `created_by`
+    modified_by = serializers.StringRelatedField()  # Muestra el `username` del `modified_by`
+    assigned_by = serializers.StringRelatedField()  # Muestra el `username` del `assigned_by`
 
     class Meta:
         model = CuttingOrder
