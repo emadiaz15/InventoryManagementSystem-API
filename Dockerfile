@@ -8,17 +8,21 @@ WORKDIR /app
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Crear los directorios necesarios y asignar permisos
+RUN mkdir -p /app/staticfiles /app/logs && chmod -R 777 /app/staticfiles /app/logs
+
 # Copiar el código del proyecto al contenedor
 COPY . /app/
-
-# Asegurarse de que el script wait-for-redis.sh sea ejecutable
-RUN chmod +x ./wait-for-redis.sh
 
 # Establecer las variables de entorno para Django
 ENV PYTHONUNBUFFERED 1
 
 # Exponer el puerto donde correrá el servidor
 EXPOSE 8000
+
+# Ejecutar las migraciones y colectar los archivos estáticos
+RUN python manage.py migrate --no-input
+RUN python manage.py collectstatic --no-input
 
 # Copiar el script de entrada y hacerlo ejecutable
 COPY entrypoint.sh /entrypoint.sh

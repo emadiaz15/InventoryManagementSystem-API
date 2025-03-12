@@ -21,7 +21,7 @@ DATABASES = {
 
 # Archivos estáticos y multimedia
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Usa la ruta correcta para los archivos estáticos
+STATIC_ROOT = '/app/staticfiles'  # Usa la ruta correcta para los archivos estáticos
 
 STORAGES = {
     "staticfiles": {
@@ -30,7 +30,7 @@ STORAGES = {
 }
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'  # Usa la ruta correcta para los archivos multimedia
+MEDIA_ROOT = '/app/mediafiles'  # Usa la ruta correcta para los archivos multimedia
 
 # Seguridad
 SECURE_SSL_REDIRECT = True
