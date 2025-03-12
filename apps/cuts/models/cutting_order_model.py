@@ -6,6 +6,7 @@ from apps.users.models import User
 from apps.products.models.subproduct_model import Subproduct
 from apps.stocks.models import SubproductStock
 from .base_model import BaseModel
+from apps.stocks.models import StockEvent
 
 class CuttingOrder(BaseModel):
     """
@@ -77,9 +78,20 @@ class CuttingOrder(BaseModel):
         if self.cutting_quantity > stock.quantity:
             raise ValidationError(f"Not enough stock to complete the order.")
 
+        # Descontamos la cantidad de stock
         stock.quantity -= self.cutting_quantity
         stock.save()
 
+        # Crear el evento de stock
+        StockEvent.objects.create(
+            stock_instance=stock,
+            quantity_change=-self.cutting_quantity,
+            event_type='salida',  # Movimiento de salida al completar la orden
+            user=self.assigned_by,  # Asignar el usuario que está completando la orden
+            location=stock.location
+        )
+
+        # Actualizar el estado de la orden
         self.status = 'completed'
         self.completed_at = timezone.now()
         self.save()

@@ -37,5 +37,4 @@ def product_stock_event_history(request, pk):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     except Exception as e:
-        # En producción, no exponer detalles del error
         return Response({"detail": "Error inesperado."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

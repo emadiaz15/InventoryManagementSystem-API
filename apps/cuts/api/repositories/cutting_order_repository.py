@@ -4,6 +4,7 @@ from django.utils import timezone
 from apps.cuts.models.cutting_order_model import CuttingOrder
 from apps.stocks.models import SubproductStock
 from apps.users.models import User
+from apps.stocks.models import StockEvent
 
 class CuttingOrderRepository:
 
@@ -34,10 +35,25 @@ class CuttingOrderRepository:
             cutting_quantity=cutting_quantity,
             assigned_by=user,
             assigned_to=assigned_to_user,
+            status='in_process'  # Inicializamos en "in_process"
         )
 
         # Guardar la orden de corte
         cutting_order.save() 
+
+        # Actualizar el stock (descontar la cantidad)
+        stock.quantity -= cutting_quantity
+        stock.save()
+
+        # Crear el evento de stock
+        StockEvent.objects.create(
+            stock_instance=stock,
+            quantity_change=-cutting_quantity,
+            event_type='salida',
+            user=user,
+            location=stock.location
+        )
+
         return cutting_order
 
     @staticmethod
@@ -46,31 +62,21 @@ class CuttingOrderRepository:
         """
         Actualiza una orden de corte, modificando su estado o cantidad de corte.
         """
-        # Validación: Si el estado cambia a 'completed', debe ser desde 'in_process'
         new_status = data.get('status', cutting_order.status)
 
         if new_status != cutting_order.status:
             if new_status == 'completed' and cutting_order.status != 'in_process':
                 raise ValidationError("No se puede completar una orden que no esté 'en_proceso'.")
-        
+
         # Si el usuario es staff, puede actualizar cualquier campo
-        if user.is_staff:
-            cutting_order.status = new_status
-            cutting_order.modified_by = user
-            cutting_order.modified_at = timezone.now()  # Fecha y hora actual al modificar
-            cutting_order.save()
-            return cutting_order
+        if new_status == 'completed':
+            cutting_order.complete_cutting()  # Llamamos a la lógica de completar la orden y mover el stock
 
-        # Si el usuario no es staff, solo puede actualizar el estado
-        if 'status' in data:
-            cutting_order.status = new_status
-            cutting_order.modified_by = user
-            cutting_order.modified_at = timezone.now()
-            cutting_order.save()
-            return cutting_order
-
-        # Si no hay cambios válidos en el estado
-        raise ValidationError("Solo puedes actualizar el estado de la orden.")
+        cutting_order.status = new_status
+        cutting_order.modified_by = user
+        cutting_order.modified_at = timezone.now()
+        cutting_order.save()
+        return cutting_order
 
     @staticmethod
     @transaction.atomic
