@@ -16,8 +16,8 @@ class ProductStock(BaseStock):
     def __str__(self):
         return f"Stock de {self.product.name}: {self.quantity}"
 
-    def update_stock(self, quantity_change):
-        """Lógica para actualizar el stock del producto"""
+    def update_stock(self, quantity_change, user=None):
+        """Lógica para actualizar el stock del producto."""
         # Actualizar la cantidad de stock del producto
         self.product.quantity += quantity_change
         self.product.save()
@@ -27,7 +27,6 @@ class ProductStock(BaseStock):
             stock_instance=self,
             quantity_change=quantity_change,
             event_type="ajuste" if quantity_change == 0 else ("entrada" if quantity_change > 0 else "salida"),
-            user=None,  # Asignar el usuario si es necesario
+            user=user,  # Asignar el usuario si es necesario
             location=self.product.location  # Si el producto tiene una ubicación asociada, puedes usarla.
         )
-

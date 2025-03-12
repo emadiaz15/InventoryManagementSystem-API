@@ -2,23 +2,24 @@ from rest_framework import serializers
 from django.utils.timezone import now
 
 from apps.cuts.models.cutting_order_model import CuttingOrder
-from apps.products.models.subproduct_model import Subproduct  # ✅ Importar Subproduct en lugar de Product
+from apps.products.models.subproduct_model import Subproduct
+from apps.users.models import User
 
 class CuttingOrderSerializer(serializers.ModelSerializer):
     """Serializador para las órdenes de corte, ahora basado en Subproducts."""
-    
-    # ✅ Reemplazar 'product' por 'subproduct'
+
     subproduct = serializers.PrimaryKeyRelatedField(queryset=Subproduct.objects.all(), required=True)
+    assigned_to = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=True)
 
     class Meta:
         model = CuttingOrder
         fields = '__all__'
-        read_only_fields = ['status', 'created_at', 'modified_at', 'completed_at', 'assigned_by', 'assigned_to']
+        read_only_fields = ['status', 'created_at', 'modified_at', 'completed_at', 'assigned_by']
 
     def validate_cutting_quantity(self, value):
         """Valida que la cantidad de corte sea mayor a cero."""
         if value <= 0:
-            raise serializers.ValidationError("The cutting quantity must be greater than zero.")
+            raise serializers.ValidationError("La cantidad de corte debe ser mayor a cero.")
         return value
 
     def create(self, validated_data):
@@ -36,7 +37,7 @@ class CuttingOrderSerializer(serializers.ModelSerializer):
 
         if new_status == 'completed' and instance.status != 'completed':
             if instance.status != 'in_process':
-                raise serializers.ValidationError("Cannot complete an order that is not 'in_process'.")
+                raise serializers.ValidationError("No se puede completar una orden que no esté 'en_proceso'.")
 
             validated_data['completed_at'] = now()
 

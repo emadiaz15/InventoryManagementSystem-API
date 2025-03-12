@@ -39,21 +39,33 @@ class CuttingOrder(BaseModel):
         if not self.subproduct:
             raise ValidationError("A subproduct must be selected for the cutting order.")
         
+        # Cambia esta línea para acceder al stock de SubproductStock
         try:
-            stock = self.subproduct.stocks.latest('created_at')
+            stock = SubproductStock.objects.filter(subproduct=self.subproduct).latest('created_at')
         except SubproductStock.DoesNotExist:
             raise ValidationError(f"No stock available for subproduct {self.subproduct.name}.")
 
         if self.cutting_quantity > stock.quantity:
             raise ValidationError(f"Insufficient stock for subproduct {self.subproduct.name}. Available: {stock.quantity}")
 
+
     def save(self, *args, **kwargs):
         """
         Sobrescribe el método `save` para incluir validaciones y asignación de usuario.
         """
         self.clean()
-        user = kwargs.pop("user", None)  # Extraemos el 'user' de kwargs si está presente.
-        super().save(*args, **kwargs, user=user)
+        
+        # Extraemos el 'user' de kwargs si está presente
+        user = kwargs.pop("user", None)
+        
+        if not user:
+            raise ValidationError("User must be provided.")
+        
+        # Asignamos el usuario como 'assigned_by'
+        self.assigned_by = user
+        
+        # Llamamos al método `save` de la clase base
+        super().save(*args, **kwargs)
 
     def complete_cutting(self):
         """
