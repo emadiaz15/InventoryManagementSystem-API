@@ -47,7 +47,7 @@ LOGGING = {
         'file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
-            'filename': '/app/logs/django-error.log',  # Ruta absoluta para los contenedores Docker
+            'filename': './app/logs/django-error.log',  # Asegúrate de que esta ruta exista
         },
     },
     'loggers': {
