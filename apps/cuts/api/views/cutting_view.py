@@ -14,6 +14,7 @@ from apps.cuts.docs.cutting_order_doc import (
     update_cutting_order_by_id_doc,
     delete_cutting_order_by_id_doc
 )
+from apps.core.pagination import Pagination
 
 @extend_schema(**list_cutting_orders_doc)
 @api_view(['GET'])
@@ -37,12 +38,17 @@ def cutting_orders_list_view(request):
         orders = CuttingOrder.objects.filter(assigned_to=user)
 
     print(f"Órdenes encontradas: {orders.count()}")  # Muestra el número de órdenes encontradas
-    
-    # Serializa las órdenes
-    serializer = CuttingOrderSerializer(orders, many=True)
-    
-    # Devuelve la respuesta con la lista de órdenes
-    return Response(serializer.data, status=status.HTTP_200_OK)
+
+    # Paginación
+    paginator = Pagination()  # Puedes usar el paginador predeterminado de DRF
+    paginator.page_size = 10  # Establece el número de resultados por página
+    paginated_orders = paginator.paginate_queryset(orders, request)  # Aplica la paginación al queryset
+
+    # Serializa las órdenes paginadas
+    serializer = CuttingOrderSerializer(paginated_orders, many=True)
+
+    # Devuelve la respuesta con la paginación
+    return paginator.get_paginated_response(serializer.data)
 
 
 
