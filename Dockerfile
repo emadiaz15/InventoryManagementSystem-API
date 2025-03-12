@@ -8,8 +8,8 @@ WORKDIR /app
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el archivo .env al contenedor para que las variables de entorno estén disponibles
-COPY env/.env /app/.env
+# Copiar el archivo .env desde la raíz del proyecto al contenedor para que las variables de entorno estén disponibles
+COPY .env /app/.env
 
 # Crear los directorios necesarios y asignar permisos
 RUN mkdir -p /app/staticfiles /app/logs && chmod -R 777 /app/staticfiles /app/logs
