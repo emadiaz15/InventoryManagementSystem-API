@@ -1,13 +1,12 @@
 from .base import *
-import os
 from datetime import timedelta
 from dotenv import load_dotenv
-
+import dj_database_url
+import os
 # Cargar las variables del archivo .env
 load_dotenv()  # Cargar las variables de entorno
-
 # Cargar la clave secreta desde las variables de entorno
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # Desactivar DEBUG para producción
 DEBUG = False
@@ -18,14 +17,7 @@ CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app']
 
 # Configuración de la base de datos, cargando las credenciales de las variables de entorno
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5432'),
-    }
+    'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
 }
 
 # Configuración de archivos estáticos
@@ -58,7 +50,7 @@ LOGGING = {
         'file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
-            'filename': '/path/to/your/logs/django-error.log',  # Cambia esta ruta por la real
+            'filename': '/home/emadiaz/Escritorio/workspace/projects/InventoryManagementSystem/InventoryManagementSystem-API/logs/django-error.log',  # Cambia esta ruta
         },
     },
     'loggers': {
