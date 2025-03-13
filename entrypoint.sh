@@ -1,10 +1,13 @@
-#!/bin/bash
-# Este script realiza las migraciones y luego inicia el servidor Django
+# Este script realiza las migraciones, recolecta archivos estáticos y luego inicia el servidor Django
 
 # Ejecutar las migraciones
 echo "Ejecutando las migraciones..."
 python manage.py makemigrations
 python manage.py migrate
+
+# Recolectar archivos estáticos sin interacción
+echo "Recolectando archivos estáticos..."
+python manage.py collectstatic --noinput
 
 # Iniciar el servidor de Django
 echo "Iniciando el servidor de Django..."
