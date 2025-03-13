@@ -52,11 +52,11 @@ def create_category(request):
 @extend_schema(**delete_category_by_id_doc)
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsStaffOrReadOnly])  # Solo staff puede actualizar o eliminar; autenticados pueden leer.
-def category_detail(request, pk):
+def category_detail(request, category_pk):
     """
     Obtiene, actualiza o realiza un soft delete de una categoría específica.
     """
-    category = CategoryRepository.get_by_id(pk)  # Usando el repositorio para obtener la categoría
+    category = CategoryRepository.get_by_id(category_pk)  # Usando el repositorio para obtener la categoría
     if not category:
         return Response({"detail": "Categoría no encontrada."}, status=status.HTTP_404_NOT_FOUND)
 

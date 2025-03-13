@@ -12,17 +12,19 @@ from apps.products.models.subproduct_model import Subproduct
 @extend_schema(**stock_event_history_doc)
 @api_view(['GET'])
 @permission_classes([IsStaffOrReadOnly])
-def subproduct_stock_event_history(request, product_pk, pk):
+
+def subproduct_stock_event_history(request, product_pk,subproduct_pk):
     """
     Obtiene el historial de eventos de stock para un subproducto.
     Los eventos incluyen entradas, salidas y ajustes.
     """
     try:
         # Obtener el subproducto
-        subproduct = Subproduct.objects.get(pk=pk, product_id=product_pk, status=True)
+
+        subproduct = Subproduct.objects.get(subproduct_pk=subproduct_pk, product_id=product_pk, status=True)
 
         # Obtener el stock asociado al subproducto
-        stock = SubproductRepository.get_subproduct_stock(pk)
+        stock = SubproductRepository.get_subproduct_stock(subproduct_pk)
 
         # Validar si existe el stock
         if not stock:

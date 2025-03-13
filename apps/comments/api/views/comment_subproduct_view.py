@@ -21,12 +21,21 @@ from apps.comments.docs.comment_subproduct_view import (
 @extend_schema(**list_comments_doc)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+<<<<<<< HEAD
 def comment_subproduct_list_view(request, product_pk, subproduct_pk):
     """
     Obtiene la lista de comentarios activos de un subproducto.
     """
     if subproduct_pk:
         comments = SubproductCommentRepository.get_comments(subproduct_pk)
+=======
+def comment_subproduct_list_view(request, prod_pk, subp_pk):
+    """
+    Obtiene la lista de comentarios activos de un subproducto.
+    """
+    if subp_pk:
+        comments = SubproductCommentRepository.get_comments(subp_pk)
+>>>>>>> develop
 
         # Aplicando paginación
         pagination = Pagination()  # Inicializa el paginador
@@ -46,7 +55,11 @@ def comment_subproduct_list_view(request, product_pk, subproduct_pk):
 @extend_schema(**create_comment_doc)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+<<<<<<< HEAD
 def comment_subproduct_create_view(request, product_pk=None, subproduct_pk=None):
+=======
+def comment_subproduct_create_view(request, prod_pk=None, subp_pk=None):
+>>>>>>> develop
     """
     Crea un nuevo comentario sobre un subproducto.
     """
@@ -57,9 +70,15 @@ def comment_subproduct_create_view(request, product_pk=None, subproduct_pk=None)
     if not text:
         return Response({"error": "El comentario no puede estar vacío."}, status=status.HTTP_400_BAD_REQUEST)
 
+<<<<<<< HEAD
     if subproduct_pk:
         try:
             subproduct = Subproduct.objects.get(id=subproduct_pk)  # Verifica que el subproducto exista
+=======
+    if subp_pk:
+        try:
+            subproduct = Subproduct.objects.get(id=subp_pk)  # Verifica que el subproducto exista
+>>>>>>> develop
         except Subproduct.DoesNotExist:
             return Response({"error": "Subproducto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -80,13 +99,21 @@ def comment_subproduct_create_view(request, product_pk=None, subproduct_pk=None)
 @extend_schema(**delete_comment_doc)
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
+<<<<<<< HEAD
 def comment_subproduct_detail_view(request, product_pk, subproduct_pk, pk):
+=======
+def comment_subproduct_detail_view(request, prod_pk, subp_pk, comment_subp_pk):
+>>>>>>> develop
     """
     Obtiene, actualiza o elimina un comentario específico de subproducto.
     """
     try:
         # Obtener el comentario por su ID
+<<<<<<< HEAD
         comment = SubproductCommentRepository.get_comment_by_id(pk)
+=======
+        comment = SubproductCommentRepository.get_comment_by_id(comment_subp_pk)
+>>>>>>> develop
     except ObjectDoesNotExist:
         return Response({'detail': 'Comentario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -109,7 +136,11 @@ def comment_subproduct_detail_view(request, product_pk, subproduct_pk, pk):
     elif request.method == 'DELETE':
         # Realizamos el soft delete del comentario
         try:
+<<<<<<< HEAD
             SubproductCommentRepository.soft_delete_comment(pk, request.user)
+=======
+            SubproductCommentRepository.soft_delete_comment(comment_subp_pk, request.user)
+>>>>>>> develop
             return Response({'message': 'Comentario eliminado correctamente (soft delete).'}, status=status.HTTP_204_NO_CONTENT)
         except ObjectDoesNotExist:
             return Response({'detail': 'Comentario no encontrado o ya ha sido eliminado.'}, status=status.HTTP_404_NOT_FOUND)
