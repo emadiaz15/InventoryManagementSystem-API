@@ -1,24 +1,28 @@
 from .base import *
-import dj_database_url
 from dotenv import load_dotenv
 import os
 from datetime import timedelta
 
-
 # Cargar las variables del archivo .env
 load_dotenv()  # Cargar las variables de entorno
 SECRET_KEY = os.getenv('SECRET_KEY')
-
 
 # Configuración básica
 DEBUG = False
 ALLOWED_HOSTS = ['inventarioweb.up.railway.app', '*.railway.app']
 CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app', 'https://*.railway.app']
 
-DATABASES = {'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))}
-
-# Asegúrate de que el ENGINE esté especificado correctamente
-DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
+# Configuración de la base de datos (sin utilizar dj_database_url, usando variables separadas)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DATABASE_NAME'),  # Nombre de la base de datos
+        'USER': os.getenv('DATABASE_USER'),  # Usuario de la base de datos
+        'PASSWORD': os.getenv('DATABASE_PASSWORD'),  # Contraseña de la base de datos
+        'HOST': os.getenv('DATABASE_HOST'),  # Host de la base de datos
+        'PORT': os.getenv('DATABASE_PORT'),  # Puerto de la base de datos
+    }
+}
 
 # Seguridad
 SECURE_SSL_REDIRECT = True
@@ -92,15 +96,13 @@ CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
-
+# Archivos estáticos y multimedia
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
-# Archivos estáticos y multimedia
-# Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
