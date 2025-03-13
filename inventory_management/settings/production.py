@@ -16,11 +16,14 @@ CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app', 'https://*.railw
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('PGDATABASE'),  # Nombre de la base de datos
-        'USER': os.getenv('PGUSER'),  # Usuario de la base de datos
-        'PASSWORD': os.getenv('PGPASSWORD'),  # Contraseña de la base de datos
-        'HOST': os.getenv('PGHOST'),  # Host de la base de datos
-        'PORT': os.getenv('PGPORT'),  # Puerto de la base de datos
+        'NAME': os.getenv('PGDATABASE'),
+        'USER': os.getenv('PGUSER'),
+        'PASSWORD': os.getenv('PGPASSWORD'),
+        'HOST': os.getenv('PGHOST'),
+        'PORT': os.getenv('PGPORT'),
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
     }
 }
 
