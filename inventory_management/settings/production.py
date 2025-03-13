@@ -25,17 +25,6 @@ DATABASES = {
 # Asegúrate de que el ENGINE esté especificado correctamente
 DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
 
-# Archivos estáticos y multimedia
-
-STORAGES = {
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'  # Usa la ruta correcta para los archivos multimedia
-
 # Seguridad
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
@@ -108,8 +97,20 @@ CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+# Archivos estáticos y multimedia
+# Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'apps.core','static'),
