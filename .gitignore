@@ -1,6 +1,6 @@
 .env
 **/logs/
-**/stacticfiles/
+/inventory_management/staticfiles/
 
 *.fake_db.py
 *.fake_generate_subproducts_db.py
