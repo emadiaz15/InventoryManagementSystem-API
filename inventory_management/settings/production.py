@@ -97,6 +97,20 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-ALLOWED_HOSTS = ['https://inventoryapi.up.railway.app', 'https://*.railway.app','https://web-production-2b59.up.railway.app']
+# Configuración de los hosts permitidos
+ALLOWED_HOSTS = [
+    '127.0.0.1',  # Para desarrollo local
+    'localhost',  # Para desarrollo local
+    'https://inventoryapi.up.railway.app', 
+    'https://*.railway.app', 
+    'https://web-production-2b59.up.railway.app',
+]
 
-CSRF_TRUSTED_ORIGINS = ['https://inventoryapi.up.railway.app', 'https://*.railway.app','https://web-production-2b59.up.railway.app']
+# Configuración de los orígenes confiables para CSRF
+CSRF_TRUSTED_ORIGINS = [
+    'https://inventoryapi.up.railway.app', 
+    'https://*.railway.app', 
+    'https://web-production-2b59.up.railway.app',
+    'http://127.0.0.1',  # Permite CSRF desde localhost
+    'http://localhost',  # Permite CSRF desde localhost
+]
