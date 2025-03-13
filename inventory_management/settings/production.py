@@ -91,9 +91,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 STATIC_URL = '/static/'
 
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
