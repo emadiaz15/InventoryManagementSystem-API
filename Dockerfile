@@ -22,5 +22,5 @@ ENV PYTHONUNBUFFERED 1
 # Exponer el puerto donde correrá el servidor
 EXPOSE 8000
 
-# Ejecutar migraciones, recolectar archivos estáticos y luego iniciar el servidor de Django
-CMD bash -c "exec gunicorn inventory_management.wsgi:application --bind 0.0.0.0:8000"
+# Iniciar el servidor de Django con Gunicorn
+CMD exec gunicorn inventory_management.wsgi:application --bind 0.0.0.0:8000
