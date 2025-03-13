@@ -93,7 +93,7 @@ CORS_ALLOW_CREDENTIALS = True
 STATIC_URL = '/static/'
 
 # Directorio para los archivos estáticos que el proyecto puede servir localmente
-STATICFILES_DIRS = '/inventory_management/staticfiles'
+STATICFILES_DIRS = ['/inventory_management/staticfiles']
 
 # El directorio donde Django almacenará todos los archivos estáticos para producción (cuando uses collectstatic)
 STATIC_ROOT =  '/inventory_management/staticfiles'
