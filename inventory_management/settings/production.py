@@ -96,7 +96,7 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = ['/inventory_management/staticfiles']
 
 # El directorio donde Django almacenará todos los archivos estáticos para producción (cuando uses collectstatic)
-STATIC_ROOT =  '/inventory_management/staticfiles'
+STATIC_ROOT =  '/inventory_management/static'
 
 # Configuración de WhiteNoise para servir los archivos estáticos en producción
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
