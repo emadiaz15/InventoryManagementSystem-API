@@ -13,5 +13,5 @@ urlpatterns = [
     path('cutting-orders/create/', cutting_order_create_view, name='cutting_order_create'),
 
     # ✅ Ruta para obtener, actualizar y eliminar suavemente una orden de corte específica
-    path('cutting-orders/<int:pk>/', cutting_order_detail_view, name='cutting_order_detail'),
+    path('cutting-orders/<int:cuts_pk>/', cutting_order_detail_view, name='cutting_order_detail'),
 ]

@@ -9,7 +9,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-secret-key')  # Usa una clave por
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # Configuración para usar SQLite
 DATABASES = {

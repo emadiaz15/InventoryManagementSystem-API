@@ -102,11 +102,11 @@ def create_product(request):
 @extend_schema(**delete_product_by_id_doc)
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsStaffOrReadOnly])
-def product_detail(request, pk):
+def product_detail(request, prod_pk):
     """
     Vista para obtener, actualizar o realizar un soft delete de un producto específico, con sus comentarios.
     """
-    product = ProductRepository.get_by_id(pk)  # Obtener el producto por ID
+    product = ProductRepository.get_by_id(prod_pk)  # Obtener el producto por ID
 
     if not product:
         # Si no existe el producto, devolver 404
@@ -142,7 +142,7 @@ def product_detail(request, pk):
         if serializer.is_valid():
             # Aquí utilizamos el repositorio para actualizar el producto
             updated_product = ProductRepository.update(
-                product_id=pk,
+                product_id=prod_pk,
                 name=serializer.validated_data['name'],
                 description=serializer.validated_data['description'],
                 category_id=serializer.validated_data['category'].id,

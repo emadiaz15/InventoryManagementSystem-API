@@ -56,11 +56,11 @@ def create_type(request):
 @extend_schema(**delete_type_by_id_doc)
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsStaffOrReadOnly])  # Solo staff puede actualizar o eliminar; autenticados pueden leer
-def type_detail(request, pk):
+def type_detail(request, type_pk):
     """
     Obtiene, actualiza o realiza un soft delete de un tipo específico.
     """
-    type_instance = TypeRepository.get_by_id(pk)  # Usando el repositorio para obtener el tipo
+    type_instance = TypeRepository.get_by_id(type_pk)  # Usando el repositorio para obtener el tipo
     if not type_instance:
         return Response({"detail": "Tipo no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
