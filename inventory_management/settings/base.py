@@ -16,13 +16,13 @@ BASE_APPS = [
 
 THIRD_APPS = [
     'rest_framework',
+    'whitenoise.runserver_nostatic',
     'simple_history',
     'rest_framework_simplejwt',
     'drf_spectacular',
     'celery',
     'corsheaders',
     'csp',
-    'whitenoise.runserver_nostatic',
 ]
 
 LOCAL_APPS = [
@@ -37,8 +37,8 @@ LOCAL_APPS = [
 INSTALLED_APPS = BASE_APPS + THIRD_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
