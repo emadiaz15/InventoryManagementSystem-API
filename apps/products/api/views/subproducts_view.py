@@ -23,7 +23,6 @@ from apps.products.docs.subproduct_doc import (
 @extend_schema(**list_subproducts_doc)
 @api_view(['GET'])
 @permission_classes([IsStaffOrReadOnly])
-
 def subproduct_list(request, prod_pk):
     """
     Vista para listar todos los subproductos activos asociados a un producto padre, con paginación, incluyendo comentarios.
@@ -51,14 +50,12 @@ def subproduct_list(request, prod_pk):
 @extend_schema(**create_subproduct_doc)
 @api_view(['POST'])
 @permission_classes([IsStaffOrReadOnly])
-
 def create_subproduct(request, prod_pk):
     """
     Vista para crear un nuevo subproducto asociado a un producto padre.
     El producto padre se obtiene desde la URL del endpoint, no se pasa como parte de la solicitud.
     """
     # Obtener el producto padre como instancia de Product
-
     parent_product = get_object_or_404(Product, pk=prod_pk, status=True)
 
     # Serializar los datos de entrada
@@ -106,7 +103,6 @@ def create_subproduct(request, prod_pk):
 @extend_schema(**delete_product_by_id_doc)
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsStaffOrReadOnly])
-
 def subproduct_detail(request, prod_pk, subp_pk):
     """
     Vista para obtener, actualizar o realizar un soft delete de un subproducto específico, con sus comentarios.
@@ -143,4 +139,3 @@ def subproduct_detail(request, prod_pk, subp_pk):
         # Eliminar el subproducto con soft delete
         subproduct = SubproductRepository.soft_delete(subproduct, request.user)
         return Response({"detail": "Subproducto eliminado con éxito."}, status=status.HTTP_204_NO_CONTENT)
-

@@ -85,7 +85,6 @@ def cutting_order_create_view(request):
 @extend_schema(**delete_cutting_order_by_id_doc)
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
-
 def cutting_order_detail_view(request, cuts_pk):
     try:
         order = CuttingOrderRepository.get_cutting_order_by_id(cuts_pk)

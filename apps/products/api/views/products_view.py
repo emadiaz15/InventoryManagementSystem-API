@@ -106,7 +106,6 @@ def product_detail(request, prod_pk):
     """
     Vista para obtener, actualizar o realizar un soft delete de un producto específico, con sus comentarios.
     """
-
     product = ProductRepository.get_by_id(prod_pk)  # Obtener el producto por ID
 
     if not product:
@@ -143,7 +142,6 @@ def product_detail(request, prod_pk):
         if serializer.is_valid():
             # Aquí utilizamos el repositorio para actualizar el producto
             updated_product = ProductRepository.update(
-
                 product_id=prod_pk,
                 name=serializer.validated_data['name'],
                 description=serializer.validated_data['description'],

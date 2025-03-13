@@ -73,21 +73,13 @@ def comment_product_create_view(request, product_pk):
 @extend_schema(**delete_comment_doc)
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
-<<<<<<< HEAD
-def comment_product_detail_view(request, product_pk, pk):
-=======
 def comment_product_detail_view(request, prod_pk, comment_pk):
->>>>>>> develop
     """
     Obtiene, actualiza o elimina un comentario específico de producto.
     """
     try:
         # Obtener el comentario por su ID
-<<<<<<< HEAD
-        comment = ProductCommentRepository.get_comment_by_id(pk)
-=======
         comment = ProductCommentRepository.get_comment_by_id(comment_pk)
->>>>>>> develop
     except ObjectDoesNotExist:
         return Response({'detail': 'Comentario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -110,11 +102,7 @@ def comment_product_detail_view(request, prod_pk, comment_pk):
     elif request.method == 'DELETE':
         # Realizamos el soft delete del comentario
         try:
-<<<<<<< HEAD
-            ProductCommentRepository.soft_delete_comment(pk, request.user)
-=======
             ProductCommentRepository.soft_delete_comment(comment_pk, request.user)
->>>>>>> develop
             return Response({'message': 'Comentario eliminado correctamente (soft delete).'}, status=status.HTTP_204_NO_CONTENT)
         except ObjectDoesNotExist:
             return Response({'detail': 'Comentario no encontrado o ya ha sido eliminado.'}, status=status.HTTP_404_NOT_FOUND)

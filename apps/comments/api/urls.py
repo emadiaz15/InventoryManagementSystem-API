@@ -20,5 +20,4 @@ urlpatterns = [
     path('products/<int:prod_pk>/subproducts/<int:subp_pk>/comments/create/', comment_subproduct_create_view, name='comment-create-subproduct'),
     path('products/<int:prod_pk>/subproducts/<int:subp_pk>/comments/', comment_subproduct_list_view, name='comment-list-subproduct'),
     path('products/<int:prod_pk>/subproducts/<int:subp_pk>/comments/<int:comment_subp_pk>/', comment_subproduct_detail_view, name='comment-detail-subproduct'),
-
 ]
