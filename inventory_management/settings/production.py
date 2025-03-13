@@ -94,8 +94,9 @@ STATIC_URL = '/static/'
 
 """# Directorio para los archivos estáticos que el proyecto puede servir localmente
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'inventory_management/static'),  # Asegúrate de que esta ruta sea correcta
+    os.path.join(BASE_DIR, '/staticfiles'),  # Asegúrate de que esta ruta sea correcta
 ]
+
 # El directorio donde Django almacenará todos los archivos estáticos para producción (cuando uses collectstatic)
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
