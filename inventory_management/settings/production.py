@@ -1,9 +1,9 @@
 from .base import *
-from dotenv import load_dotenv
 import dj_database_url
+from dotenv import load_dotenv
 import os
 from datetime import timedelta
-from pathlib import Path
+
 
 # Cargar las variables del archivo .env
 load_dotenv()  # Cargar las variables de entorno
@@ -15,12 +15,7 @@ DEBUG = False
 ALLOWED_HOSTS = ['inventarioweb.up.railway.app', '*.railway.app']
 CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app', 'https://*.railway.app']
 
-DATABASES = {
-    'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL'),
-        conn_max_age=600  # Agrega un tiempo máximo de conexión
-    )
-}
+DATABASES = {'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))}
 
 # Asegúrate de que el ENGINE esté especificado correctamente
 DATABASES['default']['ENGINE'] = 'django.db.backends.postgresql'
