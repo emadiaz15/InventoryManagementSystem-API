@@ -89,16 +89,19 @@ CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
-# Configuraciones de archivos estáticos
+# Directorio donde se almacenarán los archivos estáticos después de ejecutar collectstatic
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'inventory_management' / 'staticfiles'
 
-# Configuraciones de archivos multimedia
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'mediafiles'  # Asegúrate de que esta carpeta también exista
+# Directorio para los archivos estáticos que el proyecto puede servir localmente
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),  # Aquí deberías tener la carpeta "static" en tu proyecto
+]
 
+# El directorio donde Django almacenará todos los archivos estáticos para producción (cuando uses collectstatic)
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# Configuración de WhiteNoise para servir los archivos estáticos en producción
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Configuración de los hosts permitidos
 ALLOWED_HOSTS = [
