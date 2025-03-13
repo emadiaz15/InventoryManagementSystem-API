@@ -23,9 +23,9 @@ schema_patterns = [
 ]
 
 urlpatterns = [
-    path('admin/', admin.site.urls),  # Ruta al panel de administración de Django
-    path('api/v1/', include(api_patterns)),  # Incluye todas las rutas de la API organizadas
-    path('api/v1/docs/', include(schema_patterns)),  # Documentación API bajo /api/v1/docs/
+    path('/admin/', admin.site.urls),  # Ruta al panel de administración de Django
+    path('/api/v1/', include(api_patterns)),  # Incluye todas las rutas de la API organizadas
+    path('/api/v1/docs/', include(schema_patterns)),  # Documentación API bajo /api/v1/docs/
 ]
 
 # Configuración para servir archivos estáticos durante el desarrollo
