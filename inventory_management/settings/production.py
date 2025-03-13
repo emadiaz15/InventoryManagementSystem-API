@@ -92,14 +92,15 @@ CORS_ALLOW_CREDENTIALS = True
 # Directorio donde se almacenarán los archivos estáticos después de ejecutar collectstatic
 STATIC_URL = '/static/'
 
-# Directorio para los archivos estáticos que el proyecto puede servir localmente
-STATICFILES_DIRS = ['/inventory_management/staticfiles']
-
+"""# Directorio para los archivos estáticos que el proyecto puede servir localmente
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'inventory_management/static'),  # Asegúrate de que esta ruta sea correcta
+]
 # El directorio donde Django almacenará todos los archivos estáticos para producción (cuando uses collectstatic)
-STATIC_ROOT =  '/inventory_management/static'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Configuración de WhiteNoise para servir los archivos estáticos en producción
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'"""
 
 # Configuración de los hosts permitidos
 ALLOWED_HOSTS = [
