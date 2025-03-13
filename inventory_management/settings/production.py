@@ -10,8 +10,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 # Configuración básica
 DEBUG = False
-ALLOWED_HOSTS = ['https://inventoryapi.up.railway.app', 'https://*.railway.app','https://web-production-2b59.up.railway.app']
-CSRF_TRUSTED_ORIGINS = ['https://inventoryapi.up.railway.app', 'https://*.railway.app','https://web-production-2b59.up.railway.app']
+
 
 # Configuración de la base de datos (sin utilizar dj_database_url, usando variables separadas)
 DATABASES = {
@@ -90,10 +89,16 @@ CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
-STATICFILES_STORAGE='whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATIC_URL = 'static/'
 
-STATIC_URL = '/static/'
-STATIC_ROOT = '/staticfiles'
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'apps/core/static')
+]
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+STATICFILES_STORAGE="whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+ALLOWED_HOSTS = ['https://inventoryapi.up.railway.app', 'https://*.railway.app','https://web-production-2b59.up.railway.app']
+
+CSRF_TRUSTED_ORIGINS = ['https://inventoryapi.up.railway.app', 'https://*.railway.app','https://web-production-2b59.up.railway.app']
