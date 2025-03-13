@@ -2,6 +2,7 @@ from .base import *
 from dotenv import load_dotenv
 import os
 from datetime import timedelta
+import dj_database_url
 
 # Cargar las variables del archivo .env
 load_dotenv()  # Cargar las variables de entorno
@@ -14,17 +15,7 @@ CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app', 'https://*.railw
 
 # Configuración de la base de datos (sin utilizar dj_database_url, usando variables separadas)
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('PGDATABASE'),
-        'USER': os.getenv('PGUSER'),
-        'PASSWORD': os.getenv('PGPASSWORD'),
-        'HOST': os.getenv('PGHOST'),
-        'PORT': os.getenv('PGPORT'),
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
-    }
+    'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
 }
 
 # Seguridad
