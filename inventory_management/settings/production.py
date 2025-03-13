@@ -10,8 +10,8 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 # Configuración básica
 DEBUG = False
-ALLOWED_HOSTS = ['inventarioweb.up.railway.app', '*.railway.app']
-CSRF_TRUSTED_ORIGINS = ['https://inventarioweb.up.railway.app', 'https://*.railway.app']
+ALLOWED_HOSTS = ['inventoryapi.up.railway.app', '*.railway.app']
+CSRF_TRUSTED_ORIGINS = ['https://inventoryapi.up.railway.app', 'https://*.railway.app']
 
 # Configuración de la base de datos (sin utilizar dj_database_url, usando variables separadas)
 DATABASES = {
