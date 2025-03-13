@@ -89,11 +89,14 @@ CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
+# Configuraciones de archivos estáticos
 STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'inventory_management' / 'staticfiles'
 
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+# Configuraciones de archivos multimedia
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'mediafiles'  # Asegúrate de que esta carpeta también exista
 
-STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
