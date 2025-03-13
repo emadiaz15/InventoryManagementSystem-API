@@ -2,13 +2,13 @@
 **/staticfiles/
 **/logs/
 
-**/fake_db.py
-**/fake_generate_subproducts_db.py
-**/send_test_email.py
+*.fake_db.py
+*.fake_generate_subproducts_db.py
+*.send_test_email.py
 
-**/wait-for-redis.sh
+*.wait-for-redis.sh
 
-**/celerybeat-schedule
+*.celerybeat-schedule
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
