@@ -98,7 +98,7 @@ STORAGES = {
 }
 
 STATIC_URL = '/static/'
-STATIC_ROOT = '/inventory_management/staticfiles'
+STATIC_ROOT = BASE_DIR / 'inventory_management' / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
