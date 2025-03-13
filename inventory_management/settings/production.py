@@ -10,7 +10,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 # Configuración básica
 DEBUG = False
-ALLOWED_HOSTS = ['inventoryapi.up.railway.app', '*.railway.app']
+ALLOWED_HOSTS = ['inventoryapi.up.railway.app', '*.railway.app','https://web-production-2b59.up.railway.app/']
 CSRF_TRUSTED_ORIGINS = ['https://inventoryapi.up.railway.app', 'https://*.railway.app']
 
 # Configuración de la base de datos (sin utilizar dj_database_url, usando variables separadas)
@@ -71,13 +71,13 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 
-# Configuración de Celery con Redis
+"""# Configuración de Celery con Redis
 CELERY_BROKER_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
+CELERY_TIMEZONE = 'UTC'"""
 
 # Configuración de CORS
 CORS_ALLOWED_ORIGINS = [
