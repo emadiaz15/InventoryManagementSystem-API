@@ -2,6 +2,8 @@
 **/staticfiles/
 **/logs/
 
+*.Dockerfile
+
 *.fake_db.py
 *.fake_generate_subproducts_db.py
 *.send_test_email.py
