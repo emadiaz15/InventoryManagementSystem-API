@@ -19,8 +19,8 @@ RUN pip install --upgrade pip
 # Establecer las variables de entorno para Django
 ENV PYTHONUNBUFFERED 1
 
-# Exponer el puerto donde correrá el servidor
-EXPOSE 8000
+# Exponer el puerto donde correrá el servidor (usamos la variable de entorno $PORT)
+EXPOSE $PORT
 
-# Iniciar el servidor de Django con Gunicorn
-CMD exec gunicorn inventory_management.wsgi:application --bind 0.0.0.0:8000
+# Iniciar el servidor de Django con Gunicorn (usando el puerto dinámico de Railway)
+CMD exec gunicorn inventory_management.wsgi:application --bind 0.0.0.0:$PORT

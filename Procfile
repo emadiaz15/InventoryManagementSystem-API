@@ -1,1 +1,1 @@
-web: gunicorn inventory_management.wsgi:application
+web: gunicorn --bind 0.0.0.0:$PORT inventory_management.wsgi:application
