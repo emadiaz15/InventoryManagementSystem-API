@@ -23,4 +23,4 @@ ENV PYTHONUNBUFFERED 1
 EXPOSE $PORT
 
 # Iniciar el servidor de Django con Gunicorn (usando el puerto dinámico de Railway)
-CMD exec gunicorn inventory_management.wsgi:application --bind 0.0.0.0:$PORT
+CMD exec gunicorn inventory_management.wsgi:application

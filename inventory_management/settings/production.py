@@ -104,17 +104,10 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'"""
 
 ALLOWED_HOSTS = [
-    '127.0.0.1',  # Para desarrollo local
-    'localhost',  # Para desarrollo local
-    'inventoryapi.up.railway.app',  # Dominio de producción
-    '*.railway.app',  # Permite cualquier subdominio de Railway
-    'web-production-2b59.up.railway.app',  # Específico de Railway (si es necesario)
+    'https://*.railway.app',  # Permite cualquier subdominio de Railway
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://inventoryapi.up.railway.app',
     'https://*.railway.app',  # Cualquier subdominio de Railway
-    'https://web-production-2b59.up.railway.app',  # Específico de Railway (si es necesario)
-    'http://127.0.0.1',  # Para desarrollo local
-    'http://localhost',  # Para desarrollo local
+
 ]
