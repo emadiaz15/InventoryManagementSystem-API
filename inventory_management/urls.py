@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-
+from django.http import HttpResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 # Rutas de la API definidas en cada aplicación
@@ -24,7 +24,8 @@ schema_patterns = [
 
 urlpatterns = [
     # La raíz ("") carga las rutas de la app "core" que deberían incluir la vista pública (public_home_view)
-    path('', include('apps.core.urls')),
+    path('', lambda request: HttpResponse("Hello, World!")),
+    #path('', include('apps.core.urls')),
     path('admin/', admin.site.urls),
     path('api/v1/', include(api_patterns)),
     path('api/v1/docs/', include(schema_patterns)),
