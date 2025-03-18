@@ -80,8 +80,10 @@ CELERY_TIMEZONE = 'UTC'"""
 
 # Configuración de CORS
 CORS_ALLOWED_ORIGINS = [
-    "https://inventarioweb-frontend.up.railway.app",  # Ajusta a tu dominio de frontend
+    "https://inventarioweb.up.railway.app",
 ]
+CORS_ALLOWED_ORIGIN_REGEXES = []  # Opcional: puedes omitir esta línea si no necesitas regex
+
 CORS_ALLOW_HEADERS = [
     'authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with',
 ]
@@ -104,11 +106,11 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'"""
 
 ALLOWED_HOSTS = [
-    'inventoryapi.up.railway.app',
+    '.railway.app',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://inventoryapi.up.railway.app',
+    'https://*.railway.app',
 ]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
