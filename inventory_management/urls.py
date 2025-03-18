@@ -23,12 +23,8 @@ schema_patterns = [
 ]
 
 urlpatterns = [
-    # La raíz ("") carga las rutas de la app "core" que deberían incluir la vista pública (public_home_view)
-        # Ruta raíz: para pruebas simples, devuelve "Hello, World!"
-    path('/', lambda request: HttpResponse("Hello, World!"), name='home'),
-    # Ruta para Health Check: retorna "OK" si todo está bien
-    path('health/', lambda request: HttpResponse("OK"), name='health'),
-    #path('', include('apps.core.urls')),
+    path('test', lambda request: HttpResponse("Hello, World!")),
+    path('', include('apps.core.urls')),
     path('admin/', admin.site.urls),
     path('api/v1/', include(api_patterns)),
     path('api/v1/docs/', include(schema_patterns)),
