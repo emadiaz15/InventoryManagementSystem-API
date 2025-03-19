@@ -1,0 +1,6 @@
+.env merge=keep
+inventory_management/asgi.py merge=keep
+inventory_management/wsgi.py merge=keep
+inventory_management/settings/production.py merge=keep
+manage.py merge=keep
+Dockerfile merge=keep
