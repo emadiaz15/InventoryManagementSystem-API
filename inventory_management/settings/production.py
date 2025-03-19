@@ -80,13 +80,17 @@ CELERY_TIMEZONE = 'UTC'"""
 
 # Configuración de CORS
 CORS_ALLOWED_ORIGINS = [
-    "https://inventarioweb.up.railway.app",
+    "https://inventarioweb.up.railway.app",  # Frontend
+    "https://inventoryapi.up.railway.app",  # Backend
 ]
+
 CORS_ALLOWED_ORIGIN_REGEXES = []  # Opcional: puedes omitir esta línea si no necesitas regex
 
 CORS_ALLOW_HEADERS = [
     'authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with',
 ]
+CORS_ALLOW_HEADERS.append("access-control-allow-origin")
+
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
@@ -110,7 +114,8 @@ ALLOWED_HOSTS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://*.railway.app',
+    "https://inventarioweb.up.railway.app",
+    "https://inventoryapi.up.railway.app",
 ]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
