@@ -31,7 +31,6 @@ LOCAL_APPS = [
     'apps.core',
     'apps.cuts',
     'apps.stocks',
-    'apps.comments'
 ]
 
 INSTALLED_APPS = BASE_APPS + THIRD_APPS + LOCAL_APPS

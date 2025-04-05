@@ -1,16 +1,16 @@
-# Usar una imagen oficial de Python como base
+# 🐍 Usar una imagen ligera de Python 3.10
 FROM python:3.10-slim
 
-# Establecer el directorio de trabajo en el contenedor
+# 📂 Establecer el directorio de trabajo en el contenedor
 WORKDIR /app
 
-# Copiar el archivo requirements.txt al contenedor
+# 📦 Copiar solo el archivo de dependencias primero (para aprovechar la caché)
 COPY requirements.txt /app/
 
-# Instalar las dependencias de Python
+# 📥 Instalar las dependencias de Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar el resto del código del proyecto Django al contenedor
+# 🔥 Copiar el resto del código del proyecto Django al contenedor
 COPY . /app/
 
 # Actualizar pip

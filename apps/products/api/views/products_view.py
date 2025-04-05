@@ -10,16 +10,10 @@ from apps.core.pagination import Pagination
 from apps.products.api.repositories.product_repository import ProductRepository
 from apps.products.models import Product
 from apps.products.models import Subproduct
-from apps.comments.models import SubproductComment
-from apps.comments.api.serializers import SubproductCommentSerializer
-
-
-from apps.comments.models import ProductComment
 
 from apps.products.api.serializers.product_serializer import ProductSerializer
 from apps.products.api.serializers.subproduct_serializer import SubProductSerializer
 from apps.stocks.api.serializers import StockProductSerializer
-from apps.comments.api.serializers import ProductCommentSerializer
 from apps.products.docs.product_doc import (
     list_product_doc, create_product_doc, get_product_by_id_doc,
     update_product_by_id_doc, delete_product_by_id_doc
@@ -46,14 +40,10 @@ def product_list(request):
     # Agregar los comentarios de productos y subproductos
     for product_data in serializer.data:
         product = Product.objects.get(id=product_data['id'])  # Obtener el producto
-        product_comments = ProductComment.objects.filter(product=product, status=True)  # Obtener comentarios activos
-        product_data['comments'] = ProductCommentSerializer(product_comments, many=True).data  # Asignar comentarios
 
         # Agregar comentarios de subproductos
         for subproduct_data in product_data['subproducts']:
             subproduct = Subproduct.objects.get(id=subproduct_data['id'])  # Obtener el subproducto
-            subproduct_comments = SubproductComment.objects.filter(subproduct=subproduct, status=True)  # Obtener comentarios activos de subproducto
-            subproduct_data['comments'] = SubproductCommentSerializer(subproduct_comments, many=True).data  # Asignar comentarios a subproducto
 
     # Devolver la respuesta con los productos paginados, incluyendo comentarios
     return paginator.get_paginated_response(serializer.data)
@@ -115,11 +105,7 @@ def product_detail(request, prod_pk):
     if request.method == 'GET':
         # Serializar el producto
         product_data = ProductSerializer(product).data
-        
-        # Obtener los comentarios del producto
-        product_comments = ProductComment.objects.filter(product=product, status=True)
-        product_data['comments'] = ProductCommentSerializer(product_comments, many=True).data  # Asignar comentarios
-
+    
         # Obtener los subproductos asociados al producto
         subproducts = Subproduct.objects.filter(parent=product, status=True)  # Obtener subproductos activos
         subproduct_data = SubProductSerializer(subproducts, many=True).data  # Serializar subproductos
@@ -127,8 +113,6 @@ def product_detail(request, prod_pk):
         # Agregar comentarios de subproductos dentro de cada subproducto
         for subproduct in subproduct_data:
             subproduct_obj = Subproduct.objects.get(id=subproduct['id'])  # Obtener el subproducto por ID
-            subproduct_comments = SubproductComment.objects.filter(subproduct=subproduct_obj, status=True)  # Obtener comentarios del subproducto
-            subproduct['comments'] = SubproductCommentSerializer(subproduct_comments, many=True).data  # Asignar comentarios al subproducto
 
         # Asignar los subproductos con sus comentarios al producto
         product_data['subproducts'] = subproduct_data

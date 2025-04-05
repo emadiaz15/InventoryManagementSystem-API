@@ -7,11 +7,10 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 
 # Rutas de la API definidas en cada aplicación
 api_patterns = [
-    path('users/', include('apps.users.api.urls')),   # Rutas de la app "users"
-    path('inventory/', include('apps.products.api.urls')),  # Rutas de la app "products"
-    path('cutting/', include('apps.cuts.api.urls')),    # Rutas de la app "cutting"
-    path('stocks/', include('apps.stocks.api.urls')),   # Rutas para los eventos de stock
-    path('comments/', include('apps.comments.api.urls')),  # Rutas de la app "comments"
+    path('users/', include('apps.users.api.urls')),  # Rutas de la app `users`
+    path('inventory/', include('apps.products.api.urls')),  # Rutas de la app `products`
+    path('cutting/', include('apps.cuts.api.urls')),  # Rutas de la app `cutting`
+    path('stocks/', include('apps.stocks.api.urls')),  # Rutas para los eventos de stock
 ]
 
 # Rutas para la documentación de la API con drf-spectacular

@@ -13,8 +13,6 @@ from apps.core.pagination import Pagination
 from apps.products.api.serializers.subproduct_serializer import SubProductSerializer
 from apps.products.api.repositories.subproduct_repository import SubproductRepository
 from apps.products.models.product_model import Product
-from apps.comments.models.comment_subproduct_model import SubproductComment
-from apps.comments.api.serializers.comment_subproduct_serializer import SubproductCommentSerializer
 from apps.products.models.subproduct_model import Subproduct
 from apps.products.docs.subproduct_doc import (
     list_subproducts_doc, create_subproduct_doc, get_subproduct_by_id_doc,
@@ -40,9 +38,6 @@ def subproduct_list(request, prod_pk):
     # Agregar comentarios de subproducto
     for subproduct_data in serializer.data:
         subproduct = Subproduct.objects.get(id=subproduct_data['id'])  # Obtener el subproducto
-        subproduct_comments = SubproductComment.objects.filter(subproduct=subproduct, status=True)  # Obtener los comentarios activos
-        subproduct_data['comments'] = SubproductCommentSerializer(subproduct_comments, many=True).data  # Asignar comentarios
-
     # Devolver la respuesta con los subproductos paginados, incluyendo comentarios
     return paginator.get_paginated_response(serializer.data)
 
@@ -117,12 +112,7 @@ def subproduct_detail(request, prod_pk, subp_pk):
     if request.method == 'GET':
         # Serializar el subproducto
         subproduct_data = SubProductSerializer(subproduct).data
-        
-        # Obtener los comentarios del subproducto
-        subproduct_comments = SubproductComment.objects.filter(subproduct=subproduct, status=True)
-        subproduct_data['comments'] = SubproductCommentSerializer(subproduct_comments, many=True).data  # Asignar comentarios
-
-        # Devolver los detalles del subproducto con los comentarios
+                # Devolver los detalles del subproducto con los comentarios
         return Response(subproduct_data, status=status.HTTP_200_OK)
 
     elif request.method == 'PUT':
