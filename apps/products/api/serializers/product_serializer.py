@@ -2,13 +2,11 @@ from rest_framework import serializers
 from apps.products.models.product_model import Product
 from apps.products.models.category_model import Category
 from apps.products.models.type_model import Type
-from apps.comments.models.comment_product_model import ProductComment
 from apps.stocks.models import ProductStock
 from apps.products.api.serializers.base_serializer import BaseSerializer
 from apps.products.api.serializers.subproduct_serializer import SubProductSerializer
 from apps.products.api.serializers.category_serializer import CategorySerializer
 from apps.products.api.serializers.type_serializer import TypeSerializer
-from apps.comments.api.serializers import ProductCommentSerializer 
 from apps.stocks.api.serializers import StockProductSerializer
 
 class ProductSerializer(BaseSerializer):

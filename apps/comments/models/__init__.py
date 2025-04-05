@@ -1,3 +1,0 @@
-from .comment_subproduct_model import SubproductComment
-from .comment_product_model import ProductComment
-from .base_model import BaseModel
