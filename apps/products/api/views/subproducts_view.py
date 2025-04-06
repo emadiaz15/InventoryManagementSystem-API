@@ -105,11 +105,6 @@ def subproduct_detail(request, prod_pk, subp_pk):
 
     # --- DELETE (Usando el método del Modelo directamente) ---
     elif request.method == 'DELETE':
-<<<<<<< HEAD
-        # Eliminar el subproducto con soft delete
-        subproduct = SubproductRepository.soft_delete(subproduct, request.user)
-        return Response({"detail": "Subproducto eliminado con éxito."}, status=status.HTTP_204_NO_CONTENT)
-=======
         try:
             # Llama al método delete de BaseModel, pasando el usuario
             subproduct.delete(user=request.user)
@@ -118,4 +113,4 @@ def subproduct_detail(request, prod_pk, subp_pk):
              # Loggear error
              print(f"Error al hacer soft delete de subproducto {subp_pk}: {e}")
              return Response({"detail": "Error interno al eliminar el subproducto."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
->>>>>>> develop
+

@@ -88,9 +88,5 @@ def product_detail(request, prod_pk):
              serializer.save(user=request.user) # BaseSerializer.update maneja el soft delete
              return Response(status=status.HTTP_204_NO_CONTENT)
         else:
-<<<<<<< HEAD
             return Response({"detail": "No autorizado para eliminar este producto."}, status=status.HTTP_403_FORBIDDEN)
-=======
-             # Error improbable si solo se envía status=False
-             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
->>>>>>> develop
+
