@@ -17,13 +17,6 @@ if not SECRET_KEY:
 # ¡MUY IMPORTANTE! Siempre False en producción.
 DEBUG = False
 
-# --- Hosts Permitidos ---
-# ¡NECESARIO CAMBIAR! Lista de tus dominios/subdominios reales donde correrá la app.
-# Ejemplo: ALLOWED_HOSTS = ['api.tuinventario.com', 'www.tuinventario.com']
-ALLOWED_HOSTS = [
-    '.railway.app',
-]
-
 # --- Base de Datos ---
 # Configuración para PostgreSQL (u otra base de datos de producción)
 # usando variables de entorno. dj-database-url simplifica esto.
@@ -104,7 +97,7 @@ SIMPLE_JWT = {
 }
 
 
-# --- Configuración Email (Producción) ---
+"""# --- Configuración Email (Producción) ---
 # ¡NECESARIO CAMBIAR! Usar servicio transaccional (SendGrid, Mailgun, SES) y env vars
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend' # O un backend específico del servicio
 DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'noreply@tu-dominio-real.com')
@@ -112,9 +105,17 @@ EMAIL_HOST = os.environ.get('DJANGO_EMAIL_HOST') # Ej: smtp.sendgrid.net
 EMAIL_PORT = int(os.environ.get('DJANGO_EMAIL_PORT', 587)) # Puerto estándar TLS
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('DJANGO_EMAIL_USER') # API Key o usuario
-EMAIL_HOST_PASSWORD = os.environ.get('DJANGO_EMAIL_PASSWORD') # API Key o contraseña
+EMAIL_HOST_PASSWORD = os.environ.get('DJANGO_EMAIL_PASSWORD') # API Key o contraseña"""
+
+# --- Hosts Permitidos ---
+# ¡NECESARIO CAMBIAR! Lista de tus dominios/subdominios reales donde correrá la app.
+# Ejemplo: ALLOWED_HOSTS = ['api.tuinventario.com', 'www.tuinventario.com']
+ALLOWED_HOSTS = [
+    '.railway.app',
+]
 
 # Configuración de CORS
+
 CORS_ALLOWED_ORIGINS = [
     "https://inventarioweb.up.railway.app",  # Frontend
     "https://inventoryapi.up.railway.app",  # Backend
@@ -125,8 +126,6 @@ CORS_ALLOWED_ORIGIN_REGEXES = []
 CORS_ALLOW_HEADERS = [
     'authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with',
 ]
-
-CORS_ALLOW_HEADERS.append("access-control-allow-origin")
 
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
