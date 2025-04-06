@@ -114,16 +114,6 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('DJANGO_EMAIL_USER') # API Key o usuario
 EMAIL_HOST_PASSWORD = os.environ.get('DJANGO_EMAIL_PASSWORD') # API Key o contraseña
 
-"""# --- Configuración Celery (Producción) ---
-# Usa variables de entorno para las URLs
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0') # Ajusta si Redis no se llama 'redis'
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE"""
-
-
 # Configuración de CORS
 CORS_ALLOWED_ORIGINS = [
     "https://inventarioweb.up.railway.app",  # Frontend
@@ -136,24 +126,14 @@ CORS_ALLOW_HEADERS = [
     'authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with',
 ]
 
+CORS_ALLOW_HEADERS.append("access-control-allow-origin")
+
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 # Directorio donde se almacenarán los archivos estáticos después de ejecutar collectstatic
 STATIC_URL = '/static/'
-
-"""# Directorio para los archivos estáticos que el proyecto puede servir localmente
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, '/staticfiles'),  # Asegúrate de que esta ruta sea correcta
-]
-
-# El directorio donde Django almacenará todos los archivos estáticos para producción (cuando uses collectstatic)
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
-# Configuración de WhiteNoise para servir los archivos estáticos en producción
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'"""
-
 
 CSRF_TRUSTED_ORIGINS = [
     "https://inventarioweb.up.railway.app",
