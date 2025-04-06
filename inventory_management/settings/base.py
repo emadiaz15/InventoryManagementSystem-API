@@ -1,10 +1,15 @@
 from pathlib import Path
 from datetime import timedelta
+import os # Necesario para algunas configuraciones base
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+
+# --- Rutas del Proyecto ---
+# BASE_DIR apunta al directorio raíz del proyecto Django (donde está manage.py)
+# Ejemplo: /app/
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Application definition
+# --- Definición de Aplicaciones ---
+# Aplicaciones estándar de Django
 BASE_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -13,18 +18,19 @@ BASE_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 ]
-
+# Aplicaciones de terceros instaladas via pip
 THIRD_APPS = [
-    'rest_framework',
-    'whitenoise.runserver_nostatic',
-    'simple_history',
-    'rest_framework_simplejwt',
-    'drf_spectacular',
-    'celery',
-    'corsheaders',
-    'csp',
-]
 
+    'rest_framework',               # Django REST Framework para APIs
+    'simple_history',             # Para historial de modelos
+    'rest_framework_simplejwt',   # Para autenticación JWT
+    'rest_framework_simplejwt.token_blacklist', # Para invalidar refresh tokens
+    'drf_spectacular',            # Para generar documentación OpenAPI/Swagger
+    'celery',                     # Para tareas asíncronas (si usas)
+    'corsheaders',                # Para manejar Cross-Origin Resource Sharing (CORS)
+    "csp"                       # Para Content Security Policy
+]
+# Tus aplicaciones locales
 LOCAL_APPS = [
     'apps.products',
     'apps.users',
@@ -32,30 +38,36 @@ LOCAL_APPS = [
     'apps.cuts',
     'apps.stocks',
 ]
-
+# Lista completa de aplicaciones instaladas
 INSTALLED_APPS = BASE_APPS + THIRD_APPS + LOCAL_APPS
 
+# --- Middleware ---
+# Procesan peticiones/respuestas. El orden importa.
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'simple_history.middleware.HistoryRequestMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.common.CommonMiddleware',
+    'django.middleware.security.SecurityMiddleware',      # Cabeceras de seguridad básicas
+    'django.contrib.sessions.middleware.SessionMiddleware', # Manejo de sesiones (si usas)
+    'corsheaders.middleware.CorsMiddleware',              # CORS - Debe ir antes de CommonMiddleware
+    'django.middleware.common.CommonMiddleware',          # Añade slashes, maneja ETags, etc.
+    'django.middleware.csrf.CsrfViewMiddleware',          # Protección CSRF (importante si usas sesiones/formularios)
+    'django.contrib.auth.middleware.AuthenticationMiddleware', # Añade request.user
+    'django.contrib.messages.middleware.MessageMiddleware', # Sistema de mensajes flash
+    'django.middleware.clickjacking.XFrameOptionsMiddleware', # Protección contra clickjacking
+    'simple_history.middleware.HistoryRequestMiddleware',   # Para que simple_history sepa qué usuario hizo el cambio
+    # 'csp.middleware.CSPMiddleware', # Descomenta si quieres activar CSP globalmente
+# 'apps.users.middlewares.BlacklistAccessTokenMiddleware', # Middleware personalizado (comentado)
 ]
 
-ROOT_URLCONF = 'inventory_management.urls'
+# --- URLs ---
+ROOT_URLCONF = 'inventory_management.urls' # Archivo principal de URLs
 
-TEMPLATES = [
+# --- Templates ---
+TEMPLATES = [ # Configuración estándar para plantillas Django (si usas)
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
+        'DIRS': [], # Directorios extra para buscar plantillas
+        'APP_DIRS': True, # Buscar plantillas dentro de las apps
         'OPTIONS': {
-            'context_processors': [
+            'context_processors': [ # Variables disponibles en todas las plantillas
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
@@ -65,55 +77,104 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'inventory_management.wsgi.application'
+# --- Servidor WSGI ---
+WSGI_APPLICATION = 'inventory_management.wsgi.application' # Punto de entrada para servidores WSGI
 
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+# --- Validación de Contraseñas ---
+AUTH_PASSWORD_VALIDATORS = [ # Validadores estándar
+    { 'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },
+    { 'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', },
+    { 'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator', },
+    { 'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator', },
 ]
 
-AUTH_USER_MODEL = 'users.User'
+# --- Modelo de Usuario Personalizado ---
+AUTH_USER_MODEL = 'users.User' # Especifica tu modelo User personalizado
 
-LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
-USE_I18N = True
-USE_TZ = True
+# --- Internacionalización ---
+LANGUAGE_CODE = 'es-ar' # Cambiado a Español (Argentina)
+TIME_ZONE = 'America/Argentina/Cordoba' # Cambiado a tu zona horaria
+USE_I18N = True # Activa internacionalización
+USE_TZ = True # Activa soporte de zonas horarias (¡MUY IMPORTANTE!)
 
-# DRF Settings
+# --- Configuración Django REST Framework ---
 REST_FRAMEWORK = {
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination', # Paginador estándar
+    'PAGE_SIZE': 10, # Tamaño de página por defecto
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication', # Autenticación por defecto vía JWT
     ),
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema', # Para documentación automática
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'], # Habilita filtros por defecto
 }
 
-# drf-spectacular settings
+# --- Configuración drf-spectacular ---
+
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'My API',
-    'DESCRIPTION': 'API documentation',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
+    'TITLE': 'Inventory Management API', # Título de tu API
+    'DESCRIPTION': 'Documentación de la API para el Sistema de Gestión de Inventario', # Descripción
+    'VERSION': '1.0.0', # Versión de tu API
+    'SERVE_INCLUDE_SCHEMA': False, # No servir el schema OpenAPI directamente por defecto
+    # Puedes añadir más configuraciones aquí (ej. UI_SETTINGS)
 }
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# --- Clave Primaria Automática ---
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField' # Tipo de ID autoincremental por defecto
 
-APPEND_SLASH = False
+# --- Comportamiento de URLs ---
+APPEND_SLASH = False # No añadir slash al final si no está en la URL (preferencia personal)
 
-CSP_DEFAULT_SRC = ("'self'",)
-CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "'unsafe-inline'")
-CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com", "data:")
-CSP_SCRIPT_SRC = ("'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'")
-CSP_IMG_SRC = ("'self'", "data:")
+# --- Logging Base (Consola) ---
+# Configuración por defecto que usarán otros entornos si no la sobrescriben.
+# Ideal para desarrollo: muestra logs en la consola.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False, # No deshabilita loggers por defecto de Django
+    'formatters': { # Define cómo se verán los mensajes de log
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': { # Define un handler llamado 'console'
+            'class': 'logging.StreamHandler', # Envía logs a la salida estándar (consola)
+            'formatter': 'simple', # Usa el formato simple definido arriba
+        },
+    },
+    'root': { # Configuración para el logger raíz (captura todo si no hay un logger específico)
+        'handlers': ['console'], # Envía los logs capturados al handler 'console'
+        'level': 'INFO', # Nivel mínimo para capturar: INFO, WARNING, ERROR, CRITICAL (DEBUG es muy verboso)
+    },
+    'loggers': { # Configuración específica para loggers nombrados
+        'django': { # Para logs generados por Django
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'), # Nivel para Django (puede venir de env var)
+            'propagate': False, # No pasa los mensajes al logger raíz (evita duplicados)
+        },
+         'django.db.backends': { # Para ver las queries SQL (muy útil en debug)
+            'handlers': ['console'],
+            'level': 'DEBUG', # Cambia a INFO o WARNING si no quieres ver queries
+            'propagate': False,
+        },
+         'apps': { # Un logger para todas tus apps locales
+            'handlers': ['console'],
+            'level': 'DEBUG', # Muestra todo de tus apps
+            'propagate': False,
+        },
+    }
+}
+
+
+# --- Content Security Policy (CSP) ---
+# Define qué recursos puede cargar el navegador (seguridad frontend)
+CSP_DEFAULT_SRC = ("'self'",) # Por defecto, solo permite desde el mismo origen
+CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "'unsafe-inline'") # CSS: propio, google fonts, inline
+CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com", "data:") # Fuentes: propio, google fonts, data URIs
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'") # JS: propio, inline (considera eliminar unsafe-inline en prod)
+# CSP_SCRIPT_SRC = ("'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'") # Ejemplo si usas CDN
+CSP_IMG_SRC = ("'self'", "data:") # Imágenes: propio, data URIs

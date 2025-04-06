@@ -1,37 +1,59 @@
 from .base import *
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
-load_dotenv()  # Cargar las variables del archivo .env
+# Carga variables de entorno desde un archivo .env en la raíz del proyecto
+# Ajusta la ruta a tu .env si es diferente
+load_dotenv(BASE_DIR.parent / '.env') # Asume .env está un nivel arriba de donde está manage.py
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-secret-key')  # Usa una clave por defecto en caso de error
+# --- Clave Secreta ---
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-for-local-dev-only')
 
-# SECURITY WARNING: don't run with debug turned on in production!
+# --- Modo Debug ---
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+# --- Hosts Permitidos ---
+ALLOWED_HOSTS = ['*'] # Seguro SOLO para local
 
-# Configuración para usar SQLite
+# --- Base de Datos ---
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',  # Nombre y ubicación del archivo SQLite
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
-# Static files (CSS, JavaScript, Images)
+# --- Logging para Desarrollo Local ---
+# Correcto: Configurado para mostrar logs en la consola
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': { 'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}', 'style': '{', },
+        'simple': { 'format': '[{asctime}] {levelname} {message}', 'style': '{', 'datefmt': '%H:%M:%S' },
+    },
+    'handlers': { 'console': { 'class': 'logging.StreamHandler', 'formatter': 'simple', }, },
+    'root': { 'handlers': ['console'], 'level': 'INFO', },
+    'loggers': {
+        'django': { 'handlers': ['console'], 'level': 'INFO', 'propagate': False, },
+        'django.db.backends': { 'handlers': ['console'], 'level': 'DEBUG', 'propagate': False, },
+        'apps': { 'handlers': ['console'], 'level': 'DEBUG', 'propagate': False, },
+    }
+}
+
+# --- Archivos Estáticos y Multimedia ---
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# MEDIA_ROOT apunta a una carpeta 'media' fuera del directorio BASE_DIR (un nivel arriba)
+# Asegúrate de que esta sea la ubicación deseada y que exista/tenga permisos.
+MEDIA_ROOT = BASE_DIR.parent / 'media'
 
-# Configuración de JWT
-from datetime import timedelta
-
+# --- Configuración JWT ---
+# Correcto para local
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=12),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
     'ALGORITHM': 'HS256',
@@ -43,37 +65,28 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
-# Configuración de CORS
-# Permite peticiones desde el frontend
+# --- Configuración CORS ---
+# Correcto para permitir tu frontend local
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # Puerto del dev
-    "http://localhost:4174",  # Puerto del preview
+    "http://localhost:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:4173",
 ]
-CORS_ALLOW_HEADERS = [
-    'authorization',
-    'content-type',
-    'accept',
-    'origin',
-    'x-csrftoken',
-    'x-requested-with',
-]
+CORS_ALLOW_HEADERS = [ 'authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with', ]
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
-# Configuración del correo
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-DEFAULT_FROM_EMAIL = 'noreply@tuempresa.com'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+# --- Configuración Email (Consola) ---
+# Correcto: Muestra emails en la consola para desarrollo
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-
-CELERY_BROKER_URL = 'redis://redis:6379/0'  # Configura Redis como el broker de Celery
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # Almacena los resultados de las tareas en Redis
+# --- Configuración Celery ---
+# Correcto: Usa variables de entorno o defaults apuntando a 'redis' (para Docker Compose)
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
+CELERY_TIMEZONE = TIME_ZONE

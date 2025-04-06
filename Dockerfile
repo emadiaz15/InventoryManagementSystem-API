@@ -13,8 +13,18 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 🔥 Copiar el resto del código del proyecto Django al contenedor
 COPY . /app/
 
-# Actualizar pip
-RUN pip install --upgrade pip
+# === INICIO: Añadido para Entrypoint y Migraciones ===
+
+# Copiar el script de entrypoint
+COPY entrypoint.sh /app/entrypoint.sh
+
+# Dar permisos de ejecución al script
+RUN chmod +x /app/entrypoint.sh
+
+# Establecer el entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# === FIN: Añadido para Entrypoint y Migraciones ===
 
 # Establecer las variables de entorno para Django
 ENV PYTHONUNBUFFERED 1

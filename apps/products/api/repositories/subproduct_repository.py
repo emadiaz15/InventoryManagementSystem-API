@@ -1,107 +1,74 @@
-from django.db import transaction
+from django.db import transaction # Importar transaction para manejar transacciones
 from django.utils import timezone
+from django.db import models
+
+from django.core.exceptions import ObjectDoesNotExist
 from apps.products.models.product_model import Product
 from apps.products.models.subproduct_model import Subproduct
-from typing import Optional, List
+from typing import Optional, List, Dict, Any # Tipos para type hinting
 
 class SubproductRepository:
-    """Repositorio para manejar las operaciones de Subproduct."""
+    """
+    Repositorio para Subproduct. Delega lógica de save/delete/auditoría a BaseModel.
+    """
 
     @staticmethod
     def get_by_id(subproduct_id: int) -> Optional[Subproduct]:
-        """
-        Recupera un subproducto por su ID si está activo, retorna None si no existe.
-        """
-        return Subproduct.objects.filter(id=subproduct_id, status=True).first()
+        """Recupera un subproducto activo por su ID."""
+        try:
+            # Usamos get() que es más directo para PK y maneja DoesNotExist
+            return Subproduct.objects.get(id=subproduct_id, status=True)
+        except Subproduct.DoesNotExist:
+            return None
 
     @staticmethod
-    def get_all_active(parent_product_id: int) -> List[Subproduct]:
+    def get_all_active(parent_product_id: int) -> models.QuerySet[Subproduct]:
         """
         Recupera todos los subproductos activos de un producto padre.
+        Orden por defecto (-created_at) viene de BaseModel.Meta.
         """
         return Subproduct.objects.filter(parent_id=parent_product_id, status=True)
+        # No añadir .order_by() aquí para usar el default de Meta
 
     @staticmethod
-    def create(name: str, description: str, parent: Product, user, quantity: float, 
-               brand: str, number_coil: str, initial_length: float, final_length: float, 
-               total_weight: float, coil_weight: float) -> Subproduct:
+    def create(user, parent: Product, **data: Any) -> Subproduct:
         """
-        Crea un nuevo subproducto asociado a un producto padre.
+        Crea un nuevo subproducto usando la lógica de BaseModel.save.
+        Espera el objeto 'parent' y los datos del subproducto en 'data'.
         """
-        # Validación de tipo de parámetro 'parent'
-        if not isinstance(parent, Product):
-            raise ValueError("El parámetro 'parent' debe ser una instancia de Product.")
+        # Validación del padre (se podría omitir si la vista ya lo valida)
+        if not isinstance(parent, Product) or not parent.status:
+            raise ValueError("El producto padre no es válido o no está activo.")
 
-        # Validación de estado del producto padre
-        if not parent.status:
-            raise ValueError("El producto padre no está activo.")
-
-        # Validaciones adicionales
-        if quantity <= 0:
-            raise ValueError("La cantidad debe ser mayor que cero.")
-        if not name:
-            raise ValueError("El nombre del subproducto es obligatorio.")
-
-        # Obtener todos los subproductos asociados al producto padre
-        subproducts = Subproduct.objects.filter(parent=parent)  # Usamos 'parent' en lugar de 'product'
-
-        print("Subproductos asociados al producto padre:", subproducts)  # Depuración, opcional
-
-        # Transacción atómica para crear el subproducto
-        with transaction.atomic():
-            subproduct = Subproduct(
-                name=name,
-                description=description,
-                parent=parent,  # El 'parent' viene directamente desde la vista
-                created_by=user,
-                modified_by=user,
-                quantity=quantity,
-                brand=brand,
-                number_coil=number_coil,
-                initial_length=initial_length,
-                final_length=final_length,
-                total_weight=total_weight,
-                coil_weight=coil_weight,
-            )
-            subproduct.save()
-
-        return subproduct
-
-    @staticmethod
-    def update(subproduct_instance: Subproduct, user=None, **validated_data) -> Subproduct:
-        """
-        Actualiza un subproducto existente con los cambios proporcionados.
-        Acepta un diccionario de datos validados para actualizar cualquier campo.
-        """
-        changes_made = False
-
-        # Iteramos sobre los campos que vienen en validated_data y actualizamos los campos correspondientes
-        for field, value in validated_data.items():
-            if hasattr(subproduct_instance, field) and getattr(subproduct_instance, field) != value:
-                setattr(subproduct_instance, field, value)
-                changes_made = True
-
-        # Si hubo cambios, asignamos los campos de fecha y usuario
-        if changes_made:
-            subproduct_instance.modified_at = timezone.now()
-
-            # Si 'user' está presente, actualizamos los campos de auditoría
-            if user:
-                subproduct_instance.modified_by = user  # Asignar el usuario que realizó la modificación
-
-            subproduct_instance.save()
-
+        # Creamos instancia pasando el padre y el resto de datos
+        subproduct_instance = Subproduct(parent=parent, **data)
+        # Delega a BaseModel.save para asignar created_by y guardar
+        subproduct_instance.save(user=user)
         return subproduct_instance
 
+    @staticmethod
+    def update(subproduct_instance: Subproduct, user, data: Dict[str, Any]) -> Subproduct:
+        """
+        Actualiza un subproducto usando la lógica de BaseModel.save.
+        Espera un diccionario 'data' con los campos a actualizar.
+        """
+        changes_made = False
+        allowed_fields = {f.name for f in Subproduct._meta.get_fields()} - \
+                         {'id', 'created_at', 'created_by', 'modified_at', 'modified_by', \
+                          'deleted_at', 'deleted_by', 'status', 'parent'} # Campos no actualizables aquí
+
+        for field, value in data.items():
+            if field in allowed_fields:
+                if getattr(subproduct_instance, field) != value:
+                    setattr(subproduct_instance, field, value)
+                    changes_made = True
+
+        if changes_made:
+            subproduct_instance.save(user=user) # Delega a BaseModel.save
+        return subproduct_instance
 
     @staticmethod
     def soft_delete(subproduct_instance: Subproduct, user) -> Subproduct:
-        """
-        Realiza un soft delete, estableciendo `status=False`.
-        """
-        subproduct_instance.status = False
-        subproduct_instance.deleted_at = timezone.now()
-        subproduct_instance.deleted_by = user
-        subproduct_instance.save(update_fields=['status', 'deleted_at', 'deleted_by'])
-
+        """Realiza un soft delete usando la lógica de BaseModel.delete."""
+        subproduct_instance.delete(user=user) # Delega a BaseModel
         return subproduct_instance
