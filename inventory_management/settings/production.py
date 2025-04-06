@@ -130,7 +130,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://inventoryapi.up.railway.app",  # Backend
 ]
 
-CORS_ALLOWED_ORIGIN_REGEXES = []  # Opcional: puedes omitir esta línea si no necesitas regex
+CORS_ALLOWED_ORIGIN_REGEXES = []
 
 CORS_ALLOW_HEADERS = [
     'authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with',
