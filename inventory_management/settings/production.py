@@ -135,7 +135,6 @@ CORS_ALLOWED_ORIGIN_REGEXES = []  # Opcional: puedes omitir esta línea si no ne
 CORS_ALLOW_HEADERS = [
     'authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with',
 ]
-CORS_ALLOW_HEADERS.append("access-control-allow-origin")
 
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
