@@ -1,7 +1,7 @@
 from django.urls import path
 from apps.users.api.views.auth import CustomTokenObtainPairView, register_view, LogoutView
 from apps.users.api.views.user import (user_list_view, user_detail_api_view, profile_view)
-from apps.users.api.views.reset_password import send_password_reset_email, password_reset_confirm  # Importa las vistas de restablecimiento de contraseña
+from apps.users.api.views.reset_password import send_password_reset_email, password_reset_confirm
 
 
 urlpatterns = [

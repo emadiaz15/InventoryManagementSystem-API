@@ -1,120 +1,87 @@
-from django.utils import timezone
-from django.db import models
-from django.core.exceptions import ValidationError
-from apps.stocks.models import ProductStock
-from apps.stocks.models.stock_event_model import StockEvent
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from apps.products.models.product_model import Product
+from apps.stocks.models.stock_product_model import ProductStock
 
-class ProductRepository:
+class StockProductRepository:
     """
-    Repositorio para gestionar el stock de productos y las operaciones relacionadas con los productos.
+    Repositorio para ProductStock (stock de productos sin subproductos).
+    Delega lógica de save/delete/auditoría a BaseModel.
+    La lógica de negocio (ajustar stock + evento) debe estar en un Servicio.
     """
+
+    # --- Métodos de Lectura ---
+    @staticmethod
+    def get_by_stock_id(stock_id: int) -> ProductStock | None:
+        """Obtiene un registro de stock de producto activo por su ID de stock."""
+        try:
+            # select_related para optimizar acceso a product.name, etc.
+            return ProductStock.objects.select_related('product', 'created_by', 'modified_by', 'deleted_by').get(id=stock_id, status=True)
+        except ProductStock.DoesNotExist:
+            return None
 
     @staticmethod
-    def create_product_stock(quantity, location, product, user):
+    def get_stock_for_product(product: Product) -> ProductStock | None:
         """
-        Crea un nuevo registro de stock para un producto.
-        Registra un evento de tipo "entrada".
+        Obtiene el registro de stock activo para un producto específico.
+        Devuelve None si no existe o el producto es inválido.
         """
-        if quantity <= 0:
-            raise ValidationError("La cantidad debe ser mayor que cero.")
+        if not isinstance(product, Product) or not product.pk:
+             return None
+        try:
+             # Asume OneToOne o busca el único activo. Ajusta si un producto puede tener múltiples ProductStock activos.
+            return ProductStock.objects.select_related('product', 'created_by', 'modified_by', 'deleted_by').get(product=product, status=True)
+        except ProductStock.DoesNotExist:
+            return None
+        except ProductStock.MultipleObjectsReturned:
+             # Decide cómo manejar este caso si puede ocurrir
+             print(f"ALERTA: Múltiples ProductStock activos encontrados para Producto ID {product.pk}")
+             return ProductStock.objects.filter(product=product, status=True).first()
 
-        if not location:
-            raise ValidationError("Debe proporcionar una ubicación válida.")
 
-        existing_stock = ProductStock.objects.filter(product=product).first()
-        
-        if existing_stock:
-            existing_stock.quantity += quantity
-            existing_stock.save()
-        else:
-            stock = ProductStock(
-                quantity=quantity,
-                location=location,
-                product=product,
-                created_by=user
-            )
-            stock.save()
+    @staticmethod
+    def get_all_active():
+        """Obtiene todos los registros de ProductStock activos."""
+        # Ordenados por -created_at (de BaseModel)
+        return ProductStock.objects.filter(status=True).select_related('product', 'created_by')
 
-        # Registrar un evento de stock (entrada)
-        StockEvent.objects.create(
-            stock=stock,
-            quantity_change=quantity,
-            event_type="entrada",
-            user=user,
+    # --- Método Create BÁSICO ---
+    @staticmethod
+    def create_stock(product: Product, quantity: float, user, location: str = None) -> ProductStock:
+        """
+        Crea un registro de ProductStock básico.
+        La creación del StockEvent inicial debe manejarse en un Servicio/Transacción.
+        """
+        # Validación básica
+        if quantity < 0:
+            raise ValueError("La cantidad inicial no puede ser negativa.")
+        if not isinstance(product, Product) or product.pk is None:
+             raise ValueError("Se requiere una instancia de Producto válida.")
+        # Validación extra: Asegurarse que este producto NO tenga subproductos?
+        # if product.subproducts.exists():
+        #     raise ValidationError("No se puede crear ProductStock para un producto con subproductos.")
+        # Validación extra: Asegurarse que no exista ya un ProductStock si es OneToOne?
+        # if ProductStock.objects.filter(product=product).exists():
+        #      raise ValidationError(f"Ya existe un registro de stock para el producto {product.name}")
+
+        stock = ProductStock(
+            product=product,
+            quantity=quantity,
             location=location
+            # created_by será asignado por save()
         )
-
+        stock.save(user=user) # Delega a BaseModel
         return stock
 
+    # --- Método Soft Delete ---
     @staticmethod
-    def update_product_stock(stock, quantity_change, user, location=None):
-        """
-        Actualiza el stock de un producto y registra un evento de tipo "ajuste".
-        Verifica que la cantidad de stock no sea negativa.
-        """
-        if stock.quantity + quantity_change < 0:
-            raise ValidationError("No puede haber una cantidad negativa de stock.")
+    def soft_delete_stock(stock_instance: ProductStock, user) -> ProductStock:
+        """Realiza un soft delete usando la lógica de BaseModel.delete."""
+        if not isinstance(stock_instance, ProductStock):
+             raise ValueError("Se requiere una instancia de ProductStock válida.")
+        stock_instance.delete(user=user) # Delega a BaseModel
+        return stock_instance
 
-        # Actualizar la cantidad del stock
-        stock.quantity += quantity_change
-        stock.modified_by = user
-        stock.modified_at = timezone.now()
-
-        if location:
-            stock.location = location
-
-        stock.save()
-
-        # Registrar un evento de stock (ajuste o entrada si cantidad positiva)
-        event_type = "ajuste" if quantity_change != 0 else "entrada"
-        StockEvent.objects.create(
-            stock=stock,
-            quantity_change=quantity_change,
-            event_type=event_type,
-            user=user,
-            location=location or stock.location
-        )
-
-        return stock
-
-    @staticmethod
-    def delete_product_stock(stock, user):
-        """
-        Realiza un soft delete de un registro de stock de producto.
-        Actualiza el campo 'deleted_at' y 'modified_by', y registra un evento de salida.
-        """
-        stock.deleted_at = timezone.now()
-        stock.modified_by = user
-        stock.save()
-
-        # Registrar un evento de salida
-        StockEvent.objects.create(
-            stock=stock,
-            quantity_change=-stock.quantity,  # Aquí podrías ajustarlo si se elimina una parte del stock
-            event_type="salida",
-            user=user,
-            location=stock.location
-        )
-
-        return stock
-
-    @staticmethod
-    def get_product_stock(product_id):
-        """
-        Obtiene el registro de stock de un producto específico.
-        """
-        return ProductStock.objects.filter(product__id=product_id).select_related("product").first()
-
-    @staticmethod
-    def validate_product_stock(product_id):
-        """
-        Valida que el stock de productos no sea negativo y que la cantidad total del stock sea coherente.
-        """
-        product_stock = ProductStock.objects.filter(product__id=product_id).aggregate(
-            total=models.Sum("quantity")
-        )["total"] or 0
-
-        # Aquí podrías incluir validación adicional si necesitas verificar el stock total frente a subproductos.
-        if product_stock < 0:
-            raise ValidationError(f"El stock total del producto (ID: {product_id}) es negativo.")
+    # --- NO HAY UPDATE GENÉRICO ---
+    # Las actualizaciones de cantidad deben hacerse en métodos específicos
+    # (ej. adjust_stock, receive_stock, dispatch_stock) en un Servicio o
+    # Repositorio que también creen el StockEvent y usen transacciones.

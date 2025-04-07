@@ -4,8 +4,8 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from apps.users.models import User
-from ..serializers import UserSerializer, CustomTokenObtainPairSerializer
+from apps.users.models.user_model import User
+from ..serializers.user_serializers import UserSerializer, CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from drf_spectacular.utils import extend_schema, extend_schema_view
 import logging

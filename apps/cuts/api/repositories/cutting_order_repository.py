@@ -1,172 +1,120 @@
-from django.db import transaction
-from django.core.exceptions import ValidationError
-from django.utils import timezone
-from apps.cuts.models.cutting_order_model import CuttingOrder
-from apps.stocks.models import SubproductStock
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.db import models # Para Type Hinting
+from typing import Optional, Dict, Any # Para Type Hinting
+
+from apps.cuts.models.cutting_order_model import CuttingOrder 
 from apps.users.models import User
-from apps.stocks.models import StockEvent
-from apps.core.notifications.tasks import send_cutting_order_assigned_email
+from apps.products.models.subproduct_model import Subproduct
 
 class CuttingOrderRepository:
-
-    @transaction.atomic
-    def create_cutting_order(data, user, assigned_to_id):
-        """
-        Crea una nueva orden de corte asegurando que haya stock suficiente y asignando el usuario adecuado.
-        """
-        if not user.is_staff:
-            raise ValidationError("Solo los usuarios staff pueden crear una orden de corte.")
-
-        subproduct = data.get('subproduct')
-        cutting_quantity = data.get('cutting_quantity')
-
-        # Verificar que haya suficiente stock para realizar el corte
-        stock = SubproductStock.objects.filter(subproduct=subproduct).order_by('-created_at').first()
-        if not stock or stock.quantity < cutting_quantity:
-            raise ValidationError(f"No hay suficiente stock para el subproducto {subproduct.name}.")
-
-        try:
-            assigned_to_user = User.objects.get(id=assigned_to_id)
-        except User.DoesNotExist:
-            raise ValidationError(f"Usuario con ID {assigned_to_id} no encontrado.")
-        
-        cutting_order = CuttingOrder(
-            subproduct=subproduct,
-            customer=data.get('customer'),
-            cutting_quantity=cutting_quantity,
-            assigned_by=user,
-            assigned_to=assigned_to_user,
-            status='in_process'  # Inicializamos en "in_process"
-        )
-
-        # Guardar la orden de corte
-        cutting_order.save() 
-
-        # Actualizar el stock (descontar la cantidad)
-        stock.quantity -= cutting_quantity
-        stock.save()
-
-        # Crear el evento de stock
-        StockEvent.objects.create(
-            stock_instance=stock,
-            quantity_change=-cutting_quantity,
-            event_type='salida',
-            user=user,
-            location=stock.location
-        )
-
-        return cutting_order
+    """
+    Repositorio para CuttingOrder. Se enfoca en el acceso básico a datos.
+    Delega la lógica de auditoría y soft delete a BaseModel.
+    La lógica de negocio compleja (asignar, completar, validar stock) va en servicios.
+    """
 
     @staticmethod
-    @transaction.atomic
-    def update_cutting_order(cutting_order, data, user):
+    def get_by_id(order_id: int) -> Optional[CuttingOrder]:
         """
-        Actualiza una orden de corte, modificando su estado o cantidad de corte.
-        """
-        new_status = data.get('status', cutting_order.status)
-
-        if new_status != cutting_order.status:
-            if new_status == 'completed' and cutting_order.status != 'in_process':
-                raise ValidationError("No se puede completar una orden que no esté 'en_proceso'.")
-
-        # Si el usuario es staff, puede actualizar cualquier campo
-        if new_status == 'completed':
-            cutting_order.complete_cutting()  # Llamamos a la lógica de completar la orden y mover el stock
-
-        cutting_order.status = new_status
-        cutting_order.modified_by = user
-        cutting_order.modified_at = timezone.now()
-        cutting_order.save()
-        return cutting_order
-
-    @staticmethod
-    @transaction.atomic
-    def assign_cutting_order(cutting_order, assigned_to_user, user):
-        """
-        Asigna una orden de corte a un operario (usuario no staff), solo si el usuario es staff.
-        """
-        if not user.is_staff:
-            raise ValidationError("Solo los usuarios staff pueden asignar una orden de corte.")
-        
-        if assigned_to_user.is_staff:
-            raise ValidationError("No se puede asignar una orden de corte a un usuario staff.")
-        
-        cutting_order.assigned_to = assigned_to_user
-        cutting_order.status = 'pending'  # El estado se cambia a pendiente cuando se asigna
-        cutting_order.save()
-        return cutting_order
-
-    @staticmethod
-    @transaction.atomic
-    def complete_cutting_order(cutting_order, user):
-        """
-        Marca la orden de corte como completada y actualiza el stock, solo si el usuario es staff.
-        """
-        if not user.is_staff:
-            raise ValidationError("Solo los usuarios staff pueden completar una orden de corte.")
-        
-        if cutting_order.status != 'in_process':
-            raise ValidationError("La orden debe estar en estado 'in_process' para completarse.")
-
-        cutting_order.complete_cutting()
-        cutting_order.status = 'completed'
-        cutting_order.completed_at = timezone.now()  # Marcar la fecha de completado
-        cutting_order.save()
-        return cutting_order
-
-    @staticmethod
-    @transaction.atomic
-    def delete_cutting_order(cutting_order, user):
-        """
-        Realiza un soft delete de una orden de corte, solo si el usuario es staff.
-        """
-        if not user.is_staff:
-            raise ValidationError("Solo un usuario staff puede eliminar una orden de corte.")
-        
-        # Validación: Verificamos si la orden ya está eliminada
-        if cutting_order.deleted_at is not None:
-            raise ValidationError("La orden ya ha sido eliminada previamente.")
-        
-        # Asignar el usuario que está realizando el soft delete y la fecha de eliminación
-        cutting_order.deleted_at = timezone.now()  # Establece la fecha de eliminación
-        cutting_order.deleted_by = user  # Asigna al usuario que está eliminando la orden
-        cutting_order.save()  # Guardamos la orden con el soft delete
-
-        return cutting_order
-
-    @staticmethod
-    def get_cutting_orders_for_user(user):
-        """
-        Devuelve todas las órdenes de corte asignadas a un usuario.
-        """
-        return CuttingOrder.objects.filter(assigned_to=user)
-
-    @staticmethod
-    def get_cutting_order_by_id(order_id):
-        """
-        Obtiene una orden de corte por su ID.
+        Obtiene una orden de corte activa por su ID.
+        Retorna None si no existe o no está activa.
         """
         try:
-            return CuttingOrder.objects.get(pk=order_id)
+            # Usamos select_related para precargar datos relacionados comunes
+            return CuttingOrder.objects.select_related(
+                'subproduct', 'assigned_by', 'assigned_to', 'created_by'
+            ).get(id=order_id, status=True) # status=True es el booleano de BaseModel
         except CuttingOrder.DoesNotExist:
-            raise ValidationError(f"No se encontró la orden de corte con ID {order_id}.")
+            return None
 
-    @transaction.atomic
-    def assign_cutting_order(self, cutting_order, assigned_to_user, user):
+    @staticmethod
+    def get_all_active() -> models.QuerySet[CuttingOrder]:
         """
-        Asigna una orden de corte a un operario (usuario no staff), solo si el usuario es staff.
+        Obtiene todas las órdenes de corte activas.
+        Ordenadas por defecto por -created_at (de BaseModel.Meta).
         """
-        if not user.is_staff:
-            raise ValidationError("Solo los usuarios staff pueden asignar una orden de corte.")
-        
-        if assigned_to_user.is_staff:
-            raise ValidationError("No se puede asignar una orden de corte a un usuario staff.")
-        
-        cutting_order.assigned_to = assigned_to_user
-        cutting_order.status = 'pending'  # El estado se cambia a pendiente cuando se asigna
-        cutting_order.save()
+        return CuttingOrder.objects.filter(status=True).select_related(
+            'subproduct', 'assigned_by', 'assigned_to', 'created_by'
+        )
 
-        # Llamar a la tarea de Celery para enviar el correo
-        send_cutting_order_assigned_email.delay(cutting_order.id)
+    @staticmethod
+    def get_cutting_orders_assigned_to(user: User) -> models.QuerySet[CuttingOrder]:
+        """
+        Devuelve todas las órdenes de corte activas asignadas a un usuario específico.
+        """
+        if not isinstance(user, User):
+             return CuttingOrder.objects.none()
+        # Filtra por usuario asignado y estado activo (booleano)
+        return CuttingOrder.objects.filter(assigned_to=user, status=True).select_related(
+            'subproduct', 'assigned_by', 'assigned_to', 'created_by'
+        )
+        # Considera añadir filtro por workflow_status != 'completed' si aplica
 
-        return cutting_order
+    # --- CREATE BÁSICO ---
+    @staticmethod
+    def create_order(subproduct: Subproduct, customer: str, cutting_quantity: float, user_creator, assigned_by=None, assigned_to=None, workflow_status='pending') -> CuttingOrder:
+        """
+        Crea una instancia básica de CuttingOrder y la guarda usando BaseModel.save.
+        NO realiza validación de stock ni lógica de negocio compleja aquí.
+        """
+        # Validaciones básicas de entrada (pueden estar también en Serializer/Servicio)
+        if not isinstance(subproduct, Subproduct): raise ValueError("Instancia de Subproduct inválida.")
+        if not customer: raise ValueError("Cliente requerido.")
+        if cutting_quantity <= 0: raise ValueError("Cantidad a cortar debe ser positiva.")
+        if not user_creator: raise ValueError("Usuario creador requerido.")
+
+        # Crea instancia con datos proporcionados
+        order = CuttingOrder(
+            subproduct=subproduct,
+            customer=customer,
+            cutting_quantity=cutting_quantity,
+            workflow_status=workflow_status, # Usa el campo renombrado
+            assigned_by=assigned_by,
+            assigned_to=assigned_to
+        )
+        # Delega a BaseModel.save para asignar created_by y guardar
+        order.save(user=user_creator)
+        return order
+
+    # --- UPDATE BÁSICO ---
+    @staticmethod
+    def update_order_fields(order_instance: CuttingOrder, user_modifier, data: Dict[str, Any]) -> CuttingOrder:
+         """
+         Actualiza campos simples de una orden usando BaseModel.save.
+         NO maneja cambios de estado complejos, asignaciones o stock.
+         'data' debe ser un diccionario con {campo: valor}.
+         """
+         if not isinstance(order_instance, CuttingOrder): raise ValueError("Instancia inválida.")
+         if not user_modifier: raise ValueError("Usuario modificador requerido.")
+
+         changes_made = False
+         # Lista de campos permitidos para actualizar via este método básico
+         updatable_fields = {'customer', 'cutting_quantity', 'workflow_status', 'assigned_by', 'assigned_to'}
+
+         for field, value in data.items():
+              if field in updatable_fields:
+                   # Validar el valor si es necesario aquí o en el serializer/servicio
+                   if field == 'workflow_status' and value not in dict(CuttingOrder.WORKFLOW_STATUS_CHOICES).keys():
+                        raise ValueError(f"Estado de flujo de trabajo inválido: {value}")
+                   if getattr(order_instance, field) != value:
+                        setattr(order_instance, field, value)
+                        changes_made = True
+
+         if changes_made:
+              # Delega a BaseModel.save para asignar modified_by/at y guardar
+              order_instance.save(user=user_modifier)
+         return order_instance
+
+
+    # --- SOFT DELETE ---
+    @staticmethod
+    def soft_delete_order(order_instance: CuttingOrder, user_deletor) -> CuttingOrder:
+        """Realiza un soft delete usando la lógica de BaseModel.delete."""
+        if not isinstance(order_instance, CuttingOrder): raise ValueError("Instancia inválida.")
+        if not user_deletor: raise ValueError("Usuario eliminador requerido.")
+        order_instance.delete(user=user_deletor) # Delega a BaseModel
+        return order_instance
+
+    # Se eliminaron métodos con lógica de negocio compleja (validar stock,
+    # asignar con permisos, completar orden, crear eventos de stock, etc.)
+    # Esa lógica va en apps/cuts/services.py

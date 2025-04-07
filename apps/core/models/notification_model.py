@@ -1,5 +1,5 @@
 from django.db import models
-from apps.users.models import User
+from apps.users.models.user_model import User
 from apps.cuts.models.cutting_order_model import CuttingOrder
 
 class Notification(models.Model):

@@ -1,29 +1,32 @@
 from django.db import models
-from django.contrib.auth import get_user_model
-from apps.stocks.models import BaseStock
+from django.conf import settings
+from apps.products.models.base_model import BaseModel
 from apps.products.models.subproduct_model import Subproduct
-from apps.stocks.models import ProductStock
 
-User = get_user_model()
+class SubproductStock(BaseModel):
+    """Stock para un Subproducto específico."""
 
-class SubproductStock(BaseStock):
-    """Modelo para manejar el stock de subproductos y validar que su suma no supere el stock total del producto."""
+    subproduct = models.ForeignKey( # Un subproducto puede estar en varias ubicaciones -> ForeignKey
+        Subproduct,
+        on_delete=models.CASCADE, # Si se borra el subproducto, se borra su stock
+        related_name='stock_records', 
+        verbose_name="Subproducto"
+    )
+    quantity = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name="Cantidad Actual"
+    )
+    location = models.CharField(
+        max_length=100, null=True, blank=True,
+        verbose_name="Ubicación"
+    )
 
-    subproduct = models.ForeignKey(Subproduct, on_delete=models.CASCADE, related_name='subproduct_stocks', null=True)
-    stock_event = models.ForeignKey('stocks.StockEvent', on_delete=models.CASCADE)
-    product_stock = models.ForeignKey(ProductStock, on_delete=models.CASCADE, related_name='subproduct_stocks')  # Relación agregada
-    status = models.BooleanField(default=True)
-
-    def save(self, *args, **kwargs):
-        """Valida que la suma del stock de los subproductos no supere el stock total del producto."""
-        if self.product_stock:  # Aseguramos que la relación con ProductStock esté presente
-            total_subproduct_stock = sum(
-                sp.quantity for sp in self.product_stock.subproduct_stocks.exclude(id=self.id)
-            )
-            if total_subproduct_stock + self.quantity > self.product_stock.quantity:
-                raise ValueError("La suma del stock de los subproductos no puede superar el stock total del producto.")
-        
-        super().save(*args, **kwargs)
+    class Meta:
+        verbose_name = "Stock de Subproducto"
+        verbose_name_plural = "Stocks de Subproductos"
+        # Asegura que no haya dos registros para el mismo subproducto en la misma ubicación
+        unique_together = [['subproduct', 'location']]
 
     def __str__(self):
-        return f"Stock de {self.subproduct.name}: {self.quantity}"
+        subproduct_name = getattr(self.subproduct, 'name', f'ID:{self.subproduct_id}')
+        return f"Stock de {subproduct_name}: {self.quantity} @ {self.location or 'N/A'}"

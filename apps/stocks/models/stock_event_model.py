@@ -1,67 +1,73 @@
 from django.db import models
-from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.core.exceptions import ValidationError
-from apps.stocks.models import BaseStock  # Asegúrate de que 'BaseStock' está bien importado
+from apps.products.models.base_model import BaseModel
 
-User = get_user_model()
+from apps.stocks.models.stock_product_model import ProductStock
+from apps.stocks.models.stock_subproduct_model import SubproductStock
 
-# Modelo concreto que hereda de BaseStock
-class ConcreteStock(BaseStock):
-    """Modelo concreto que hereda de BaseStock para usar en relaciones con productos y subproductos."""
-    name = models.CharField(max_length=255, help_text="Nombre del stock.")
-    quantity = models.DecimalField(max_digits=15, decimal_places=2, help_text="Cantidad total del stock")
+class StockEvent(BaseModel): # HEREDA DE BASEMODEL
+    """Registra cada movimiento (entrada/salida/ajuste) de stock."""
 
-    def __str__(self):
-        return self.name
+    EVENT_TYPES = [
+        ('ingreso', 'Ingreso'),
+        ('egreso_venta', 'Egreso por Venta'),
+        ('egreso_corte', 'Egreso por Corte'),
+        ('egreso_ajuste', 'Egreso por Ajuste'),
+        ('ingreso_ajuste', 'Ingreso por Ajuste'),
+        ('traslado_salida', 'Salida por Traslado'),
+        ('traslado_entrada', 'Entrada por Traslado'),
+    ]
 
-
-class StockEvent(models.Model):
-    """Registra cambios en el stock de productos y subproductos, y maneja eventos de stock como entrada, salida o ajuste."""
-    stock_instance = models.ForeignKey(
-        ConcreteStock,  # Asocia el evento con una instancia de ConcreteStock
+    # --- Relación al Stock afectado ---
+    # Usamos FKs separadas a ProductStock y SubproductStock (más simple que GenericForeignKey)
+    # Solo uno de estos dos debería tener valor para cada evento.
+    product_stock = models.ForeignKey(
+        ProductStock,
+        on_delete=models.CASCADE, # O PROTECT si quieres mantener eventos si se borra el stock
+        null=True, blank=True, # Puede ser nulo si el evento es de SubproductStock
         related_name='events',
-        on_delete=models.CASCADE
+        verbose_name="Stock de Producto Afectado"
     )
+    subproduct_stock = models.ForeignKey(
+        SubproductStock,
+        on_delete=models.CASCADE, # O PROTECT
+        null=True, blank=True, # Puede ser nulo si el evento es de ProductStock
+        related_name='events',
+        verbose_name="Stock de Subproducto Afectado"
+    )
+
+    # --- Detalles del Evento ---
     quantity_change = models.DecimalField(
-        max_digits=15, 
-        decimal_places=2, 
-        help_text="Cantidad de cambio en stock."
+        max_digits=15, decimal_places=2,
+        help_text="Cambio en la cantidad (+ para entrada, - para salida)"
     )
     event_type = models.CharField(
         max_length=50,
-        choices=[('entrada', 'Entrada'), ('salida', 'Salida'), ('ajuste', 'Ajuste')],
-        help_text="Tipo de evento de stock."
+        choices=EVENT_TYPES,
+        help_text="Tipo de evento de stock"
     )
-    created_at = models.DateTimeField(auto_now_add=True, help_text="Fecha y hora en que se crea el evento.")
-    user = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        related_name="stock_events",
-        null=True,
-        blank=True
-    )
-    location = models.CharField(max_length=100, null=True, blank=True, help_text="Ubicación del stock.")
+    location = models.CharField(max_length=100, null=True, blank=True, help_text="Ubicación donde ocurrió el evento")
+    notes = models.TextField(blank=True, null=True, verbose_name="Notas Adicionales") # Campo útil
 
-    def save(self, *args, **kwargs):
-        """Asigna automáticamente el tipo de evento y realiza validaciones antes de guardar."""
-        # No permitir cambios en stock que resulten en una cantidad negativa
+    class Meta:
+        verbose_name = "Evento de Stock"
+        verbose_name_plural = "Eventos de Stock"
+        ordering = ['-created_at'] # Mantenemos el orden por defecto aquí también
+
+    def clean(self):
+        """Validaciones a nivel de modelo para el evento."""
+        super().clean()
+        # Asegurar que solo uno de los FKs a stock esté asignado
+        if self.product_stock and self.subproduct_stock:
+            raise ValidationError("Un evento de stock solo puede pertenecer a un ProductStock O a un SubproductStock, no a ambos.")
+        if not self.product_stock and not self.subproduct_stock:
+             raise ValidationError("Un evento de stock debe estar asociado a un ProductStock o a un SubproductStock.")
+        # No permitir cantidad de cambio cero
         if self.quantity_change == 0:
-            raise ValidationError("La cantidad de cambio no puede ser cero.")
-        
-        # Verificar si la cantidad total de stock va a ser negativa
-        if self.stock_instance.quantity + self.quantity_change < 0:
-            raise ValidationError("No puede haber un stock negativo.")
-
-        # Determinar el tipo de evento de acuerdo con la cantidad de cambio
-        if self.quantity_change > 0:
-            self.event_type = 'entrada'
-        elif self.quantity_change < 0:
-            self.event_type = 'salida'
-        else:
-            self.event_type = 'ajuste'
-        
-        super().save(*args, **kwargs)
+             raise ValidationError("La cantidad de cambio no puede ser cero.")
 
     def __str__(self):
-        return f"{self.event_type.capitalize()} de {self.quantity_change} unidades en {self.location if self.location else 'ubicación desconocida'}"
-
+        target = self.product_stock or self.subproduct_stock or "Stock Desconocido"
+        op = "+" if self.quantity_change > 0 else ""
+        return f"{self.get_event_type_display()}: {op}{self.quantity_change} para {target}"

@@ -3,7 +3,7 @@ from django.db import models
 from apps.products.models.base_model import BaseModel
 from apps.products.models.product_model import Product
 
-class Subproduct(BaseModel): # Correcto: hereda de BaseModel
+class Subproduct(BaseModel):
     """Modelo de Subproducto con atributos específicos, hereda de BaseModel."""
 
     # --- Campos Específicos del Subproducto ---
@@ -16,18 +16,20 @@ class Subproduct(BaseModel): # Correcto: hereda de BaseModel
     total_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Peso Total (kg)")
     coil_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Peso Bobina (kg)")
     technical_sheet_photo = models.ImageField(upload_to='technical_sheets/', null=True, blank=True, verbose_name="Foto Ficha Técnica")
-    quantity = models.PositiveIntegerField(null=False, blank=False, default=0, verbose_name="Cantidad/Unidades") # Cantidad de este subproducto específico
 
     # --- Relación ForeignKey ---
     parent = models.ForeignKey(
         Product,
-        on_delete=models.PROTECT, # PROTECT es más seguro para evitar borrados accidentales
+        on_delete=models.PROTECT,
         related_name='subproducts',
-        null=False, blank=False, # Subproducto siempre debe tener un padre
+        null=False, blank=False,
         verbose_name="Producto Padre"
     )
 
+    class Meta:
+        verbose_name = "Subproducto"
+        verbose_name_plural = "Subproductos"
+
     def __str__(self):
-        # Representación más informativa
         parent_name = getattr(self.parent, 'name', 'N/A')
         return f'{self.name} (Padre: {parent_name})'
