@@ -7,7 +7,7 @@ from apps.users.models.user_model import User
 from ..serializers.user_serializers import UserSerializer
 from drf_spectacular.utils import extend_schema
 from apps.core.pagination import Pagination
-from ...filters import UserFilter  # Asegúrate de que la ruta sea la correcta
+from ...filters import UserFilter
 
 @extend_schema(
     operation_id="get_user_profile",

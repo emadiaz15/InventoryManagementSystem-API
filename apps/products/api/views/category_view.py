@@ -13,26 +13,38 @@ from apps.products.docs.category_doc import (
     category_list_doc, create_category_doc, get_category_by_id_doc, update_category_by_id_doc,
     delete_category_by_id_doc
 )
+from apps.products.models.category_model import Category
+from apps.products.filters.category_filter import CategoryFilter
 
-
-@extend_schema(**category_list_doc)
 @api_view(['GET'])
 @permission_classes([IsStaffOrReadOnly])
 def category_list(request):
     """
-    Lista todas las categorías activas con paginación.
+    Lista todas las categorías ACTIVAS con paginación y filtro por nombre.
     """
-    categories = CategoryRepository.get_all_active()
-    paginator = Pagination()
-    paginated_categories = paginator.paginate_queryset(categories, request)
-    # Pasamos el contexto para que el serializer pueda acceder al request si es necesario
-    serializer = CategorySerializer(paginated_categories, many=True, context={'request': request})
-    return paginator.get_paginated_response(serializer.data)
+    # 1. Queryset Base: Obtener SOLO las categorías ACTIVAS.
+    #    El ordenamiento por defecto (-created_at) viene de BaseModel.Meta.
+    queryset = Category.objects.filter(status=True).select_related('created_by') # <-- Filtrar por status=True AQUÍ
 
+    # 2. Aplicar Filtro de Nombre: Pasamos el request.GET y el queryset base (ya filtrado por activas).
+    filterset = CategoryFilter(request.GET, queryset=queryset)
+    # El filterset ahora solo aplicará el filtro 'name' si viene en request.GET
+
+    filtered_queryset = filterset.qs # .qs contiene el queryset filtrado por nombre (y ya por status=True)
+
+    # 3. Paginación
+    paginator = Pagination()
+    paginated_categories = paginator.paginate_queryset(filtered_queryset, request)
+
+    # 4. Serialización (con contexto)
+    serializer = CategorySerializer(paginated_categories, many=True, context={'request': request})
+
+    # 5. Respuesta
+    return paginator.get_paginated_response(serializer.data)
 
 @extend_schema(**create_category_doc)
 @api_view(['POST'])
-@permission_classes([IsStaffOrReadOnly]) # Permiso más específico que IsAuthenticated
+@permission_classes([IsStaffOrReadOnly])
 def create_category(request):
     """
     Crea una nueva categoría.

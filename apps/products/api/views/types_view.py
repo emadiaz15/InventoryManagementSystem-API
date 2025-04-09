@@ -11,16 +11,31 @@ from apps.products.docs.type_doc import (
     list_type_doc, create_type_doc, get_type_by_id_doc, update_type_by_id_doc,
     delete_type_by_id_doc
 )
+from apps.products.filters.type_filter import TypeFilter
 
 @extend_schema(**list_type_doc)
 @api_view(['GET'])
 @permission_classes([IsStaffOrReadOnly])
 def type_list(request):
-    """Lista todos los tipos activos con paginación."""
-    types = TypeRepository.get_all_active()
+    """
+    Lista todos los tipos activos con paginación y filtros.
+    Permite filtrar por nombre del tipo y por nombre de la categoría asociada.
+    """
+    # 1. Obtener el queryset base de tipos activos.
+    queryset = TypeRepository.get_all_active()
+
+    # 2. Aplicar filtros mediante TypeFilter utilizando los parámetros enviados en la request.
+    filterset = TypeFilter(request.GET, queryset=queryset)
+    filtered_queryset = filterset.qs
+
+    # 3. Paginación
     paginator = Pagination()
-    paginated_types = paginator.paginate_queryset(types, request)
+    paginated_types = paginator.paginate_queryset(filtered_queryset, request)
+
+    # 4. Serialización (con contexto)
     serializer = TypeSerializer(paginated_types, many=True, context={'request': request})
+    
+    # 5. Respuesta
     return paginator.get_paginated_response(serializer.data)
 
 @extend_schema(**create_type_doc)
