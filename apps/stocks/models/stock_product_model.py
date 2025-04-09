@@ -1,32 +1,32 @@
 from django.db import models
-from django.contrib.auth import get_user_model
-from apps.stocks.models import BaseStock
-from apps.stocks.models.stock_event_model import StockEvent
-from apps.products.models import Product  # Asegúrate de importar el modelo Product correctamente.
+from django.conf import settings
+from apps.products.models.base_model import BaseModel
+from apps.products.models.product_model import Product
 
-User = get_user_model()
+class ProductStock(BaseModel): 
+    """Stock para un Producto específico (que NO tiene subproductos)."""
 
-class ProductStock(BaseStock):
-    """Modelo para manejar el stock total de un producto."""
-    
-    product = models.ForeignKey('products.Product', on_delete=models.CASCADE, related_name='product_stocks')
-    stock_event = models.ForeignKey(StockEvent, on_delete=models.SET_NULL, null=True, blank=True, related_name='product_stocks')
-    status = models.BooleanField(default=True)
-    
+    product = models.OneToOneField( # Un registro de stock por producto
+        Product,
+        on_delete=models.CASCADE, 
+        related_name='stock_record',
+        verbose_name="Producto",
+        limit_choices_to={'subproducts__isnull': True}
+    )
+    quantity = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name="Cantidad Actual"
+    )
+    location = models.CharField( 
+        max_length=100, null=True, blank=True,
+        verbose_name="Ubicación"
+    )
+
+    class Meta:
+        verbose_name = "Stock de Producto"
+        verbose_name_plural = "Stocks de Productos"
+        # ordering = ['-created_at'] # Ya heredado
+
     def __str__(self):
-        return f"Stock de {self.product.name}: {self.quantity}"
-
-    def update_stock(self, quantity_change, user=None):
-        """Lógica para actualizar el stock del producto."""
-        # Actualizar la cantidad de stock del producto
-        self.product.quantity += quantity_change
-        self.product.save()
-
-        # Crear un nuevo evento de stock para registrar el cambio
-        StockEvent.objects.create(
-            stock_instance=self,
-            quantity_change=quantity_change,
-            event_type="ajuste" if quantity_change == 0 else ("entrada" if quantity_change > 0 else "salida"),
-            user=user,  # Asignar el usuario si es necesario
-            location=self.product.location  # Si el producto tiene una ubicación asociada, puedes usarla.
-        )
+        product_name = getattr(self.product, 'name', f'ID:{self.product_id}')
+        return f"Stock de {product_name}: {self.quantity} @ {self.location or 'N/A'}"

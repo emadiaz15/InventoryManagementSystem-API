@@ -39,7 +39,7 @@ get_subproduct_by_id_doc = {
 }
 
 # Documentation for updating a specific subproduct
-update_product_by_id_doc = {
+update_subproduct_by_id_doc = {
     'operation_id': "update_subproduct",
     'description': "Actualiza los detalles de un subproducto específico",
     'request': "ProductSerializer",
@@ -50,7 +50,7 @@ update_product_by_id_doc = {
 }
 
 # Documentation for deleting a subproduct
-delete_product_by_id_doc = {
+delete_subproduct_by_id_doc = {
     'operation_id': "delete_subproduct",
     'description': "Elimina suavemente un subproducto, estableciendo su status en False",
     'responses': {

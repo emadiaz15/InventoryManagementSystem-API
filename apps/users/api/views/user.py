@@ -3,11 +3,11 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
-from apps.users.models import User
-from ..serializers import UserSerializer
+from apps.users.models.user_model import User
+from ..serializers.user_serializers import UserSerializer
 from drf_spectacular.utils import extend_schema
 from apps.core.pagination import Pagination
-from ...filters import UserFilter  # Asegúrate de que la ruta sea la correcta
+from ...filters import UserFilter
 
 @extend_schema(
     operation_id="get_user_profile",

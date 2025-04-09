@@ -2,45 +2,47 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from drf_spectacular.utils import extend_schema
+from django.shortcuts import get_object_or_404
 
 from apps.users.permissions import IsStaffOrReadOnly
 from apps.stocks.api.serializers.stock_event_serializer import StockEventSerializer
-from apps.stocks.api.repositories import SubproductRepository
-from apps.stocks.docs.stock_event_doc import stock_event_history_doc
+
+from apps.stocks.api.repositories.stock_subproduct_repository import StockSubproductRepository
+
+from apps.products.models.product_model import Product
 from apps.products.models.subproduct_model import Subproduct
+from apps.stocks.models.stock_event_model import StockEvent
+
+
+from apps.stocks.docs.stock_event_doc import stock_event_history_doc 
 
 @extend_schema(**stock_event_history_doc)
 @api_view(['GET'])
 @permission_classes([IsStaffOrReadOnly])
-def subproduct_stock_event_history(request, product_pk,subproduct_pk):
+def subproduct_stock_event_history(request, product_pk, subproduct_pk): # Renombrado parámetro
     """
-    Obtiene el historial de eventos de stock para un subproducto.
-    Los eventos incluyen entradas, salidas y ajustes.
+    Obtiene el historial de eventos de stock para un subproducto específico.
     """
-    try:
-        # Obtener el subproducto
-        subproduct = Subproduct.objects.get(subproduct_pk=subproduct_pk, product_id=product_pk, status=True)
+    # 1. Validar que el subproducto existe y pertenece al producto padre
+    subproduct = get_object_or_404(Subproduct, pk=subproduct_pk, parent_id=product_pk, status=True)
+    # Si no existe o no pertenece al padre, get_object_or_404 dará 404
 
-        # Obtener el stock asociado al subproducto
-        stock = SubproductRepository.get_subproduct_stock(subproduct_pk)
+    # 2. Obtener TODOS los eventos asociados a CUALQUIER registro de stock
+    #    de este subproducto específico.
+    #    Filtramos StockEvent directamente.
+    stock_events = StockEvent.objects.filter(
+        subproduct_stock__subproduct=subproduct # Filtra por el subproducto a través del FK en StockEvent
+        # Opcional: podrías querer filtrar solo por registros de stock activos:
+        # subproduct_stock__status=True
+    ).select_related('created_by', 'subproduct_stock').order_by('-created_at') # Optimizamos y ordenamos
 
-        # Validar si existe el stock
-        if not stock:
-            return Response({"detail": "No se encontró stock para el subproducto."}, status=status.HTTP_404_NOT_FOUND)
+    # 3. Si no hay eventos, devolver lista vacía
+    if not stock_events.exists():
+        return Response([], status=status.HTTP_200_OK)
 
-        # Obtener eventos de stock optimizados
-        stock_events = stock.events.select_related("user").order_by('-created_at')
+    # 4. Serializar los eventos (¡Añadir contexto!)
+    serializer = StockEventSerializer(stock_events, many=True, context={'request': request})
 
-        # Si no hay eventos registrados, responder con un mensaje claro
-        if not stock_events.exists():
-            return Response({"detail": "No hay eventos de stock registrados para este subproducto."}, status=status.HTTP_200_OK)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
-        # Serializar los eventos de stock
-        serializer = StockEventSerializer(stock_events, many=True)
-
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    except Subproduct.DoesNotExist:
-        return Response({"detail": "El subproducto no existe o no está activo."}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({"detail": f"Error inesperado: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    # El try/except genérico se elimina, get_object_or_404 maneja DoesNotExist

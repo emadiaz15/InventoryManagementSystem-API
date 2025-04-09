@@ -1,6 +1,6 @@
 import django_filters
 from django.db.models import Q
-from .models import User
+from .models.user_model import User
 
 class UserFilter(django_filters.FilterSet):
     # Filtro para nombre y apellido combinados

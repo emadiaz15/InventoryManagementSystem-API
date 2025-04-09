@@ -1,1 +1,1 @@
-from .cutting_order_serializer  import CuttingOrderSerializer
+from .cutting_order_serializer import CuttingOrderSerializer
