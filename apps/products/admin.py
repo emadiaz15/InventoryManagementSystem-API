@@ -39,10 +39,10 @@ class ProductAdmin(GenericProductAdmin):
 # Admin para subproductos
 @admin.register(Subproduct)
 class SubproductAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name', 'parent', 'status', 'total_stock', 'created_at']
-    search_fields = ['name', 'parent__name']
+    list_display = ['id', 'brand', 'parent', 'status', 'total_stock', 'created_at']
+    search_fields = ['brand', 'parent__name']
     list_filter = ['status', 'parent__category']
-    ordering = ['name', 'parent']
+    ordering = ['brand', 'parent']
 
     def total_stock(self, obj):
         """Devuelve el stock total del subproducto."""
