@@ -1,13 +1,11 @@
 #!/bin/sh
 
-# Salir inmediatamente si un comando falla
+# Salir si algo falla
 set -e
 
-echo "▶️ Realizando makemigrations..."
-python manage.py makemigrations --noinput
-
-echo "▶️ Aplicando migraciones de base de datos..."
+echo "🔧 Aplicando migraciones de base de datos..."
+python manage.py makemigrations --noinput  # 👉 Asegúrate de incluir esto
 python manage.py migrate --noinput
 
-# Ejecutar el comando principal que se pasó al contenedor
+echo "🚀 Iniciando servidor Django..."
 exec "$@"
