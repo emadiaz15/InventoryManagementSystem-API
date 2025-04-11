@@ -1,5 +1,4 @@
 from django.db import models
-
 from apps.products.models.base_model import BaseModel
 from apps.products.models.product_model import Product
 
@@ -7,15 +6,37 @@ class Subproduct(BaseModel):
     """Modelo de Subproducto con atributos específicos, hereda de BaseModel."""
 
     # --- Campos Específicos del Subproducto ---
-    name = models.CharField(max_length=200, null=False, blank=False)
-    description = models.CharField(max_length=500, null=True, blank=True)
-    brand = models.CharField(max_length=100, null=True, blank=True)
+    brand = models.CharField(max_length=100, null=True, blank=True, verbose_name="Marca")
     number_coil = models.PositiveIntegerField(null=True, blank=True, verbose_name="Número de Bobina")
-    initial_length = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Longitud Inicial (m)")
-    final_length = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Longitud Final (m)")
-    total_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Peso Total (kg)")
-    coil_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Peso Bobina (kg)")
-    technical_sheet_photo = models.ImageField(upload_to='technical_sheets/', null=True, blank=True, verbose_name="Foto Ficha Técnica")
+    initial_enumeration = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Enumeración Inicial")
+    final_enumeration = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Enumeración Final")
+    gross_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Peso Bruto (kg)")
+    net_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Peso Neto (kg)")
+    initial_stock_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Cantidad de Stock Inicial")
+    initial_stock_location = models.CharField(
+        max_length=100,
+        choices=[
+            ("Deposito Principal", "Depósito Principal"),
+            ("Deposito Secundario", "Depósito Secundario")
+        ],
+        default="Deposito Principal",
+        verbose_name="Ubicación de Stock Inicial"
+    )
+    technical_sheet_photo = models.ImageField(
+        upload_to='technical_sheets/',
+        null=True, blank=True,
+        verbose_name="Foto Ficha Técnica"
+    )
+    form_type = models.CharField(
+        max_length=50,
+        choices=[
+            ("Bobina", "Bobina"),
+            ("Rollo", "Rollo")
+        ],
+        default="Bobina",
+        verbose_name="Tipo de Forma"
+    )
+    observations = models.TextField(null=True, blank=True, verbose_name="Observaciones")
 
     # --- Relación ForeignKey ---
     parent = models.ForeignKey(
@@ -32,4 +53,4 @@ class Subproduct(BaseModel):
 
     def __str__(self):
         parent_name = getattr(self.parent, 'name', 'N/A')
-        return f'{self.name} (Padre: {parent_name})'
+        return f'{self.brand} (Padre: {parent_name})'

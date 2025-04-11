@@ -1,12 +1,11 @@
 from django.db import models
-from django.conf import settings
 from apps.products.models.base_model import BaseModel
 from apps.products.models.product_model import Product
 
 class ProductStock(BaseModel): 
     """Stock para un Producto específico (que NO tiene subproductos)."""
 
-    product = models.OneToOneField( # Un registro de stock por producto
+    product = models.OneToOneField(  # Un registro de stock por producto
         Product,
         on_delete=models.CASCADE, 
         related_name='stock_record',
