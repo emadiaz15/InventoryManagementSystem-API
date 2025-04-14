@@ -1,36 +1,25 @@
 # 🐍 Usar una imagen ligera de Python 3.10
-FROM python:3.10-slim
+FROM python:3.10.13-alpine
 
-# 📂 Establecer el directorio de trabajo en el contenedor
+# 📂 Establecer el directorio de trabajo
 WORKDIR /app
 
-# 📦 Copiar solo el archivo de dependencias primero (para aprovechar la caché)
-COPY requirements.txt /app/
+# ⚙️ Instalar compiladores y librerías necesarias
+RUN apk add --no-cache gcc musl-dev libffi-dev python3-dev \
+    postgresql-dev jpeg-dev zlib-dev
 
-# 📥 Instalar las dependencias de Python
+# 📦 Copiar e instalar dependencias
+COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 🔥 Copiar el resto del código del proyecto Django al contenedor
+# 🔥 Copiar el resto del código
 COPY . /app/
 
-# === INICIO: Añadido para Entrypoint y Migraciones ===
-
-# Copiar el script de entrypoint
+# 🛠️ Entrypoint
 COPY entrypoint.sh /app/entrypoint.sh
-
-# Dar permisos de ejecución al script
 RUN chmod +x /app/entrypoint.sh
-
-# Establecer el entrypoint
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-# === FIN: Añadido para Entrypoint y Migraciones ===
-
-# Establecer las variables de entorno para Django
+# ⚙️ Configuración final
 ENV PYTHONUNBUFFERED 1
-
-# Exponer el puerto donde correrá el servidor (usamos la variable de entorno $PORT)
 EXPOSE $PORT
-
-# Iniciar el servidor de Django con Gunicorn (usando el puerto dinámico de Railway)
-CMD exec gunicorn inventory_management.wsgi:application
