@@ -6,9 +6,9 @@ import dj_database_url # Necesitarás instalar dj-database-url: pip install dj-d
 
 # --- Clave Secreta ---
 # ¡MUY IMPORTANTE! Obtener de variable de entorno en producción. ¡NO hardcodear!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') # Usa os.environ para asegurar que falle si no está definida
+SECRET_KEY = os.environ.get('SECRET_KEY') # Usa os.environ para asegurar que falle si no está definida
 if not SECRET_KEY:
-     raise ValueError("No se ha definido la variable de entorno DJANGO_SECRET_KEY")
+     raise ValueError("No se ha definido la variable de entorno SECRET_KEY")
 
 # --- Modo Debug ---
 # ¡MUY IMPORTANTE! Siempre False en producción.
@@ -129,14 +129,3 @@ EMAIL_PORT = int(os.environ.get('DJANGO_EMAIL_PORT', 587)) # Puerto estándar TL
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('DJANGO_EMAIL_USER') # API Key o usuario
 EMAIL_HOST_PASSWORD = os.environ.get('DJANGO_EMAIL_PASSWORD') # API Key o contraseña
-
-# --- Configuración Celery (Producción) ---
-# Usa variables de entorno para las URLs
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0') # Ajusta si Redis no se llama 'redis'
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE
-
-# ============== FIN ARCHIVO: settings/production.py ==============

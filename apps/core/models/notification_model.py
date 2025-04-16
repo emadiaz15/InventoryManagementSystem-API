@@ -1,14 +1,20 @@
 from django.db import models
-from apps.users.models.user_model import User
-from apps.cuts.models.cutting_order_model import CuttingOrder
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class Notification(models.Model):
+    """
+    Modelo para guardar notificaciones del sistema.
+    """
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
-    message = models.CharField(max_length=255)
-    is_read = models.BooleanField(default=False)
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    cutting_order = models.ForeignKey(CuttingOrder, on_delete=models.CASCADE)
+
+    class Meta:
+        ordering = ["-created_at"]
 
     def __str__(self):
-        return f"Notification for {self.user.username}: {self.message}"
-
+        return f"🔔 {self.title} -> {self.user.username}"
