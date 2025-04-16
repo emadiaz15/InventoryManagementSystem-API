@@ -37,6 +37,7 @@ LOCAL_APPS = [
     'apps.core',
     'apps.cuts',
     'apps.stocks',
+    'apps.drive'
 ]
 # Lista completa de aplicaciones instaladas
 INSTALLED_APPS = BASE_APPS + THIRD_APPS + LOCAL_APPS
@@ -177,4 +178,25 @@ CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "'unsafe-inline'") # 
 CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com", "data:") # Fuentes: propio, google fonts, data URIs
 CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'") # JS: propio, inline (considera eliminar unsafe-inline en prod)
 # CSP_SCRIPT_SRC = ("'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'") # Ejemplo si usas CDN
+
 CSP_IMG_SRC = ("'self'", "data:") # Imágenes: propio, data URIs
+
+# Channels
+ASGI_APPLICATION = "inventory_management.asgi.application"
+
+# Redis backend para WebSocket
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.getenv("REDIS_URL", "redis://localhost:6379/0")],
+        },
+    },
+}
+
+
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TIMEZONE = "America/Argentina/Buenos_Aires"
