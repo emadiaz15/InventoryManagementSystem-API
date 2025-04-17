@@ -1,13 +1,18 @@
 #!/bin/sh
-
-# Salir inmediatamente si un comando falla
 set -e
 
-# Ejecutar las migraciones de Django
-# --noinput evita que pida confirmaciones interactivas
-echo "Aplicando migraciones de base de datos..."
-python manage.py migrate --noinput
+echo "🔧 Aplicando migraciones de base de datos..."
+python manage.py makemigrations products users cuts stocks --no-input \
+  || echo "⚠️  No se generaron nuevas migraciones"
+python manage.py migrate --no-input
 
-# Ejecutar el comando principal que se pasó al contenedor
-# (En tu caso, será: python manage.py runserver 0.0.0.0:8000)
-exec "$@"
+# Si el primer argumento es "celery", arranca el worker
+if [ "$1" = "celery" ]; then
+  shift
+  echo "🚀 Iniciando Celery worker…"
+  exec celery -A inventory_management "$@"
+fi
+
+# En cualquier otro caso, arranca el servidor Django
+echo "🚀 Iniciando servidor Django…"
+exec python manage.py runserver 0.0.0.0:8000
