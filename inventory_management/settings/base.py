@@ -2,10 +2,11 @@ from pathlib import Path
 from datetime import timedelta
 import os # Necesario para algunas configuraciones base
 
+
 # --- Rutas del Proyecto ---
 # BASE_DIR apunta al directorio raíz del proyecto Django (donde está manage.py)
 # Ejemplo: /app/
-BASE_DIR = Path(__file__).resolve().parent.parent.parent # Ajusta según tu estructura (si settings está en /inventory_management/settings/base.py, necesitas 3 parents)
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- Definición de Aplicaciones ---
 # Aplicaciones estándar de Django
@@ -19,14 +20,15 @@ BASE_APPS = [
 ]
 # Aplicaciones de terceros instaladas via pip
 THIRD_APPS = [
+
     'rest_framework',               # Django REST Framework para APIs
     'simple_history',             # Para historial de modelos
     'rest_framework_simplejwt',   # Para autenticación JWT
-    'rest_framework_simplejwt.token_blacklist', # Para invalidar refresh tokens (opcional pero bueno)
+    'rest_framework_simplejwt.token_blacklist', # Para invalidar refresh tokens
     'drf_spectacular',            # Para generar documentación OpenAPI/Swagger
     'celery',                     # Para tareas asíncronas (si usas)
     'corsheaders',                # Para manejar Cross-Origin Resource Sharing (CORS)
-    "csp",                        # Para Content Security Policy
+    "csp"                       # Para Content Security Policy
 ]
 # Tus aplicaciones locales
 LOCAL_APPS = [
@@ -108,6 +110,7 @@ REST_FRAMEWORK = {
 }
 
 # --- Configuración drf-spectacular ---
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Inventory Management API', # Título de tu API
     'DESCRIPTION': 'Documentación de la API para el Sistema de Gestión de Inventario', # Descripción
@@ -175,6 +178,7 @@ CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "'unsafe-inline'") # 
 CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com", "data:") # Fuentes: propio, google fonts, data URIs
 CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'") # JS: propio, inline (considera eliminar unsafe-inline en prod)
 # CSP_SCRIPT_SRC = ("'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'") # Ejemplo si usas CDN
+
 CSP_IMG_SRC = ("'self'", "data:") # Imágenes: propio, data URIs
 
 # Channels
@@ -196,3 +200,4 @@ CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:63
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TIMEZONE = "America/Argentina/Buenos_Aires"
+

@@ -110,5 +110,4 @@ def category_detail(request, category_pk):
              serializer.save(user=request.user)
              return Response(status=status.HTTP_204_NO_CONTENT) # Éxito sin contenido
         else:
-             # Esto no debería pasar si solo enviamos status=False, pero por si acaso
-             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "No autorizado para eliminar esta categoría."}, status=status.HTTP_403_FORBIDDEN)

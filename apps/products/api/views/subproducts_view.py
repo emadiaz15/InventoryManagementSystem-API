@@ -185,3 +185,4 @@ def subproduct_detail(request, prod_pk, subp_pk):
         except Exception as e:
             print(f"Error al eliminar subproducto: {e}")
             return Response({"detail": "Error interno al eliminar el subproducto."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

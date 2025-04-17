@@ -1,8 +1,11 @@
 from .base import *
-
+from dotenv import load_dotenv
 import os
 from datetime import timedelta
-import dj_database_url # Necesitarás instalar dj-database-url: pip install dj-database-url
+import dj_database_url
+
+# Cargar las variables del archivo .env
+load_dotenv()  # Cargar las variables de entorno
 
 # --- Clave Secreta ---
 # ¡MUY IMPORTANTE! Obtener de variable de entorno en producción. ¡NO hardcodear!
@@ -14,40 +17,12 @@ if not SECRET_KEY:
 # ¡MUY IMPORTANTE! Siempre False en producción.
 DEBUG = False
 
-# --- Hosts Permitidos ---
-# ¡NECESARIO CAMBIAR! Lista de tus dominios/subdominios reales donde correrá la app.
-# Ejemplo: ALLOWED_HOSTS = ['api.tuinventario.com', 'www.tuinventario.com']
-ALLOWED_HOSTS_ENV = os.environ.get('DJANGO_ALLOWED_HOSTS')
-if ALLOWED_HOSTS_ENV:
-    ALLOWED_HOSTS = ALLOWED_HOSTS_ENV.split(',') # Permite definir hosts separados por comas en la env var
-else:
-    ALLOWED_HOSTS = [] # O define un default si prefieres
-    # raise ValueError("No se ha definido la variable de entorno DJANGO_ALLOWED_HOSTS")
-
 # --- Base de Datos ---
 # Configuración para PostgreSQL (u otra base de datos de producción)
 # usando variables de entorno. dj-database-url simplifica esto.
-DATABASE_URL = os.environ.get('DATABASE_URL') # Ejemplo: postgres://user:password@host:port/dbname
-if not DATABASE_URL:
-     raise ValueError("No se ha definido la variable de entorno DATABASE_URL")
 DATABASES = {
-    # Usa dj_database_url para parsear la URL y configurar la conexión
-    'default': dj_database_url.config(default=DATABASE_URL, conn_max_age=600, ssl_require=True) # ssl_require=True recomendado para producción
+    'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
 }
-
-# --- Archivos Estáticos (ej. para Admin) ---
-# Servidos por Nginx o similar en producción. `collectstatic` los reúne aquí.
-STATIC_URL = '/static/' # URL pública
-STATIC_ROOT = BASE_DIR.parent / 'staticfiles_collected' # Carpeta REAL en el servidor donde collectstatic los copia
-# Asegúrate de que esta carpeta sea escribible por el proceso que corre collectstatic
-# y legible por el servidor web (Nginx).
-
-# --- Archivos Multimedia (subidos por usuarios) ---
-# También servidos por Nginx o S3/similar en producción.
-MEDIA_URL = '/media/' # URL pública
-MEDIA_ROOT = BASE_DIR.parent / 'media' # Carpeta REAL en el servidor donde se guardan los archivos
-# Asegúrate de que esta carpeta sea escribible por el proceso de Django
-# y legible por el servidor web (Nginx).
 
 # --- Seguridad (Configuraciones importantes para HTTPS) ---
 # Asumen que tu servidor web (Nginx/Apache) maneja la terminación SSL/TLS
@@ -75,7 +50,7 @@ LOGGING = {
         'file_errors': { # Handler para escribir errores a un archivo
             'level': 'ERROR', # Solo nivel ERROR o superior
             'class': 'logging.FileHandler',
-            'filename': os.environ.get('DJANGO_LOG_PATH', '/var/log/django/django-error.log'), # ¡NECESARIO CAMBIAR/CONFIGURAR ENV VAR! Ruta REAL en el servidor
+            'filename': os.path.join(BASE_DIR, 'django-error.log'), # ¡NECESARIO CAMBIAR/CONFIGURAR ENV VAR! Ruta REAL en el servidor
             'formatter': 'verbose', # Usa formato detallado
         },
         'console_prod': { # Handler opcional para consola en producción (si usas Docker/PaaS)
@@ -104,6 +79,7 @@ LOGGING = {
     },
 }
 
+
 # --- Configuración JWT (Tiempos de vida más cortos) ---
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15), # Más corto para producción (ej. 15 mins)
@@ -120,7 +96,8 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
-# --- Configuración Email (Producción) ---
+
+"""# --- Configuración Email (Producción) ---
 # ¡NECESARIO CAMBIAR! Usar servicio transaccional (SendGrid, Mailgun, SES) y env vars
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend' # O un backend específico del servicio
 DEFAULT_FROM_EMAIL = os.environ.get('DJANGO_DEFAULT_FROM_EMAIL', 'noreply@tu-dominio-real.com')
@@ -128,4 +105,36 @@ EMAIL_HOST = os.environ.get('DJANGO_EMAIL_HOST') # Ej: smtp.sendgrid.net
 EMAIL_PORT = int(os.environ.get('DJANGO_EMAIL_PORT', 587)) # Puerto estándar TLS
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('DJANGO_EMAIL_USER') # API Key o usuario
-EMAIL_HOST_PASSWORD = os.environ.get('DJANGO_EMAIL_PASSWORD') # API Key o contraseña
+EMAIL_HOST_PASSWORD = os.environ.get('DJANGO_EMAIL_PASSWORD') # API Key o contraseña"""
+
+# --- Hosts Permitidos ---
+# ¡NECESARIO CAMBIAR! Lista de tus dominios/subdominios reales donde correrá la app.
+# Ejemplo: ALLOWED_HOSTS = ['api.tuinventario.com', 'www.tuinventario.com']
+ALLOWED_HOSTS = [
+    '.railway.app',
+]
+
+# Configuración de CORS
+
+CORS_ALLOWED_ORIGINS = [
+    "https://inventarioweb.up.railway.app",  # Frontend
+    "https://inventoryapi.up.railway.app",  # Backend
+]
+
+CORS_ALLOWED_ORIGIN_REGEXES = []
+
+CORS_ALLOW_HEADERS = [
+    'authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with',
+]
+
+CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
+
+# Directorio donde se almacenarán los archivos estáticos después de ejecutar collectstatic
+STATIC_URL = '/static/'
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://inventarioweb.up.railway.app",
+    "https://inventoryapi.up.railway.app",
+]

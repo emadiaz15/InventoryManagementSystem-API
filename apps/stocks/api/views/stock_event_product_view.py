@@ -48,7 +48,6 @@ def product_stock_event_history(request, pk):
         # return Response({"detail": "No hay eventos registrados para este stock."}, status=status.HTTP_200_OK)
         return Response([], status=status.HTTP_200_OK)
 
-
     # 6. Serializar los eventos (¡Añadir contexto!)
     serializer = StockEventSerializer(stock_events, many=True, context={'request': request})
 
