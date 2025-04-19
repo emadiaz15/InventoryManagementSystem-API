@@ -1,25 +1,24 @@
-# 🐍 Usar una imagen ligera de Python 3.10
+# Dockerfile (único para dev y prod)
 FROM python:3.10.13-alpine
 
-# 📂 Establecer el directorio de trabajo
 WORKDIR /app
 
-# ⚙️ Instalar compiladores y librerías necesarias
 RUN apk add --no-cache gcc musl-dev libffi-dev python3-dev \
     postgresql-dev jpeg-dev zlib-dev
 
-# 📦 Copiar e instalar dependencias
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 🔥 Copiar el resto del código
+# copiamos el código y el entrypoint
 COPY . /app/
-
-# 🛠️ Entrypoint
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
-ENTRYPOINT ["/app/entrypoint.sh"]
 
-# ⚙️ Configuración final
+# Build‑arg para elegir módulo de settings
+ARG DJANGO_SETTINGS_MODULE=inventory_management.settings.local
+ENV DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE}
+
 ENV PYTHONUNBUFFERED 1
-EXPOSE $PORT
+EXPOSE ${PORT:-8000}
+
+ENTRYPOINT ["/app/entrypoint.sh"]

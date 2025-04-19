@@ -37,7 +37,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     name = models.CharField('Name', max_length=255, blank=False, null=False)
     last_name = models.CharField('Lastname', max_length=255, blank=True, null=True)
     dni = models.CharField('Dni', max_length=255, unique=True, default='DEFAULT_DNI', db_index=True)
-    image = models.URLField('Image URL (Django API)', max_length=500, null=True, blank=True)
+    image = models.URLField('Image URL (FastAPI Service)', max_length=500, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     historical = HistoricalRecords()

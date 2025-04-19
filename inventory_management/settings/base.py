@@ -201,3 +201,16 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TIMEZONE = "America/Argentina/Buenos_Aires"
 
+
+DEFAULT_PARSER_CLASSES = [
+    'rest_framework.parsers.JSONParser',
+    'rest_framework.parsers.MultiPartParser',
+    'rest_framework.parsers.FormParser',
+],
+
+
+# URL base de tu servicio FastAPI de Drive (local vs prod lo decides en .env)
+DRIVE_API_BASE_URL = os.getenv('DRIVE_API_BASE_URL', 'http://localhost:8001')
+
+# Clave secreta compartida para firmar y verificar JWT
+DRIVE_SHARED_SECRET = os.getenv('DRIVE_SHARED_SECRET')
