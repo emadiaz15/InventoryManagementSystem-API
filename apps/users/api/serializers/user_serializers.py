@@ -1,12 +1,17 @@
+import logging
+import re
+
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError, transaction
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from apps.users.services.images_services import upload_profile_image
-import re
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
+
 
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
@@ -44,6 +49,12 @@ class UserSerializer(serializers.ModelSerializer):
         }
     )
     dni = serializers.CharField(
+        validators=[
+            UniqueValidator(
+                queryset=User.objects.all(),
+                message="Este DNI ya está en uso."
+            )
+        ],
         required=True,
         allow_blank=False,
         error_messages={
@@ -62,12 +73,12 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'name', 'last_name',
-            'dni', 'image', 'image_url', 'is_active', 'is_staff', 'password'
+            'dni', 'image', 'image_url', 'is_staff', 'password'
         ]
+        read_only_fields = ['id', 'image_url']
 
     def get_image_url(self, obj):
-        # En FastAPI guardamos solo el file_id, aquí podrías construir la URL de descarga.
-        return obj.image if obj.image else None
+        return obj.image or None
 
     def validate_dni(self, value):
         if not re.match(r"^\d{7,10}$", value):
@@ -77,15 +88,25 @@ class UserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         image_file = validated_data.pop('image', None)
         password   = validated_data.pop('password')
+        validated_data['is_active'] = True  # siempre activo
 
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
+        with transaction.atomic():
+            user = User(**validated_data)
+            user.set_password(password)
+            try:
+                user.save()
+            except IntegrityError as e:
+                if 'users_user.dni' in str(e):
+                    raise serializers.ValidationError({"dni": "Este DNI ya está en uso."})
+                raise
 
         if image_file:
-            result = upload_profile_image(image_file, user.id)
-            user.image = result.get('file_id')
-            user.save()
+            try:
+                result = upload_profile_image(image_file, user.id)
+                user.image = result.get('file_id')
+                user.save(update_fields=['image'])
+            except Exception as e:
+                logger.warning(f"No se pudo subir la imagen de perfil: {e}")
 
         return user
 
@@ -99,26 +120,36 @@ class UserSerializer(serializers.ModelSerializer):
         if password:
             instance.set_password(password)
 
-        instance.save()
+        try:
+            instance.save()
+        except IntegrityError as e:
+            if 'users_user.dni' in str(e):
+                raise serializers.ValidationError({"dni": "Este DNI ya está en uso."})
+            raise
 
         if image_file:
-            result = upload_profile_image(image_file, instance.id)
-            instance.image = result.get('file_id')
-            instance.save()
+            try:
+                result = upload_profile_image(image_file, instance.id)
+                instance.image = result.get('file_id')
+                instance.save(update_fields=['image'])
+            except Exception as e:
+                logger.warning(f"No se pudo actualizar la imagen de perfil: {e}")
 
         return instance
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """
-    Serializador personalizado para JWT con mensajes de error en español
-    cuando el usuario no existe o la contraseña es incorrecta.
-    """
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['name']  = user.name
+        token['email'] = user.email
+        return token
+
     def validate(self, attrs):
         username_or_email = attrs.get(self.username_field)
         password = attrs.get("password")
 
-        # 1) Intentar localizar al usuario por username o email
         try:
             user = User.objects.get(username=username_or_email)
         except User.DoesNotExist:
@@ -130,15 +161,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                     code="user_not_found"
                 )
 
-        # 2) Verificar contraseña
         if not user.check_password(password):
             raise serializers.ValidationError(
                 {"detail": "Contraseña incorrecta."},
                 code="incorrect_password"
             )
 
-        # 3) Credenciales válidas: generar tokens
-        #    Asegurarnos de usar el username real
         attrs[self.username_field] = user.username
         data = super().validate(attrs)
 
