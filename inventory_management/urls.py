@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 # Rutas de la API definidas en cada aplicación
@@ -15,10 +15,11 @@ api_patterns = [
 
 # Rutas para la documentación de la API con drf-spectacular
 schema_patterns = [
+    path('', lambda request: HttpResponseRedirect('swagger-ui/')),
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
     path('schema/download/', SpectacularAPIView.as_view(), name='schema-download'),
-    path('schema/swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
-    path('schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    path('swagger-ui/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
 
 urlpatterns = [

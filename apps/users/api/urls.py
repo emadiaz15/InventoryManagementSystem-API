@@ -1,13 +1,12 @@
 from django.urls import path
 from apps.users.api.views.auth import CustomTokenObtainPairView, LogoutView
-from apps.users.api.views.user import (user_list_view, user_create_view ,user_detail_view, profile_view)
+from apps.users.api.views.user import (user_list_view, user_create_view, user_detail_view, profile_view)
 from apps.users.api.views.reset_password import send_password_reset_email, password_reset_confirm
 
-
 urlpatterns = [
-    # Rutas relacionadas con el restablecimiento de contraseña
-    path('password-reset/', send_password_reset_email, name='password_reset'),  # Enviar enlace de restablecimiento
-    path('password-reset/<str:uidb64>/<str:token>/', password_reset_confirm, name='password_reset_confirm'),  # Confirmar cambio de contraseña
+    # Rutas para el restablecimiento de contraseña
+    path('password-reset/', send_password_reset_email, name='password_reset'),  # Enviar email con enlace para restablecer la contraseña
+    path('password-reset/confirm/<str:uidb64>/<str:token>/', password_reset_confirm, name='password_reset_confirm'),  # Confirmar el restablecimiento de la contraseña
 
     # Rutas relacionadas con autenticación
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),  # Obtener JWT

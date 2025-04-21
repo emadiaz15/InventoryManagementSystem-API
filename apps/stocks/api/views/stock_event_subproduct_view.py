@@ -10,7 +10,14 @@ from apps.stocks.models.stock_event_model import StockEvent
 from apps.products.models.subproduct_model import Subproduct
 from apps.stocks.docs.stock_event_doc import stock_event_history_doc
 
-@extend_schema(**stock_event_history_doc)
+@extend_schema(
+    summary=stock_event_history_doc["summary"],
+    description=stock_event_history_doc["description"],
+    tags=stock_event_history_doc["tags"],
+    operation_id=stock_event_history_doc["operation_id"],
+    parameters=stock_event_history_doc["parameters"],
+    responses=stock_event_history_doc["responses"],
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def subproduct_stock_event_history(request, product_pk, subproduct_pk):

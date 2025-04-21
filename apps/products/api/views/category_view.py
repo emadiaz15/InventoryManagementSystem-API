@@ -11,20 +11,27 @@ from apps.products.api.repositories.category_repository import CategoryRepositor
 from apps.products.filters.category_filter import CategoryFilter
 
 from apps.products.docs.category_doc import (
-    category_list_doc,
+    list_category_doc,
     create_category_doc,
     get_category_by_id_doc,
     update_category_by_id_doc,
     delete_category_by_id_doc
 )
 
-
-@extend_schema(**category_list_doc)
+# --- Obtener categorías activas con filtros y paginación ---
+@extend_schema(
+    summary=list_category_doc["summary"], 
+    description=list_category_doc["description"],
+    tags=list_category_doc["tags"],
+    operation_id=list_category_doc["operation_id"],
+    parameters=list_category_doc["parameters"],
+    responses=list_category_doc["responses"]
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def category_list(request):
     """
-    Lista todas las categorías ACTIVAS con paginación y filtro por nombre.
+    Endpoint para listar las categorías activas, con filtros por nombre y paginación.
     """
     queryset = Category.objects.filter(status=True).select_related('created_by')
     filterset = CategoryFilter(request.GET, queryset=queryset)
@@ -36,13 +43,21 @@ def category_list(request):
     return paginator.get_paginated_response(serializer.data)
 
 
-@extend_schema(**create_category_doc)
+# --- Crear nueva categoría (solo admins) ---
+@extend_schema(
+    summary=create_category_doc["summary"], 
+    description=create_category_doc["description"],
+    tags=create_category_doc["tags"],
+    operation_id=create_category_doc["operation_id"],
+    request=create_category_doc["requestBody"],
+    responses=create_category_doc["responses"]
+)
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def create_category(request):
     """
-    Crea una nueva categoría.
-    Solo administradores.
+    Endpoint para crear una nueva categoría.
+    Solo accesible para administradores.
     """
     serializer = CategorySerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
@@ -54,47 +69,67 @@ def create_category(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(**get_category_by_id_doc)
-@extend_schema(**update_category_by_id_doc)
-@extend_schema(**delete_category_by_id_doc)
+# --- Obtener, actualizar y eliminar categoría por ID ---
+@extend_schema(
+    summary=get_category_by_id_doc["summary"],
+    description=get_category_by_id_doc["description"],
+    tags=get_category_by_id_doc["tags"],
+    operation_id=get_category_by_id_doc["operation_id"],
+    parameters=get_category_by_id_doc["parameters"],
+    responses=get_category_by_id_doc["responses"]
+)
+@extend_schema(
+    summary=update_category_by_id_doc["summary"],
+    description=update_category_by_id_doc["description"],
+    tags=update_category_by_id_doc["tags"],
+    operation_id=update_category_by_id_doc["operation_id"],
+    parameters=update_category_by_id_doc["parameters"],
+    request=update_category_by_id_doc["requestBody"],
+    responses=update_category_by_id_doc["responses"]
+)
+@extend_schema(
+    summary=delete_category_by_id_doc["summary"],
+    description=delete_category_by_id_doc["description"],
+    tags=delete_category_by_id_doc["tags"],
+    operation_id=delete_category_by_id_doc["operation_id"],
+    parameters=delete_category_by_id_doc["parameters"],
+    responses=delete_category_by_id_doc["responses"]
+)
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def category_detail(request, category_pk):
     """
-    GET:  consulta (autenticados).  
-    PUT:  actualización (solo administradores).  
-    DELETE: baja suave (solo administradores).
+    Endpoint para:
+    - GET: consultar detalles de una categoría.
+    - PUT: actualizar categoría (solo administradores).
+    - DELETE: eliminar categoría de forma suave (solo administradores).
     """
     category = CategoryRepository.get_by_id(category_pk)
     if not category:
         return Response({"detail": "Categoría no encontrada."}, status=status.HTTP_404_NOT_FOUND)
 
-    # GET
+    # --- GET ---
     if request.method == 'GET':
         serializer = CategorySerializer(category, context={'request': request})
         return Response(serializer.data)
 
-    # PUT
+    # --- PUT ---
     if request.method == 'PUT':
         if not request.user.is_staff:
-            return Response(
-                {"detail": "No tienes permiso para actualizar esta categoría."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"detail": "No tienes permiso para actualizar esta categoría."}, status=status.HTTP_403_FORBIDDEN)
+
         serializer = CategorySerializer(category, data=request.data, context={'request': request}, partial=True)
         if serializer.is_valid():
             updated = serializer.save(user=request.user)
             return Response(CategorySerializer(updated, context={'request': request}).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # DELETE (soft delete)
+    # --- DELETE (soft delete) ---
     if request.method == 'DELETE':
         if not request.user.is_staff:
-            return Response(
-                {"detail": "No tienes permiso para eliminar esta categoría."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        # Le pasamos status=False para soft delete
+            return Response({"detail": "No tienes permiso para eliminar esta categoría."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Marca la categoría como inactiva (soft delete)
         serializer = CategorySerializer(category, data={'status': False}, context={'request': request}, partial=True)
         if serializer.is_valid():
             serializer.save(user=request.user)

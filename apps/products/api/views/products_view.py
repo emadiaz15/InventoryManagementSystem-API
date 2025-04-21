@@ -28,13 +28,20 @@ from apps.products.docs.product_doc import (
 
 logger = logging.getLogger(__name__)
 
-
-@extend_schema(**list_product_doc)
+# --- Listar productos activos con paginación y stock calculado ---
+@extend_schema(
+    summary=list_product_doc["summary"], 
+    description=list_product_doc["description"],
+    tags=list_product_doc["tags"],
+    operation_id=list_product_doc["operation_id"],
+    parameters=list_product_doc["parameters"],
+    responses=list_product_doc["responses"]
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def product_list(request):
     """
-    Lista productos activos con paginación y stock calculado.
+    Endpoint para listar productos activos con paginación y stock calculado.
     """
     # Subqueries para stock individual y subproductos
     product_stock_sq = ProductStock.objects.filter(
@@ -71,13 +78,20 @@ def product_list(request):
     serializer = ProductSerializer(page, many=True, context={'request': request})
     return paginator.get_paginated_response(serializer.data)
 
-
-@extend_schema(**create_product_doc)
+# --- Crear nuevo producto ---
+@extend_schema(
+    summary=create_product_doc["summary"], 
+    description=create_product_doc["description"],
+    tags=create_product_doc["tags"],
+    operation_id=create_product_doc["operation_id"],
+    request=create_product_doc["requestBody"],  # Cambio de 'requestBody' a 'request'
+    responses=create_product_doc["responses"]
+)
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def create_product(request):
     """
-    Crea un nuevo producto y, si se indica, inicializa stock.
+    Endpoint para crear un nuevo producto y, si se indica, inicializar stock.
     Solo administradores.
     """
     data = request.data.copy()
@@ -128,19 +142,44 @@ def create_product(request):
         status=status.HTTP_201_CREATED
     )
 
-
-@extend_schema(**get_product_by_id_doc)
-@extend_schema(**update_product_by_id_doc)
-@extend_schema(**delete_product_by_id_doc)
+# --- Obtener, actualizar y eliminar producto por ID ---
+@extend_schema(
+    summary=get_product_by_id_doc["summary"],
+    description=get_product_by_id_doc["description"],
+    tags=get_product_by_id_doc["tags"],
+    operation_id=get_product_by_id_doc["operation_id"],
+    parameters=get_product_by_id_doc["parameters"],
+    responses=get_product_by_id_doc["responses"]
+)
+@extend_schema(
+    summary=update_product_by_id_doc["summary"],
+    description=update_product_by_id_doc["description"],
+    tags=update_product_by_id_doc["tags"],
+    operation_id=update_product_by_id_doc["operation_id"],
+    parameters=update_product_by_id_doc["parameters"],
+    request=update_product_by_id_doc["requestBody"],  # Cambio de 'requestBody' a 'request'
+    responses=update_product_by_id_doc["responses"]
+)
+@extend_schema(
+    summary=delete_product_by_id_doc["summary"],
+    description=delete_product_by_id_doc["description"],
+    tags=delete_product_by_id_doc["tags"],
+    operation_id=delete_product_by_id_doc["operation_id"],
+    parameters=delete_product_by_id_doc["parameters"],
+    responses=delete_product_by_id_doc["responses"]
+)
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def product_detail(request, prod_pk):
     """
-    GET   → consulta (autenticados).  
-    PUT   → actualización stock/opcional (solo staff).  
-    DELETE→ baja suave (solo staff).
+    Endpoint para:
+    - GET: consulta (autenticados).  
+    - PUT: actualización stock/opcional (solo staff).  
+    - DELETE: baja suave (solo staff).
     """
-    # ANOTACIÓN PARA GET
+    product = get_object_or_404(ProductRepository.get_by_id(prod_pk))
+
+    # --- GET ---
     if request.method == 'GET':
         product_qs = ProductRepository.get_all_active_products().annotate(
             individual_stock_qty=Subquery(
@@ -170,16 +209,11 @@ def product_detail(request, prod_pk):
         serializer = ProductSerializer(product, context={'request': request})
         return Response(serializer.data)
 
-    # CARGAR INSTANCIA PARA PUT/DELETE
-    product = get_object_or_404(ProductRepository.get_by_id(prod_pk))
-
-    # PUT
+    # --- PUT ---
     if request.method == 'PUT':
         if not request.user.is_staff:
-            return Response(
-                {"detail": "No tienes permiso para actualizar este producto."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"detail": "No tienes permiso para actualizar este producto."}, status=status.HTTP_403_FORBIDDEN)
+
         serializer = ProductSerializer(product, data=request.data, partial=True, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -209,12 +243,10 @@ def product_detail(request, prod_pk):
 
         return Response(ProductSerializer(updated, context={'request': request}).data)
 
-    # DELETE (soft delete)
+    # --- DELETE (soft delete) ---
     if request.method == 'DELETE':
         if not request.user.is_staff:
-            return Response(
-                {"detail": "No tienes permiso para eliminar este producto."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"detail": "No tienes permiso para eliminar este producto."}, status=status.HTTP_403_FORBIDDEN)
+
         product.delete(user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)

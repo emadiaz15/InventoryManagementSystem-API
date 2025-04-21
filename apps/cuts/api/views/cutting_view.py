@@ -23,13 +23,20 @@ from apps.cuts.tasks import notify_cut_assignment, notify_cut_status_change
 
 logger = logging.getLogger(__name__)
 
-
-@extend_schema(**list_assigned_cutting_orders_doc)
+# --- Listar órdenes de corte asignadas al usuario ---
+@extend_schema(
+    summary=list_assigned_cutting_orders_doc["summary"],
+    description=list_assigned_cutting_orders_doc["description"],
+    tags=list_assigned_cutting_orders_doc["tags"],
+    operation_id=list_assigned_cutting_orders_doc["operation_id"],
+    parameters=list_assigned_cutting_orders_doc["parameters"],
+    responses=list_assigned_cutting_orders_doc["responses"]
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def cutting_order_assigned_list(request):
     """
-    Lista las órdenes de corte asignadas al usuario autenticado.
+    Endpoint para listar las órdenes de corte asignadas al usuario autenticado.
     """
     qs = CuttingOrderRepository.get_cutting_orders_assigned_to(request.user)
     page = Pagination().paginate_queryset(qs, request)
@@ -37,12 +44,20 @@ def cutting_order_assigned_list(request):
     return Pagination().get_paginated_response(ser.data)
 
 
-@extend_schema(**list_cutting_orders_doc)
+# --- Listar todas las órdenes de corte ---
+@extend_schema(
+    summary=list_cutting_orders_doc["summary"],
+    description=list_cutting_orders_doc["description"],
+    tags=list_cutting_orders_doc["tags"],
+    operation_id=list_cutting_orders_doc["operation_id"],
+    parameters=list_cutting_orders_doc["parameters"],
+    responses=list_cutting_orders_doc["responses"]
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def cutting_order_list(request):
     """
-    Lista todas las órdenes de corte activas.
+    Endpoint para listar todas las órdenes de corte activas.
     """
     qs = CuttingOrderRepository.get_all_active()
     page = Pagination().paginate_queryset(qs, request)
@@ -50,13 +65,21 @@ def cutting_order_list(request):
     return Pagination().get_paginated_response(ser.data)
 
 
-@extend_schema(**create_cutting_order_doc)
+# --- Crear una nueva orden de corte ---
+@extend_schema(
+    summary=create_cutting_order_doc["summary"],
+    description=create_cutting_order_doc["description"],
+    tags=create_cutting_order_doc["tags"],
+    operation_id=create_cutting_order_doc["operation_id"],
+    request=create_cutting_order_doc["requestBody"],  # Cambiado a `request`
+    responses=create_cutting_order_doc["responses"]
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def cutting_order_create(request):
     """
-    Crea una orden de corte.
-    Solo usuarios staff pueden crear órdenes.
+    Endpoint para crear una nueva orden de corte.
+    Solo administradores pueden crear órdenes de corte.
     """
     serializer = CuttingOrderSerializer(data=request.data, context={'request': request})
     if not serializer.is_valid():
@@ -84,17 +107,41 @@ def cutting_order_create(request):
         return Response({"detail": detail}, status=code)
 
 
-@extend_schema(**get_cutting_order_by_id_doc)
-@extend_schema(**update_cutting_order_by_id_doc)
-@extend_schema(**delete_cutting_order_by_id_doc)
+# --- Obtener, actualizar y eliminar orden de corte por ID ---
+@extend_schema(
+    summary=get_cutting_order_by_id_doc["summary"],
+    description=get_cutting_order_by_id_doc["description"],
+    tags=get_cutting_order_by_id_doc["tags"],
+    operation_id=get_cutting_order_by_id_doc["operation_id"],
+    parameters=get_cutting_order_by_id_doc["parameters"],
+    responses=get_cutting_order_by_id_doc["responses"]
+)
+@extend_schema(
+    summary=update_cutting_order_by_id_doc["summary"],
+    description=update_cutting_order_by_id_doc["description"],
+    tags=update_cutting_order_by_id_doc["tags"],
+    operation_id=update_cutting_order_by_id_doc["operation_id"],
+    parameters=update_cutting_order_by_id_doc["parameters"],
+    request=update_cutting_order_by_id_doc["requestBody"],  # Cambiado a `request`
+    responses=update_cutting_order_by_id_doc["responses"]
+)
+@extend_schema(
+    summary=delete_cutting_order_by_id_doc["summary"],
+    description=delete_cutting_order_by_id_doc["description"],
+    tags=delete_cutting_order_by_id_doc["tags"],
+    operation_id=delete_cutting_order_by_id_doc["operation_id"],
+    parameters=delete_cutting_order_by_id_doc["parameters"],
+    responses=delete_cutting_order_by_id_doc["responses"]
+)
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def cutting_order_detail(request, cuts_pk):
     """
-    GET    → cualquier usuario autenticado puede ver.
-    PUT    → staff puede modificar todo; assigned_to solo puede cambiar workflow_status.
-    PATCH  → igual que PUT.
-    DELETE → solo staff puede eliminar.
+    Endpoint para:
+    - GET: consulta cualquier usuario autenticado puede ver
+    - PUT: staff puede modificar todo; assigned_to solo puede cambiar el workflow_status
+    - PATCH: igual que PUT
+    - DELETE: solo staff puede eliminar
     """
     order = CuttingOrderRepository.get_by_id(cuts_pk)
     if not order:
@@ -125,7 +172,7 @@ def cutting_order_detail(request, cuts_pk):
     is_assigned = (order.assigned_to_id == request.user.id)
     only_workflow = set(payload.keys()) == {"workflow_status"}
 
-    # permiso de edición
+    # Permiso de edición
     if not (is_staff or (is_assigned and only_workflow)):
         return Response({"detail": "No tienes permiso para modificar esta orden."}, status=status.HTTP_403_FORBIDDEN)
 

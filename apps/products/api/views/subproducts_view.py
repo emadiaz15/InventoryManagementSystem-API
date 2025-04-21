@@ -29,13 +29,20 @@ from apps.stocks.services import initialize_subproduct_stock, adjust_subproduct_
 
 logger = logging.getLogger(__name__)
 
-
-@extend_schema(**list_subproducts_doc)
+# --- Listar subproductos activos de un producto ---
+@extend_schema(
+    summary=list_subproducts_doc["summary"], 
+    description=list_subproducts_doc["description"],
+    tags=list_subproducts_doc["tags"],
+    operation_id=list_subproducts_doc["operation_id"],
+    parameters=list_subproducts_doc["parameters"],
+    responses=list_subproducts_doc["responses"]
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def subproduct_list(request, prod_pk):
     """
-    Lista subproductos activos de un producto padre, con paginación
+    Endpoint para listar subproductos activos de un producto padre, con paginación
     e incluyendo el stock actual calculado.
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
@@ -55,13 +62,20 @@ def subproduct_list(request, prod_pk):
     serializer = SubProductSerializer(page, many=True, context={'request': request})
     return paginator.get_paginated_response(serializer.data)
 
-
-@extend_schema(**create_subproduct_doc)
+# --- Crear nuevo subproducto ---
+@extend_schema(
+    summary=create_subproduct_doc["summary"], 
+    description=create_subproduct_doc["description"],
+    tags=create_subproduct_doc["tags"],
+    operation_id=create_subproduct_doc["operation_id"],
+    request=create_subproduct_doc["request"], 
+    responses=create_subproduct_doc["responses"]
+)
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def create_subproduct(request, prod_pk):
     """
-    Crea un nuevo subproducto e inicializa su stock.
+    Endpoint para crear un nuevo subproducto e inicializar su stock.
     Solo administradores.
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
@@ -113,21 +127,44 @@ def create_subproduct(request, prod_pk):
     resp_ser = SubProductSerializer(annotated, context={'request': request, 'parent_product': parent})
     return Response(resp_ser.data, status=status.HTTP_201_CREATED)
 
-
-@extend_schema(**get_subproduct_by_id_doc)
-@extend_schema(**update_subproduct_by_id_doc)
-@extend_schema(**delete_subproduct_by_id_doc)
+# --- Obtener, actualizar y eliminar subproducto por ID ---
+@extend_schema(
+    summary=get_subproduct_by_id_doc["summary"],
+    description=get_subproduct_by_id_doc["description"],
+    tags=get_subproduct_by_id_doc["tags"],
+    operation_id=get_subproduct_by_id_doc["operation_id"],
+    parameters=get_subproduct_by_id_doc["parameters"],
+    responses=get_subproduct_by_id_doc["responses"]
+)
+@extend_schema(
+    summary=update_subproduct_by_id_doc["summary"],
+    description=update_subproduct_by_id_doc["description"],
+    tags=update_subproduct_by_id_doc["tags"],
+    operation_id=update_subproduct_by_id_doc["operation_id"],
+    parameters=update_subproduct_by_id_doc["parameters"],
+    request=create_subproduct_doc["request"], 
+    responses=update_subproduct_by_id_doc["responses"]
+)
+@extend_schema(
+    summary=delete_subproduct_by_id_doc["summary"],
+    description=delete_subproduct_by_id_doc["description"],
+    tags=delete_subproduct_by_id_doc["tags"],
+    operation_id=delete_subproduct_by_id_doc["operation_id"],
+    parameters=delete_subproduct_by_id_doc["parameters"],
+    responses=delete_subproduct_by_id_doc["responses"]
+)
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def subproduct_detail(request, prod_pk, subp_pk):
     """
-    GET   → consulta (autenticados).  
-    PUT   → actualización stock/opcional (solo staff).  
-    DELETE→ baja suave (solo staff).
+    Endpoint para:
+    - GET: consulta (autenticados).  
+    - PUT: actualización stock/opcional (solo staff).  
+    - DELETE: baja suave (solo staff).
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
 
-    # GET
+    # --- GET ---
     if request.method == 'GET':
         stock_sq = SubproductStock.objects.filter(subproduct=OuterRef('pk'), status=True).values('quantity')[:1]
         qs = Subproduct.objects.annotate(
@@ -142,7 +179,7 @@ def subproduct_detail(request, prod_pk, subp_pk):
     # Carga instancia para PUT/DELETE
     instance = get_object_or_404(Subproduct, pk=subp_pk, parent=parent, status=True)
 
-    # PUT
+    # --- PUT ---
     if request.method == 'PUT':
         if not request.user.is_staff:
             return Response(
@@ -174,7 +211,7 @@ def subproduct_detail(request, prod_pk, subp_pk):
         resp_ser = SubProductSerializer(updated, context={'request': request, 'parent_product': parent})
         return Response(resp_ser.data)
 
-    # DELETE
+    # --- DELETE (soft delete) ---
     if request.method == 'DELETE':
         if not request.user.is_staff:
             return Response(

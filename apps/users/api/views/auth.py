@@ -1,5 +1,3 @@
-# apps/users/api/views/auth.py
-
 import logging
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -7,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from drf_spectacular.utils import extend_schema_view, extend_schema
+from drf_spectacular.utils import extend_schema
 
 from ..serializers.user_serializers import CustomTokenObtainPairSerializer
 from apps.users.docs.user_doc import (
@@ -17,8 +15,14 @@ from apps.users.docs.user_doc import (
 
 logger = logging.getLogger(__name__)
 
-@extend_schema_view(
-    post=extend_schema(**obtain_jwt_token_pair_doc)
+
+@extend_schema(
+    summary=obtain_jwt_token_pair_doc["summary"],
+    description=obtain_jwt_token_pair_doc["description"],
+    tags=obtain_jwt_token_pair_doc["tags"],
+    operation_id=obtain_jwt_token_pair_doc["operation_id"],
+    request=obtain_jwt_token_pair_doc["request"],
+    responses=obtain_jwt_token_pair_doc["responses"],
 )
 class CustomTokenObtainPairView(TokenObtainPairView):
     """
@@ -28,7 +32,14 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
 
-@extend_schema(**logout_user_doc)
+@extend_schema(
+    summary=logout_user_doc["summary"],
+    description=logout_user_doc["description"],
+    tags=logout_user_doc["tags"],
+    operation_id=logout_user_doc["operation_id"],
+    request=logout_user_doc["request"],
+    responses=logout_user_doc["responses"],
+)
 class LogoutView(APIView):
     """
     Cierra sesión invalidando el refresh token.

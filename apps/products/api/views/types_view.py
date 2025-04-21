@@ -16,13 +16,20 @@ from apps.products.docs.type_doc import (
     delete_type_by_id_doc
 )
 
-
-@extend_schema(**list_type_doc)
+# --- Listar tipos activos con filtros y paginación ---
+@extend_schema(
+    summary=list_type_doc["summary"], 
+    description=list_type_doc["description"],
+    tags=list_type_doc["tags"],
+    operation_id=list_type_doc["operation_id"],
+    parameters=list_type_doc["parameters"],
+    responses=list_type_doc["responses"]
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def type_list(request):
     """
-    Lista todos los tipos activos con paginación y filtros.
+    Endpoint para listar los tipos activos, con filtros por nombre y paginación.
     """
     queryset = TypeRepository.get_all_active()
     filterset = TypeFilter(request.GET, queryset=queryset)
@@ -34,12 +41,20 @@ def type_list(request):
     return paginator.get_paginated_response(serializer.data)
 
 
-@extend_schema(**create_type_doc)
+# --- Crear nuevo tipo de producto (solo admins) ---
+@extend_schema(
+    summary=create_type_doc["summary"], 
+    description=create_type_doc["description"],
+    tags=create_type_doc["tags"],
+    operation_id=create_type_doc["operation_id"],
+    request=create_type_doc["requestBody"],  
+    responses=create_type_doc["responses"]
+)
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def create_type(request):
     """
-    Crea un nuevo tipo de producto.
+    Endpoint para crear un nuevo tipo de producto.
     Solo administradores.
     """
     serializer = TypeSerializer(data=request.data, context={'request': request})
@@ -52,50 +67,69 @@ def create_type(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(**get_type_by_id_doc)
-@extend_schema(**update_type_by_id_doc)
-@extend_schema(**delete_type_by_id_doc)
+# --- Obtener, actualizar y eliminar tipo por ID ---
+@extend_schema(
+    summary=get_type_by_id_doc["summary"],
+    description=get_type_by_id_doc["description"],
+    tags=get_type_by_id_doc["tags"],
+    operation_id=get_type_by_id_doc["operation_id"],
+    parameters=get_type_by_id_doc["parameters"],
+    responses=get_type_by_id_doc["responses"]
+)
+@extend_schema(
+    summary=update_type_by_id_doc["summary"],
+    description=update_type_by_id_doc["description"],
+    tags=update_type_by_id_doc["tags"],
+    operation_id=update_type_by_id_doc["operation_id"],
+    parameters=update_type_by_id_doc["parameters"],
+    request=update_type_by_id_doc["requestBody"], 
+    responses=update_type_by_id_doc["responses"]
+)
+@extend_schema(
+    summary=delete_type_by_id_doc["summary"],
+    description=delete_type_by_id_doc["description"],
+    tags=delete_type_by_id_doc["tags"],
+    operation_id=delete_type_by_id_doc["operation_id"],
+    parameters=delete_type_by_id_doc["parameters"],
+    responses=delete_type_by_id_doc["responses"]
+)
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def type_detail(request, type_pk):
     """
-    GET:  consulta (autenticados).  
-    PUT:  actualización (solo administradores).  
-    DELETE: baja suave (solo administradores).
+    Endpoint para:
+    - GET: consultar detalles de un tipo.
+    - PUT: actualizar tipo (solo administradores).
+    - DELETE: eliminar tipo de forma suave (solo administradores).
     """
     type_instance = TypeRepository.get_by_id(type_pk)
     if not type_instance:
         return Response({"detail": "Tipo no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
-    # GET
+    # --- GET ---
     if request.method == 'GET':
         serializer = TypeSerializer(type_instance, context={'request': request})
         return Response(serializer.data)
 
-    # PUT
+    # --- PUT ---
     if request.method == 'PUT':
         if not request.user.is_staff:
-            return Response(
-                {"detail": "No tienes permiso para actualizar este tipo."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        serializer = TypeSerializer(
-            type_instance,
-            data=request.data,
-            context={'request': request},
-            partial=True
-        )
+            return Response({"detail": "No tienes permiso para actualizar este tipo."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = TypeSerializer(type_instance, data=request.data, context={'request': request}, partial=True)
         if serializer.is_valid():
             updated = serializer.save(user=request.user)
             return Response(TypeSerializer(updated, context={'request': request}).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # DELETE (soft delete)
+    # --- DELETE (soft delete) ---
     if request.method == 'DELETE':
         if not request.user.is_staff:
-            return Response(
-                {"detail": "No tienes permiso para eliminar este tipo."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        TypeRepository.soft_delete(type_instance, request.user)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response({"detail": "No tienes permiso para eliminar este tipo."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Marca el tipo como inactivo (soft delete)
+        serializer = TypeSerializer(type_instance, data={'status': False}, context={'request': request}, partial=True)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
