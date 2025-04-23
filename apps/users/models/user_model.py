@@ -3,13 +3,11 @@ from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, Permis
 from simple_history.models import HistoricalRecords
 
 class UserManager(BaseUserManager):
-    def _create_user(self, username, email, name, last_name, dni, password, is_staff, is_superuser, **extra_fields):
+    def _create_user(self, username, email, name, last_name, password, is_staff, is_superuser, dni=None, **extra_fields):
         if not username:
             raise ValueError("The Username field must be set")
         if not email:
             raise ValueError("The Email field must be set")
-        if not dni:
-            raise ValueError("The DNI field must be set")
 
         email = self.normalize_email(email)
         user = self.model(
@@ -26,24 +24,23 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_user(self, username, email, name, last_name, dni, password=None, **extra_fields):
+    def create_user(self, username, email, name, last_name, password=None, dni=None, **extra_fields):
         extra_fields.setdefault('is_active', True)
-        return self._create_user(username, email, name, last_name, dni, password, False, False, **extra_fields)
+        return self._create_user(username, email, name, last_name, password, False, False, dni, **extra_fields)
 
-    def create_superuser(self, username, email, name, last_name, dni, password=None, **extra_fields):
+    def create_superuser(self, username, email, name, last_name, password=None, dni=None, **extra_fields):
         """
         El superuser siempre será activo, staff y superuser.
         """
         extra_fields.setdefault('is_active', True)
-        return self._create_user(username, email, name, last_name, dni, password, True, True, **extra_fields)
-
+        return self._create_user(username, email, name, last_name, password, True, True, dni, **extra_fields)
 
 class User(AbstractBaseUser, PermissionsMixin):
     username   = models.CharField(max_length=255, unique=True, db_index=True)
     email      = models.EmailField('Email', max_length=255, unique=True, db_index=True)
     name       = models.CharField('Name', max_length=255)
     last_name  = models.CharField('Lastname', max_length=255)
-    dni        = models.CharField('DNI', max_length=10, unique=True, db_index=True)
+    dni        = models.CharField('DNI', max_length=10, unique=True, db_index=True, null=True, blank=True)
     image      = models.URLField('Image URL (FastAPI Service)', max_length=500, null=True, blank=True)
     is_active  = models.BooleanField(default=True)
     is_staff   = models.BooleanField(default=False)
@@ -53,7 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = UserManager()
 
     USERNAME_FIELD  = 'username'
-    REQUIRED_FIELDS = ['email', 'dni', 'name', 'last_name']
+    REQUIRED_FIELDS = ['email', 'name', 'last_name']
 
     class Meta:
         verbose_name = 'User'

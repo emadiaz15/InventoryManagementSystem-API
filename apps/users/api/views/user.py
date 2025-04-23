@@ -1,7 +1,9 @@
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.parsers import MultiPartParser
+
 from drf_spectacular.utils import extend_schema
 
 from django.shortcuts import get_object_or_404
@@ -19,6 +21,7 @@ from apps.users.docs.user_doc import (
     manage_user_doc
 )
 
+
 # --- Obtener perfil del usuario autenticado ---
 @extend_schema(
     summary=get_user_profile_doc["summary"], 
@@ -31,8 +34,9 @@ from apps.users.docs.user_doc import (
 @permission_classes([IsAuthenticated])
 def profile_view(request):
     """Endpoint para obtener el perfil del usuario autenticado."""
-    serializer = UserSerializer(request.user)
+    serializer = UserSerializer(request.user, context={"request": request})
     return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 # --- Listar usuarios con filtros y paginación ---
 @extend_schema(
@@ -55,10 +59,11 @@ def user_list_view(request):
 
     paginator = Pagination()
     page = paginator.paginate_queryset(queryset, request)
-    serializer = UserSerializer(page, many=True)
+    serializer = UserSerializer(page, many=True, context={"request": request})
     return paginator.get_paginated_response(serializer.data)
 
-# --- Crear nuevo usuario (solo admin) ---
+
+# --- Crear nuevo usuario (admin-only) ---
 @extend_schema(
     summary=create_user_doc["summary"],
     description=create_user_doc["description"],
@@ -69,13 +74,15 @@ def user_list_view(request):
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsAdminUser])
+@parser_classes([MultiPartParser])  # 👈 para soporte de imagen
 def user_create_view(request):
-    """Endpoint para que un admin cree un nuevo usuario."""
-    serializer = UserSerializer(data=request.data)
+    """Endpoint para que un admin cree un nuevo usuario y cargue imagen (opcional)."""
+    serializer = UserSerializer(data=request.data, context={"request": request})
     if serializer.is_valid():
         user = serializer.save()
-        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+        return Response(UserSerializer(user, context={"request": request}).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 # --- Gestionar usuario por ID (GET, PUT, DELETE) ---
 @extend_schema(
@@ -88,6 +95,7 @@ def user_create_view(request):
 )
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser])  # 👈 necesario para PUT con imagen
 def user_detail_view(request, pk=None):
     """
     Endpoint para:
@@ -101,7 +109,8 @@ def user_detail_view(request, pk=None):
 
     if request.method == 'GET':
         if request.user.is_staff or request.user.id == user_instance.id:
-            return Response(UserSerializer(user_instance).data, status=status.HTTP_200_OK)
+            serializer = UserSerializer(user_instance, context={"request": request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response({'detail': 'No tienes permiso para ver este perfil.'}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'PUT':
@@ -116,10 +125,10 @@ def user_detail_view(request, pk=None):
                         {'detail': f'No puedes modificar "{field}".'},
                         status=status.HTTP_403_FORBIDDEN
                     )
-        serializer = UserSerializer(user_instance, data=request.data, partial=True)
+        serializer = UserSerializer(user_instance, data=request.data, partial=True, context={"request": request})
         if serializer.is_valid():
             updated = serializer.save()
-            return Response(UserSerializer(updated).data, status=status.HTTP_200_OK)
+            return Response(UserSerializer(updated, context={"request": request}).data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == 'DELETE':

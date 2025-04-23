@@ -6,7 +6,6 @@ from apps.users.api.serializers.user_serializers import (
 )
 
 # --- Autenticación ---
-
 obtain_jwt_token_pair_doc = {
     "tags": ["Auth"], 
     "summary": "Obtener tokens JWT",
@@ -38,13 +37,12 @@ logout_user_doc = {
     }
 }
 
-# --- Perfil de usuario ---
-
+# --- Perfil del usuario autenticado ---
 get_user_profile_doc = {
     "tags": ["Users"],
     "summary": "Obtener perfil",
     "operation_id": "get_user_profile",
-    "description": "Retorna el perfil del usuario autenticado.",
+    "description": "Retorna el perfil del usuario autenticado, incluyendo el enlace de descarga de imagen si existe.",
     "security": [{"jwtAuth": []}],
     "responses": {
         200: OpenApiResponse(response=UserSerializer, description="Perfil recuperado"),
@@ -53,7 +51,6 @@ get_user_profile_doc = {
 }
 
 # --- Listado de usuarios ---
-
 list_users_doc = {
     "tags": ["Users"],
     "summary": "Listar usuarios",
@@ -75,12 +72,11 @@ list_users_doc = {
 }
 
 # --- Crear usuario ---
-
 create_user_doc = {
     "tags": ["Users"],
     "summary": "Crear usuario",
     "operation_id": "create_user",
-    "description": "Permite a un administrador crear un nuevo usuario.",
+    "description": "Permite a un administrador crear un nuevo usuario. Se puede subir una imagen opcional.",
     "security": [{"jwtAuth": []}],
     "request": UserSerializer,
     "responses": {
@@ -91,18 +87,17 @@ create_user_doc = {
 }
 
 # --- Operaciones por ID ---
-
 manage_user_doc = {
     "tags": ["Users"],
     "summary": "Gestión de usuario",
     "operation_id": "manage_user",
-    "description": "GET, PUT y DELETE de un usuario por ID.",
+    "description": "GET, PUT y DELETE de un usuario por ID. PUT permite actualizar la imagen.",
     "security": [{"jwtAuth": []}],
     "parameters": [
         OpenApiParameter(name="id", location=OpenApiParameter.PATH, required=True, type=int, description="ID del usuario")
     ],
     "responses": {
-        200: OpenApiResponse(response=UserSerializer, description="Usuario recuperado"),
+        200: OpenApiResponse(response=UserSerializer, description="Usuario recuperado o actualizado"),
         400: OpenApiResponse(description="Datos inválidos"),
         403: OpenApiResponse(description="No autorizado"),
         404: OpenApiResponse(description="Usuario no encontrado")
@@ -110,7 +105,6 @@ manage_user_doc = {
 }
 
 # --- Reset de contraseña ---
-
 send_password_reset_email_doc = {
     "tags": ["Users"],
     "summary": "Enviar email de reset",
@@ -136,5 +130,36 @@ password_reset_confirm_doc = {
     "responses": {
         200: OpenApiResponse(description="Contraseña cambiada correctamente"),
         400: OpenApiResponse(description="Token inválido o contraseña inválida")
+    }
+}
+
+# --- Imagenes de perfil ---
+image_delete_doc = {
+    "tags": ["Users"],
+    "summary": "Eliminar imagen",
+    "operation_id": "delete_image_profile",
+    "description": "Elimina la imagen de perfil del usuario autenticado desde el servicio FastAPI y limpia el campo en el modelo.",
+    "parameters": [
+        OpenApiParameter(name="file_id", location=OpenApiParameter.PATH, required=True, type=str, description="ID del archivo en Drive")
+    ],
+    "responses": {
+        200: OpenApiResponse(description="Imagen eliminada correctamente"),
+        404: OpenApiResponse(description="Imagen no encontrada o error de red"),
+        401: OpenApiResponse(description="No autenticado")
+    }
+}
+
+image_proxy_doc = {
+    "tags": ["Users"],
+    "summary": "Obtener imagen de perfil",
+    "operation_id": "get_image_proxy",
+    "description": "Obtiene una imagen de perfil (proxy de FastAPI) a través del backend Django.",
+    "parameters": [
+        OpenApiParameter(name="file_id", location=OpenApiParameter.PATH, required=True, type=str, description="ID del archivo en Drive")
+    ],
+    "responses": {
+        200: OpenApiResponse(description="Imagen devuelta"),
+        404: OpenApiResponse(description="Imagen no encontrada"),
+        401: OpenApiResponse(description="No autenticado")
     }
 }

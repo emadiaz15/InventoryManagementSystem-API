@@ -27,27 +27,15 @@ class UserRepository:
             return None
 
     @staticmethod
-    def create(
-        username: str,
-        email: str,
-        password: str,
-        name: str = None,
-        last_name: str = None,
-        dni: str = None,
-        is_staff: bool = False
-    ) -> User:
+    def create(**kwargs) -> User:
         """Crea un nuevo usuario y devuelve la instancia."""
-        user = User(
-            username=username,
-            email=email,
-            name=name,
-            last_name=last_name,
-            dni=dni,
-            is_staff=is_staff
-        )
-        user.set_password(password)
+        password = kwargs.pop("password", None)
+        user = User(**kwargs)
+        if password:
+            user.set_password(password)
         user.save()
         return user
+
 
     @staticmethod
     def update(user_instance: User, **kwargs) -> User:

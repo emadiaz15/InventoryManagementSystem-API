@@ -61,3 +61,12 @@ def upload_profile_image(file, user_id: int) -> dict:
     resp = requests.post(url, headers=headers, files=files)
     resp.raise_for_status()
     return resp.json()
+
+def delete_profile_image(file_id: str, user_id: int):
+    """Elimina una imagen del servicio FastAPI."""
+    token = generate_jwt(user_id)
+    url = f"{DRIVE_API_BASE_URL.rstrip('/')}/profile/delete/{file_id}"
+    headers = {"x-api-key": f"Bearer {token}"}
+    response = requests.delete(url, headers=headers)
+    response.raise_for_status()
+    return response.json()
