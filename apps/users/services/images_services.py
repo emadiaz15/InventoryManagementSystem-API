@@ -1,3 +1,4 @@
+
 import os
 import requests
 import jwt
@@ -44,15 +45,14 @@ def upload_profile_image(file, user_id: int) -> dict:
     # Aseguramos que no haya doble slash al concatenar
     url = f"{DRIVE_API_BASE_URL.rstrip('/')}/profile/"
 
-    # Leemos contenido y sacamos extensión
-    data = file.read()
+    # Sacamos extensión y preparamos el nombre
     _, ext = os.path.splitext(file.name)
     filename = f"{user_id}{ext}"
 
     files = {
         "file": (
             filename,
-            data,
+            file,
             getattr(file, "content_type", "application/octet-stream")
         )
     }
@@ -61,6 +61,7 @@ def upload_profile_image(file, user_id: int) -> dict:
     resp = requests.post(url, headers=headers, files=files)
     resp.raise_for_status()
     return resp.json()
+
 
 def delete_profile_image(file_id: str, user_id: int):
     """Elimina una imagen del servicio FastAPI."""
