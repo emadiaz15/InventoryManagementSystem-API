@@ -54,10 +54,15 @@ class UserSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not obj.image or not request:
             return None
-        return request.build_absolute_uri(f"/api/v1/users/image/{obj.image}/")
+
+        # Si el serializer es usado en modo "detalle" explícito, se permite incluir la URL
+        if self.context.get("include_image_url", False):
+            return request.build_absolute_uri(f"/api/v1/users/image/{obj.image}/")
+
+        return None
 
     def get_image_data_base64(self, obj):
-        if not obj.image:
+        if not obj.image or not self.context.get("include_image_base64", False):
             return None
 
         try:

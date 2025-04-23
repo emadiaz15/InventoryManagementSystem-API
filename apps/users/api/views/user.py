@@ -59,7 +59,8 @@ def user_list_view(request):
 
     paginator = Pagination()
     page = paginator.paginate_queryset(queryset, request)
-    serializer = UserSerializer(page, many=True, context={"request": request})
+    # 👇 Importante: se desactiva carga base64 para lista
+    serializer = UserSerializer(page, many=True, context={"request": request, "include_images": False})
     return paginator.get_paginated_response(serializer.data)
 
 
