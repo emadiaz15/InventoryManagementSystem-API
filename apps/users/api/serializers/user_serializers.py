@@ -51,15 +51,19 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'image_url', 'image_data_base64']
 
     def get_image_url(self, obj):
-        request = self.context.get("request")
-        if not obj.image or not request:
+        print(f"[DEBUG] Entrando en get_image_url con obj.image = {obj.image}")
+        if not obj.image or not isinstance(obj.image, str):
             return None
 
-        # Si el serializer es usado en modo "detalle" explícito, se permite incluir la URL
         if self.context.get("include_image_url", False):
-            return request.build_absolute_uri(f"/api/v1/users/image/{obj.image}/")
+            base_url = os.environ.get("PUBLIC_DRIVE_URL", "http://localhost:8001").rstrip("/")
+            url = f"{base_url}/profile/download/{obj.image}"
+            print(f"[DEBUG] image_url generado: {url}")
+            return url
 
+        print("[DEBUG] include_image_url no está activado en el context")
         return None
+
 
     def get_image_data_base64(self, obj):
         if not obj.image or not self.context.get("include_image_base64", False):

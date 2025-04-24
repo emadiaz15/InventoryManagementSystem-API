@@ -33,8 +33,13 @@ from apps.users.docs.user_doc import (
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def profile_view(request):
-    """Endpoint para obtener el perfil del usuario autenticado."""
-    serializer = UserSerializer(request.user, context={"request": request})
+    serializer = UserSerializer(
+        request.user,
+        context={
+            "request": request,
+            "include_image_url": True
+        }
+    )
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -60,7 +65,7 @@ def user_list_view(request):
     paginator = Pagination()
     page = paginator.paginate_queryset(queryset, request)
     # 👇 Importante: se desactiva carga base64 para lista
-    serializer = UserSerializer(page, many=True, context={"request": request, "include_images": False})
+    serializer = UserSerializer(page, many=True, context={"request": request, "include_image_url": True})
     return paginator.get_paginated_response(serializer.data)
 
 
@@ -100,7 +105,7 @@ def user_create_view(request):
 def user_detail_view(request, pk=None):
     """
     Endpoint para:
-    - GET: ver un usuario (solo staff o el propio usuario).  
+    - GET: ver un usuario (solo staff o el propio usuario).  get
     - PUT: actualizar (solo staff o el propio usuario).  
     - DELETE: dar de baja suave (solo staff).
     """
@@ -110,7 +115,13 @@ def user_detail_view(request, pk=None):
 
     if request.method == 'GET':
         if request.user.is_staff or request.user.id == user_instance.id:
-            serializer = UserSerializer(user_instance, context={"request": request})
+            serializer = UserSerializer(
+                user_instance,
+                context={
+                    "request": request,
+                    "include_image_url": True
+                }
+            )
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response({'detail': 'No tienes permiso para ver este perfil.'}, status=status.HTTP_403_FORBIDDEN)
 
