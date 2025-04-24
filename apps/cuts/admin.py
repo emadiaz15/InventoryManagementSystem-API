@@ -1,31 +1,71 @@
 from django.contrib import admin
-from apps.cuts.models.cutting_order_model import CuttingOrder
+from apps.cuts.models.cutting_order_model import CuttingOrder, CuttingOrderItem
+
+class CuttingOrderItemInline(admin.TabularInline):
+    model = CuttingOrderItem
+    extra = 0
+    readonly_fields = ('subproduct', 'cutting_quantity')
+    verbose_name = "Item de Orden de Corte"
+    verbose_name_plural = "Items de Orden de Corte"
 
 @admin.register(CuttingOrder)
 class CuttingOrderAdmin(admin.ModelAdmin):
     """
-    Configuración del panel de administración para el modelo CuttingOrder.
+    Configuración del panel de administración para el modelo CuttingOrder,
+    con inline de sus items y usando created_by en lugar de assigned_by.
     """
     list_display = (
-        'id', 'customer', 'subproduct', 'cutting_quantity', 'status', 
-        'created_at', 'assigned_by', 'assigned_to'
+        'id',
+        'customer',
+        'item_count',
+        'status',
+        'created_at',
+        'created_by',
+        'assigned_to',
+        'workflow_status',
     )
-    search_fields = ('customer', 'subproduct__name', 'assigned_by__username', 'assigned_to__username')
-    
-    # Removido 'updated_at' si no existe o no es un filtro válido
-    list_filter = ('status', 'created_at')  # No usamos 'updated_at', sino 'modified_at'
-    
+    search_fields = (
+        'customer',
+        'items__subproduct__brand',
+        'created_by__username',
+        'assigned_to__username',
+    )
+    list_filter = ('status', 'workflow_status', 'created_at')
     ordering = ('-created_at',)
-    
-    # Usamos 'modified_at' en lugar de 'updated_at'
-    readonly_fields = ('created_at', 'modified_at', 'completed_at')
-    
-    # Agregado 'modified_at' en lugar de 'updated_at' para que se muestre en la interfaz de administración
+
+    readonly_fields = (
+        'created_at',
+        'modified_at',
+        'completed_at',
+        'deleted_at',
+        'created_by',
+        'modified_by',
+        'deleted_by',
+    )
+
     fieldsets = (
         (None, {
-            'fields': ('customer', 'subproduct', 'cutting_quantity', 'status', 'assigned_by', 'assigned_to')
+            'fields': (
+                'customer',
+                'workflow_status',
+                'assigned_to',
+            )
         }),
-        ('Timestamps', {
-            'fields': ('created_at', 'modified_at', 'completed_at', 'deleted_at'),
+        ('Timestamps & Audit', {
+            'fields': (
+                'created_at',
+                'modified_at',
+                'completed_at',
+                'deleted_at',
+                'created_by',
+                'modified_by',
+                'deleted_by',
+            )
         }),
     )
+
+    inlines = [CuttingOrderItemInline]
+
+    def item_count(self, obj):
+        return obj.items.count()
+    item_count.short_description = 'Número de Ítems'

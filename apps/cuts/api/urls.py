@@ -1,17 +1,22 @@
 from django.urls import path
 from apps.cuts.api.views.cutting_view import (
     cutting_order_list,
+    cutting_order_assigned_list,
     cutting_order_create,
     cutting_order_detail,
 )
 
 urlpatterns = [
-    # ✅ Ruta para listar todas las órdenes de corte activas
+    # Lista todas las órdenes de corte activas (GET /cutting-orders/)
     path('cutting-orders/', cutting_order_list, name='cutting_orders_list'),
 
-    # ✅ Ruta para crear una nueva orden de corte
+    # Lista solo las órdenes asignadas al usuario autenticado (GET /cutting-orders/assigned/)
+    path('cutting-orders/assigned/', cutting_order_assigned_list, name='cutting_orders_assigned'),
+
+    # Crea una nueva orden de corte (POST /cutting-orders/create/)
     path('cutting-orders/create/', cutting_order_create, name='cutting_order_create'),
 
-    # ✅ Ruta para obtener, actualizar y eliminar suavemente una orden de corte específica
+    # Detalle, actualización y soft‑delete de una orden específica
+    # (GET, PUT, PATCH, DELETE /cutting-orders/<cuts_pk>/)
     path('cutting-orders/<int:cuts_pk>/', cutting_order_detail, name='cutting_order_detail'),
 ]

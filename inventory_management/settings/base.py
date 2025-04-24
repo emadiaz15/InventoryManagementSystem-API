@@ -54,7 +54,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware', # Sistema de mensajes flash
     'django.middleware.clickjacking.XFrameOptionsMiddleware', # Protección contra clickjacking
     'simple_history.middleware.HistoryRequestMiddleware',   # Para que simple_history sepa qué usuario hizo el cambio
-    # 'csp.middleware.CSPMiddleware', # Descomenta si quieres activar CSP globalmente
+    'csp.middleware.CSPMiddleware', # Descomenta si quieres activar CSP globalmente
 # 'apps.users.middlewares.BlacklistAccessTokenMiddleware', # Middleware personalizado (comentado)
 ]
 
@@ -100,24 +100,32 @@ USE_TZ = True # Activa soporte de zonas horarias (¡MUY IMPORTANTE!)
 
 # --- Configuración Django REST Framework ---
 REST_FRAMEWORK = {
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination', # Paginador estándar
-    'PAGE_SIZE': 10, # Tamaño de página por defecto
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',  # Paginador estándar
+    'PAGE_SIZE': 10,  # Tamaño de página por defecto
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication', # Autenticación por defecto vía JWT
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # Autenticación por defecto vía JWT
     ),
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema', # Para documentación automática
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'], # Habilita filtros por defecto
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',  # Para documentación automática
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],  # Habilita filtros por defecto
 }
 
 # --- Configuración drf-spectacular ---
-
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Inventory Management API', # Título de tu API
-    'DESCRIPTION': 'Documentación de la API para el Sistema de Gestión de Inventario', # Descripción
-    'VERSION': '1.0.0', # Versión de tu API
-    'SERVE_INCLUDE_SCHEMA': False, # No servir el schema OpenAPI directamente por defecto
-    # Puedes añadir más configuraciones aquí (ej. UI_SETTINGS)
+    'TITLE': 'Inventory Management API',  # Título de tu API
+    'DESCRIPTION': 'Documentación de la API para el Sistema de Gestión de Inventario',  # Descripción
+    'VERSION': '1.0.0',  # Versión de tu API
+    'SERVE_INCLUDE_SCHEMA': False,  # No servir el schema OpenAPI directamente por defecto
+    'SECURITY': [{'jwtAuth': []}],  # Configuración de seguridad global (JWT)
+    'SCHEMAS': {
+        'jwtAuth': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': 'Use JWT token for authentication',
+        }
+    }
 }
+
 
 # --- Clave Primaria Automática ---
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField' # Tipo de ID autoincremental por defecto
@@ -173,13 +181,9 @@ LOGGING = {
 
 # --- Content Security Policy (CSP) ---
 # Define qué recursos puede cargar el navegador (seguridad frontend)
-CSP_DEFAULT_SRC = ("'self'",) # Por defecto, solo permite desde el mismo origen
-CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "'unsafe-inline'") # CSS: propio, google fonts, inline
-CSP_FONT_SRC = ("'self'", "https://fonts.gstatic.com", "data:") # Fuentes: propio, google fonts, data URIs
-CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'") # JS: propio, inline (considera eliminar unsafe-inline en prod)
-# CSP_SCRIPT_SRC = ("'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'") # Ejemplo si usas CDN
-
-CSP_IMG_SRC = ("'self'", "data:") # Imágenes: propio, data URIs
+CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "'unsafe-inline'")
+CSP_SCRIPT_SRC = ("'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'")
+CSP_IMG_SRC = ("'self'", "https://cdn.jsdelivr.net", "data:")
 
 # Channels
 ASGI_APPLICATION = "inventory_management.asgi.application"
@@ -201,3 +205,16 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TIMEZONE = "America/Argentina/Buenos_Aires"
 
+
+DEFAULT_PARSER_CLASSES = [
+    'rest_framework.parsers.JSONParser',
+    'rest_framework.parsers.MultiPartParser',
+    'rest_framework.parsers.FormParser',
+]
+
+
+# URL base de tu servicio FastAPI de Drive (local vs prod lo decides en .env)
+DRIVE_API_BASE_URL = os.getenv('DRIVE_API_BASE_URL', 'http://localhost:8001')
+
+# Clave secreta compartida para firmar y verificar JWT
+DRIVE_SHARED_SECRET = os.getenv('DRIVE_SHARED_SECRET')

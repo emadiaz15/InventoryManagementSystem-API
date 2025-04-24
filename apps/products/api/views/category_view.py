@@ -1,79 +1,109 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from drf_spectacular.utils import extend_schema
 
-from apps.users.permissions import IsStaffOrReadOnly
 from apps.core.pagination import Pagination
+from apps.products.models.category_model import Category
 from apps.products.api.serializers.category_serializer import CategorySerializer
 from apps.products.api.repositories.category_repository import CategoryRepository
-
-# Importaciones de Docs (ajusta rutas si es necesario)
-from apps.products.docs.category_doc import (
-    category_list_doc, create_category_doc, get_category_by_id_doc, update_category_by_id_doc,
-    delete_category_by_id_doc
-)
-from apps.products.models.category_model import Category
 from apps.products.filters.category_filter import CategoryFilter
 
+from apps.products.docs.category_doc import (
+    list_category_doc,
+    create_category_doc,
+    get_category_by_id_doc,
+    update_category_by_id_doc,
+    delete_category_by_id_doc
+)
+
+# --- Obtener categorías activas con filtros y paginación ---
+@extend_schema(
+    summary=list_category_doc["summary"], 
+    description=list_category_doc["description"],
+    tags=list_category_doc["tags"],
+    operation_id=list_category_doc["operation_id"],
+    parameters=list_category_doc["parameters"],
+    responses=list_category_doc["responses"]
+)
 @api_view(['GET'])
-@permission_classes([IsStaffOrReadOnly])
+@permission_classes([IsAuthenticated])
 def category_list(request):
     """
-    Lista todas las categorías ACTIVAS con paginación y filtro por nombre.
+    Endpoint para listar las categorías activas, con filtros por nombre y paginación.
     """
-    # 1. Queryset Base: Obtener SOLO las categorías ACTIVAS.
-    #    El ordenamiento por defecto (-created_at) viene de BaseModel.Meta.
-    queryset = Category.objects.filter(status=True).select_related('created_by') # <-- Filtrar por status=True AQUÍ
-
-    # 2. Aplicar Filtro de Nombre: Pasamos el request.GET y el queryset base (ya filtrado por activas).
+    queryset = Category.objects.filter(status=True).select_related('created_by')
     filterset = CategoryFilter(request.GET, queryset=queryset)
-    # El filterset ahora solo aplicará el filtro 'name' si viene en request.GET
+    qs = filterset.qs
 
-    filtered_queryset = filterset.qs # .qs contiene el queryset filtrado por nombre (y ya por status=True)
-
-    # 3. Paginación
     paginator = Pagination()
-    paginated_categories = paginator.paginate_queryset(filtered_queryset, request)
-
-    # 4. Serialización (con contexto)
-    serializer = CategorySerializer(paginated_categories, many=True, context={'request': request})
-
-    # 5. Respuesta
+    page = paginator.paginate_queryset(qs, request)
+    serializer = CategorySerializer(page, many=True, context={'request': request})
     return paginator.get_paginated_response(serializer.data)
 
-@extend_schema(**create_category_doc)
+
+# --- Crear nueva categoría (solo admins) ---
+@extend_schema(
+    summary=create_category_doc["summary"], 
+    description=create_category_doc["description"],
+    tags=create_category_doc["tags"],
+    operation_id=create_category_doc["operation_id"],
+    request=create_category_doc["requestBody"],
+    responses=create_category_doc["responses"]
+)
 @api_view(['POST'])
-@permission_classes([IsStaffOrReadOnly])
+@permission_classes([IsAdminUser])
 def create_category(request):
     """
-    Crea una nueva categoría.
-    La lógica de asignar 'created_by' está en BaseSerializer/BaseModel.
+    Endpoint para crear una nueva categoría.
+    Solo accesible para administradores.
     """
     serializer = CategorySerializer(data=request.data, context={'request': request})
-
     if serializer.is_valid():
-        # Llamamos a serializer.save() pasando el usuario.
-        # Esto ejecutará BaseSerializer.create(), que a su vez llamará
-        # a Category.objects.create(..., user=request.user),
-        # permitiendo a BaseModel.save() asignar created_by.
-        category_instance = serializer.save(user=request.user)
-        # Devolvemos la instancia creada, serializada de nuevo para obtener todos los campos
-        return Response(CategorySerializer(category_instance, context={'request': request}).data, status=status.HTTP_201_CREATED)
-
+        category = serializer.save(user=request.user)
+        return Response(
+            CategorySerializer(category, context={'request': request}).data,
+            status=status.HTTP_201_CREATED
+        )
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(**get_category_by_id_doc)
-@extend_schema(**update_category_by_id_doc)
-@extend_schema(**delete_category_by_id_doc)
+# --- Obtener, actualizar y eliminar categoría por ID ---
+@extend_schema(
+    summary=get_category_by_id_doc["summary"],
+    description=get_category_by_id_doc["description"],
+    tags=get_category_by_id_doc["tags"],
+    operation_id=get_category_by_id_doc["operation_id"],
+    parameters=get_category_by_id_doc["parameters"],
+    responses=get_category_by_id_doc["responses"]
+)
+@extend_schema(
+    summary=update_category_by_id_doc["summary"],
+    description=update_category_by_id_doc["description"],
+    tags=update_category_by_id_doc["tags"],
+    operation_id=update_category_by_id_doc["operation_id"],
+    parameters=update_category_by_id_doc["parameters"],
+    request=update_category_by_id_doc["requestBody"],
+    responses=update_category_by_id_doc["responses"]
+)
+@extend_schema(
+    summary=delete_category_by_id_doc["summary"],
+    description=delete_category_by_id_doc["description"],
+    tags=delete_category_by_id_doc["tags"],
+    operation_id=delete_category_by_id_doc["operation_id"],
+    parameters=delete_category_by_id_doc["parameters"],
+    responses=delete_category_by_id_doc["responses"]
+)
 @api_view(['GET', 'PUT', 'DELETE'])
-@permission_classes([IsStaffOrReadOnly])
+@permission_classes([IsAuthenticated])
 def category_detail(request, category_pk):
     """
-    Obtiene, actualiza o realiza un soft delete de una categoría específica.
+    Endpoint para:
+    - GET: consultar detalles de una categoría.
+    - PUT: actualizar categoría (solo administradores).
+    - DELETE: eliminar categoría de forma suave (solo administradores).
     """
-    # Usamos el repositorio solo para obtener la instancia inicial
     category = CategoryRepository.get_by_id(category_pk)
     if not category:
         return Response({"detail": "Categoría no encontrada."}, status=status.HTTP_404_NOT_FOUND)
@@ -84,30 +114,24 @@ def category_detail(request, category_pk):
         return Response(serializer.data)
 
     # --- PUT ---
-    elif request.method == 'PUT':
-        # Usamos el serializer para validar y actualizar. partial=True permite act. parciales.
+    if request.method == 'PUT':
+        if not request.user.is_staff:
+            return Response({"detail": "No tienes permiso para actualizar esta categoría."}, status=status.HTTP_403_FORBIDDEN)
+
         serializer = CategorySerializer(category, data=request.data, context={'request': request}, partial=True)
         if serializer.is_valid():
-            # Llamamos a serializer.save() pasando el usuario.
-            # Esto ejecutará BaseSerializer.update(), que llamará a instance.save(user=...)
-            # permitiendo a BaseModel.save() asignar modified_by/modified_at.
-            updated_category = serializer.save(user=request.user)
-            # Devolvemos la instancia actualizada y serializada
-            return Response(CategorySerializer(updated_category, context={'request': request}).data)
+            updated = serializer.save(user=request.user)
+            return Response(CategorySerializer(updated, context={'request': request}).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # --- DELETE (Soft Delete usando el Serializer) ---
-    elif request.method == 'DELETE':
-        # Usamos el serializer para realizar el soft delete de forma consistente
-        # Pasamos 'status': False y dejamos que BaseSerializer.update maneje la lógica
+    # --- DELETE (soft delete) ---
+    if request.method == 'DELETE':
+        if not request.user.is_staff:
+            return Response({"detail": "No tienes permiso para eliminar esta categoría."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Marca la categoría como inactiva (soft delete)
         serializer = CategorySerializer(category, data={'status': False}, context={'request': request}, partial=True)
         if serializer.is_valid():
-             # Llamamos a save pasando el usuario. BaseSerializer.update detectará
-             # status=False y llamará a instance.save(user=...) que actualizará
-             # status, deleted_at y deleted_by via BaseModel.save o directamente.
-             # NOTA: La implementación actual de BaseSerializer.update ya asigna
-             # deleted_at/by directamente ANTES de llamar a save.
-             serializer.save(user=request.user)
-             return Response(status=status.HTTP_204_NO_CONTENT) # Éxito sin contenido
-        else:
-            return Response({"detail": "No autorizado para eliminar esta categoría."}, status=status.HTTP_403_FORBIDDEN)
+            serializer.save(user=request.user)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
