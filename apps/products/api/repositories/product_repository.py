@@ -27,7 +27,7 @@ class ProductRepository:
             return None
 
     @staticmethod
-    def create(name: str, description: str, category_id: int, type_id: int, user, code: int = None, brand: str = None, image=None) -> Product:
+    def create(name: str, description: str, category_id: int, type_id: int, user, code: int = None, brand: str = None, image=None, location=None) -> Product:
         """
         Crea un nuevo producto usando la lógica de BaseModel.save.
         Ya no maneja 'quantity'.
@@ -48,6 +48,7 @@ class ProductRepository:
             type=type_instance,
             code=code,
             brand=brand,
+            location=location,
             image=image
         )
         product_instance.save(user=user)

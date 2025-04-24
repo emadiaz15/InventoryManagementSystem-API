@@ -77,7 +77,7 @@ class ProductSerializer(BaseSerializer):
             'status', 'has_individual_stock', 'subproducts', 'current_stock',
             'created_at', 'modified_at', 'deleted_at',
             'created_by', 'modified_by', 'deleted_by',
-            'category_name', 'type_name',
+            'category_name', 'type_name', 'location',
         ]
 
     # --- Validaciones Específicas ---
