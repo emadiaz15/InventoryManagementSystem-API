@@ -3,9 +3,8 @@ import os
 from dotenv import load_dotenv
 from datetime import timedelta
 
-# Carga variables de entorno desde un archivo .env en la raíz del proyecto
-# Ajusta la ruta a tu .env si es diferente
-load_dotenv(BASE_DIR.parent / '.env') # Asume .env está un nivel arriba de donde está manage.py
+# Cargar variables de entorno desde .env.local
+load_dotenv(BASE_DIR.parent / '.env.local')
 
 # --- Clave Secreta ---
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-for-local-dev-only')
@@ -14,7 +13,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-for-local-dev
 DEBUG = True
 
 # --- Hosts Permitidos ---
-ALLOWED_HOSTS = ['*'] # Seguro SOLO para local
+ALLOWED_HOSTS = ['*']
 
 # --- Base de Datos ---
 DATABASES = {
@@ -24,33 +23,32 @@ DATABASES = {
     }
 }
 
-# --- Logging para Desarrollo Local ---
-# Correcto: Configurado para mostrar logs en la consola
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': { 'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}', 'style': '{', },
-        'simple': { 'format': '[{asctime}] {levelname} {message}', 'style': '{', 'datefmt': '%H:%M:%S' },
-    },
-    'handlers': { 'console': { 'class': 'logging.StreamHandler', 'formatter': 'simple', }, },
-    'root': { 'handlers': ['console'], 'level': 'INFO', },
-    'loggers': {
-        'django': { 'handlers': ['console'], 'level': 'INFO', 'propagate': False, },
-        'django.db.backends': { 'handlers': ['console'], 'level': 'DEBUG', 'propagate': False, },
-        'apps': { 'handlers': ['console'], 'level': 'DEBUG', 'propagate': False, },
-    }
-}
-
 # --- Archivos Estáticos y Multimedia ---
 STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
-# MEDIA_ROOT apunta a una carpeta 'media' fuera del directorio BASE_DIR (un nivel arriba)
-# Asegúrate de que esta sea la ubicación deseada y que exista/tenga permisos.
 MEDIA_ROOT = BASE_DIR.parent / 'media'
 
+# --- Logging para Desarrollo Local ---
+LOGGING['loggers']['django']['level'] = os.getenv('DJANGO_LOG_LEVEL', 'INFO')
+LOGGING['loggers']['django.db.backends']['level'] = 'DEBUG'
+LOGGING['loggers']['apps']['level'] = 'DEBUG'
+
+# --- Configuración CORS ---
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:4173",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:4173",
+]
+CORS_ALLOW_HEADERS = ['authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with']
+CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
+
+# --- Configuración Email ---
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
 # --- Configuración JWT ---
-# Correcto para local
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=12),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -65,19 +63,13 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
-# --- Configuración CORS ---
-# Correcto para permitir tu frontend local
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:4173",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:4173",
-]
-CORS_ALLOW_HEADERS = [ 'authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with', ]
-CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOW_CREDENTIALS = True
+# --- Websocket Redis (Channels) ---
+CHANNEL_LAYERS["default"]["CONFIG"]["hosts"] = [os.getenv("REDIS_URL", "redis://localhost:6379/0")]
 
-# --- Configuración Email (Consola) ---
-# Correcto: Muestra emails en la consola para desarrollo
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# --- Celery ---
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+
+# --- Drive API ---
+DRIVE_API_BASE_URL = os.getenv('DRIVE_API_BASE_URL', 'http://localhost:8001')
+DRIVE_SHARED_SECRET = os.getenv('DRIVE_SHARED_SECRET')
