@@ -10,7 +10,7 @@ SHARED_SECRET = os.getenv("DRIVE_SHARED_SECRET")
 def generate_jwt():
     payload = {
         "sub": "django-backend",
-        "exp": datetime.utcnow() + timedelta(minutes=10),
+        "exp": datetime.utcnow() + timedelta(hours=8),
     }
     return jwt.encode(payload, SHARED_SECRET, algorithm="HS256")
 
