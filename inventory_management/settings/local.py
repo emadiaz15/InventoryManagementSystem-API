@@ -66,9 +66,17 @@ SIMPLE_JWT = {
 # --- Websocket Redis (Channels) ---
 CHANNEL_LAYERS["default"]["CONFIG"]["hosts"] = [os.getenv("REDIS_URL", "redis://localhost:6379/0")]
 
+# --- Redis Host ---
+REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+REDIS_PORT = os.getenv('REDIS_PORT', '6379')
+REDIS_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
+
 # --- Celery ---
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+
+# --- Websocket Redis (Channels) ---
+CHANNEL_LAYERS["default"]["CONFIG"]["hosts"] = [REDIS_URL]
 
 # --- Drive API ---
 DRIVE_API_BASE_URL = os.getenv('DRIVE_API_BASE_URL', 'http://localhost:8001')
