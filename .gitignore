@@ -2,6 +2,14 @@
 .env.local
 .env.production
 
+migrations/
+*.sqlite3
+*.sqlite
+*.sqlite-journal
+*.db
+*.db-journal
+*.log
+
 **/logs/
 /inventory_management/staticfiles/
 

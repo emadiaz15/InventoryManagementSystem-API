@@ -1,27 +1,33 @@
 #!/bin/sh
 set -e
 
-echo "⌛ Esperando a que la base de datos esté lista..."
-# Espera a que el puerto 5432 de la base esté abierto
-until nc -z -v -w30 $PGHOST $PGPORT
-do
-  echo "⏳ Esperando la base de datos en $PGHOST:$PGPORT..."
-  sleep 1
-done
+# Detectar ambiente (DEV o PROD)
+if [ "$DJANGO_SETTINGS_MODULE" = "inventory_management.settings.production" ]; then
+  echo "⌛ Esperando a que la base de datos esté lista en $PGHOST:$PGPORT..."
 
-echo "✅ Base de datos disponible!"
+  # Espera que Postgres esté listo
+  until nc -z -v -w30 "$PGHOST" "$PGPORT"
+  do
+    echo "⏳ Aún esperando la base de datos en $PGHOST:$PGPORT..."
+    sleep 1
+  done
+
+  echo "✅ Base de datos disponible!"
+else
+  echo "💻 Ambiente de desarrollo detectado, no esperamos base de datos externa (SQLite usado)"
+fi
 
 echo "🔧 Aplicando migraciones de base de datos..."
-python manage.py makemigrations --settings=inventory_management.settings.production --no-input || echo "⚠️  No se generaron nuevas migraciones"
-python manage.py migrate --settings=inventory_management.settings.production --no-input
+python manage.py makemigrations --noinput
+python manage.py migrate --noinput
 
-# Si el primer argumento es "celery", arranca el worker
+# Si el primer argumento es "celery", arranca celery
 if [ "$1" = "celery" ]; then
   shift
-  echo "🚀 Iniciando Celery worker…"
+  echo "🚀 Iniciando Celery worker..."
   exec celery -A inventory_management "$@"
 fi
 
-# En cualquier otro caso, arranca el servidor Django
-echo "🚀 Iniciando servidor Django…"
-exec python manage.py runserver 0.0.0.0:8000 --settings=inventory_management.settings.production
+# En cualquier otro caso, arranca Django server
+echo "🚀 Iniciando servidor Django..."
+exec python manage.py runserver 0.0.0.0:8000
