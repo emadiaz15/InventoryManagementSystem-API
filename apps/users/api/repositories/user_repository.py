@@ -1,4 +1,3 @@
-from apps.users.models.user_model import User
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
@@ -6,6 +5,7 @@ from django.core.mail import send_mail
 from django.urls import reverse
 from rest_framework.exceptions import ValidationError
 from apps.users.models.user_model import User
+from django.conf import settings
 
 class UserRepository:
     """
@@ -76,7 +76,7 @@ class UserRepository:
     def send_password_reset_email(user: User, request, from_email: str = None):
         """Envía el correo con el enlace para restablecer contraseña."""
         if from_email is None:
-            from_email = 'noreply@yourapp.com'
+            from_email or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@yourapp.com")
         reset_url = UserRepository.build_password_reset_url(user, request)
         subject = 'Solicitud de restablecimiento de contraseña'
         message = f"Usa este enlace para cambiar tu contraseña:\n\n{reset_url}"

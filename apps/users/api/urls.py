@@ -3,14 +3,11 @@ from apps.users.api.views.auth import CustomTokenObtainPairView, LogoutView
 from apps.users.api.views.user import (
     user_list_view, user_create_view, user_detail_view, profile_view
 )
-from apps.users.api.views.reset_password import (
-    send_password_reset_email, password_reset_confirm
-)
-from apps.users.api.views.image_proxy import image_delete_view  # ✅ CORRECTO
+from apps.users.api.views.reset_password import password_reset_confirm
+from apps.users.api.views.profile_image_proxy import image_delete_view, image_replace_view
 
 urlpatterns = [
     # Rutas para el restablecimiento de contraseña
-    path('password-reset/', send_password_reset_email, name='password_reset'),
     path('password-reset/confirm/<str:uidb64>/<str:token>/', password_reset_confirm, name='password_reset_confirm'),
 
     # Rutas relacionadas con autenticación
@@ -24,5 +21,6 @@ urlpatterns = [
     path('<int:pk>/', user_detail_view, name='user_detail'),
 
     # 🖼️ Rutas del proxy de imagen
-    path('image/<str:file_id>/delete/', image_delete_view, name='image_delete_proxy')
+    path('image/<str:file_id>/delete/', image_delete_view, name='image_delete_proxy'),
+    path('image/<str:file_id>/replace/', image_replace_view, name='image_replace_proxy'),
 ]
