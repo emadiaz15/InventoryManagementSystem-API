@@ -1,10 +1,10 @@
 from django.urls import path
 from apps.users.api.views.auth import CustomTokenObtainPairView, LogoutView
 from apps.users.api.views.user import (
-    user_list_view, user_create_view, user_detail_view, profile_view
+    user_list_view, user_create_view, user_detail_view, profile_view,
+    image_delete_view, image_replace_view
 )
 from apps.users.api.views.reset_password import password_reset_confirm
-from apps.users.api.views.profile_image_proxy import image_delete_view, image_replace_view
 
 urlpatterns = [
     # Rutas para el restablecimiento de contraseña

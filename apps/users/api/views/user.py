@@ -1,8 +1,10 @@
+import requests
+from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes, parser_classes
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.parsers import MultiPartParser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from drf_spectacular.utils import extend_schema
 
 from apps.users.models.user_model import User
@@ -10,19 +12,18 @@ from apps.users.api.repositories.user_repository import UserRepository
 from apps.users.api.serializers.user_create_serializers import UserCreateSerializer
 from apps.users.api.serializers.user_update_serializers import UserUpdateSerializer
 from apps.users.api.serializers.user_detail_serializers import UserDetailSerializer
+from apps.users.services.profile_image_services import delete_profile_image, replace_profile_image
 
 from apps.core.pagination import Pagination
 from ...filters import UserFilter
-
 from apps.users.docs.user_doc import (
-    get_user_profile_doc,
-    list_users_doc,
-    create_user_doc,
-    manage_user_doc
+    get_user_profile_doc, list_users_doc, create_user_doc,
+    manage_user_doc, image_delete_doc, image_replace_doc
 )
 
-
-# --- Obtener perfil del usuario autenticado ---
+# ========================
+# OBTENER PERFIL AUTENTICADO
+# ========================
 @extend_schema(
     summary=get_user_profile_doc["summary"],
     description=get_user_profile_doc["description"],
@@ -35,15 +36,13 @@ from apps.users.docs.user_doc import (
 def profile_view(request):
     serializer = UserDetailSerializer(
         request.user,
-        context={
-            "request": request,
-            "include_image_url": True
-        }
+        context={"request": request, "include_image_url": True}
     )
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-
-# --- Listar usuarios con filtros y paginación ---
+# ========================
+# LISTAR USUARIOS
+# ========================
 @extend_schema(
     summary=list_users_doc["summary"],
     description=list_users_doc["description"],
@@ -65,8 +64,9 @@ def user_list_view(request):
     serializer = UserDetailSerializer(page, many=True, context={"request": request, "include_image_url": True})
     return paginator.get_paginated_response(serializer.data)
 
-
-# --- Crear nuevo usuario (admin-only) ---
+# ========================
+# CREAR NUEVO USUARIO
+# ========================
 @extend_schema(
     summary=create_user_doc["summary"],
     description=create_user_doc["description"],
@@ -86,8 +86,9 @@ def user_create_view(request):
         return Response(response_data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-# --- Gestionar usuario por ID (GET, PUT, DELETE) ---
+# ========================
+# DETALLE / EDITAR / ELIMINAR USUARIO
+# ========================
 @extend_schema(
     summary=manage_user_doc["summary"],
     description=manage_user_doc["description"],
@@ -118,15 +119,11 @@ def user_detail_view(request, pk=None):
         if not (is_admin or is_self):
             return Response({'detail': 'No tienes permiso para actualizar este usuario.'}, status=status.HTTP_403_FORBIDDEN)
 
-        # Campos que un usuario común puede modificar
         if not is_admin:
             allowed_fields = {'name', 'last_name', 'dni', 'email', 'image'}
             for field in request.data:
                 if field not in allowed_fields:
-                    return Response(
-                        {'detail': f'No puedes modificar el campo "{field}".'},
-                        status=status.HTTP_403_FORBIDDEN
-                    )
+                    return Response({'detail': f'No puedes modificar el campo "{field}".'}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = UserUpdateSerializer(
             user_instance,
@@ -144,5 +141,129 @@ def user_detail_view(request, pk=None):
         if not is_admin:
             return Response({'detail': 'No tienes permiso para eliminar este usuario.'}, status=status.HTTP_403_FORBIDDEN)
 
+        # 🧨 Eliminar imagen de perfil si existe
+        if user_instance.image:
+            try:
+                delete_profile_image(user_instance.image, user_instance.id)
+                user_instance.image = None
+                user_instance.save(update_fields=["image"])
+            except Exception as e:
+                # Loguear pero no bloquear la eliminación del usuario
+                print(f"⚠️ Error al eliminar imagen de Google Drive: {e}")
+
+        # ✅ Eliminar usuario (soft delete)
         UserRepository.soft_delete(user_instance)
-        return Response({'message': 'Usuario eliminado (soft) correctamente.'}, status=status.HTTP_200_OK)
+
+        return Response({'message': 'Usuario eliminado (soft) correctamente y su imagen también.'}, status=status.HTTP_200_OK)
+
+
+
+@extend_schema(
+    summary=image_replace_doc["summary"],
+    description=image_replace_doc["description"],
+    tags=image_replace_doc["tags"],
+    operation_id=image_replace_doc["operation_id"],
+    parameters=image_replace_doc["parameters"],
+    request=image_replace_doc["request"],
+    responses=image_replace_doc["responses"]
+)
+@api_view(["PUT"])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser])
+def image_replace_view(request, file_id: str):
+    """
+    Admin puede reemplazar cualquier imagen. Usuario solo la suya.
+    """
+    target_user = request.user
+    if request.user.is_staff:
+        user_id_param = request.GET.get("user_id")
+        if not user_id_param:
+            return JsonResponse({"detail": "Falta el parámetro user_id."}, status=400)
+        try:
+            target_user = User.objects.get(id=user_id_param)
+        except User.DoesNotExist:
+            return JsonResponse({"detail": "Usuario destino no encontrado."}, status=404)
+
+    if not file_id or not target_user.image:
+        return JsonResponse({"detail": "No hay imagen para reemplazar."}, status=400)
+
+    if str(target_user.image) != str(file_id):
+        return JsonResponse({"detail": "El ID de imagen no coincide con el usuario."}, status=403)
+
+    new_file = request.FILES.get("file")
+    if not new_file:
+        return JsonResponse({"detail": "Archivo requerido."}, status=400)
+
+    try:
+        result = replace_profile_image(new_file, file_id, target_user.id)
+        target_user.image = result.get("file_id")
+        target_user.save(update_fields=["image"])
+        return JsonResponse({
+            "message": "Imagen reemplazada correctamente.",
+            "file_id": target_user.image
+        }, status=200)
+    except requests.HTTPError as e:
+        return JsonResponse({
+            "detail": f"Error HTTP al reemplazar imagen: {str(e)}"
+        }, status=500)
+    except Exception as e:
+        return JsonResponse({
+            "detail": f"Error inesperado: {str(e)}"
+        }, status=500)
+
+# ========================
+# DELETE ✅ CON CONTROL DE ACCESO
+# ========================
+@extend_schema(
+    summary=image_delete_doc["summary"],
+    description=image_delete_doc["description"],
+    tags=image_delete_doc["tags"],
+    operation_id=image_delete_doc["operation_id"],
+    parameters=image_delete_doc["parameters"],
+    responses=image_delete_doc["responses"]
+)
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def image_delete_view(request, file_id: str):
+    """
+    Elimina la imagen de perfil del usuario autenticado o de otro usuario si es admin.
+    Devuelve el usuario actualizado con image="" y image_url=null.
+    """
+    requester = request.user
+    user_id = request.query_params.get("user_id")
+
+    # 🔐 Permisos
+    if requester.is_staff and user_id:
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return JsonResponse({"detail": "Usuario objetivo no encontrado."}, status=404)
+    else:
+        user = requester
+
+    if not file_id:
+        return JsonResponse({"detail": "Falta el ID de la imagen."}, status=400)
+
+    if not user.image:
+        return JsonResponse({"detail": "El usuario no tiene imagen asociada."}, status=400)
+
+    if str(user.image) != str(file_id):
+        return JsonResponse({"detail": "No tienes permiso para eliminar esta imagen."}, status=403)
+
+    # 🧨 Borrado externo
+    try:
+        delete_profile_image(file_id, user.id)
+    except requests.HTTPError as e:
+        if e.response.status_code == 404:
+            return JsonResponse({"detail": "Imagen no encontrada en el servicio externo."}, status=404)
+        return JsonResponse({"detail": f"Error HTTP al eliminar la imagen: {str(e)}"}, status=500)
+    except Exception as e:
+        return JsonResponse({"detail": f"Error inesperado: {str(e)}"}, status=500)
+
+    # 🧼 Limpieza local
+    user.image = ""
+    user.save(update_fields=["image"])
+
+    # 🧠 Devolver user actualizado
+    serializer = UserDetailSerializer(user, context={"request": request, "include_image_url": True})
+    return Response(serializer.data, status=status.HTTP_200_OK)
