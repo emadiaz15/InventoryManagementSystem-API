@@ -1,24 +1,32 @@
+# Entornos
 .env
 .env.local
 .env.production
 
+# Bases de datos
 migrations/
 *.sqlite3
 *.sqlite
 *.sqlite-journal
 *.db
 *.db-journal
-*.log
 
+# Logs
+*.log
 **/logs/
+
+# Static
 /inventory_management/staticfiles/
 
+# Scripts temporales / fake data
 *.fake_db.py
 *.fake_generate_subproducts_db.py
 *.send_test_email.py
 *.wait-for-redis.sh
 *.celerybeat-schedule
 
+# Certificados locales (SSL dev)
+certs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -77,13 +85,13 @@ cover/
 *.mo
 *.pot
 
-# Django stuff:
+# Django settings
 *.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# Flask stuff:
+# Flask stuff
 instance/
 .webassets-cache
 
@@ -105,10 +113,10 @@ ipython_config.py
 .python-version
 
 # pipenv
-#Pipfile.lock
+# Pipfile.lock
 
 # poetry
-#poetry.lock
+# poetry.lock
 
 # pdm
 .pdm.toml
@@ -118,14 +126,14 @@ ipython_config.py
 # PEP 582
 __pypackages__/
 
-# Celery stuff
+# Celery
 celerybeat-schedule
 celerybeat.pid
 
-# SageMath parsed files
+# SageMath
 *.sage.py
 
-# Environments
+# Entornos virtuales
 .env
 .venv
 env/
@@ -134,14 +142,14 @@ ENV/
 env.bak/
 venv.bak/
 
-# Spyder project settings
+# Spyder
 .spyderproject
 .spyproject
 
-# Rope project settings
+# Rope
 .ropeproject
 
-# mkdocs documentation
+# mkdocs
 /site
 
 # mypy
@@ -149,21 +157,25 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
-# Pyre type checker
+# Pyre
 .pyre/
 
-# pytype static type analyzer
+# pytype
 .pytype/
 
-# Cython debug symbols
+# Cython
 cython_debug/
 
-# PyCharm
+# PyCharm / Temp
 temp/
 .ruff_cache/
 diff.txt
 data/
 *.env
+
+# Node.js
 node_modules/
 package-lock.json
+
+# Tailwind (static generated file)
 service/static/css/tailwind.css

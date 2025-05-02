@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from drf_spectacular.utils import extend_schema
 
-from ..serializers.user_serializers import CustomTokenObtainPairSerializer
+from ..serializers.user_token_serializers import CustomTokenObtainPairSerializer
 from apps.users.docs.user_doc import (
     obtain_jwt_token_pair_doc,
     logout_user_doc

@@ -13,6 +13,7 @@ BASE_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_extensions'
 ]
 
 THIRD_APPS = [
@@ -23,7 +24,8 @@ THIRD_APPS = [
     'drf_spectacular',
     'celery',
     'corsheaders',
-    'csp'
+    'csp',
+    'sslserver'
 ]
 
 LOCAL_APPS = [
