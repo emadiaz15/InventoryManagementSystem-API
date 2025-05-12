@@ -40,7 +40,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://127.0.0.1:4173",
 ]
-CORS_ALLOW_HEADERS = ['authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with']
+CORS_ALLOW_HEADERS = ['authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with','x-api-key']
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True

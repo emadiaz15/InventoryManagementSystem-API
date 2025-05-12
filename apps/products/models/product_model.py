@@ -16,7 +16,6 @@ class Product(BaseModel):
     code = models.CharField(max_length=20, unique=True, null=True, blank=True, verbose_name="Código")
     description = models.TextField(null=True, blank=True, verbose_name="Descripción")
     brand = models.CharField(max_length=255, null=True, blank=True, verbose_name="Marca")
-    image = models.ImageField(upload_to='products/', null=True, blank=True, verbose_name="Imagen")
     location = models.CharField(max_length=255, null=True, blank=True, verbose_name="Posición")
     
     # --- Relaciones ForeignKey ---

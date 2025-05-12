@@ -177,7 +177,9 @@ def product_detail(request, prod_pk):
     - PUT: actualización stock/opcional (solo staff).  
     - DELETE: baja suave (solo staff).
     """
-    product = get_object_or_404(ProductRepository.get_by_id(prod_pk))
+    product = ProductRepository.get_by_id(prod_pk)
+    if not product:
+        return Response({"detail": "Producto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
     # --- GET ---
     if request.method == 'GET':

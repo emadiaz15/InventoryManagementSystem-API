@@ -42,9 +42,6 @@ class ProductSerializer(BaseSerializer):
         default=Decimal('0.00')
     )
 
-    # Imágenes relacionadas
-    product_images = ProductImageSerializer(many=True, read_only=True)
-
     # Campos para ajuste de stock (solo en PUT)
     quantity_change = serializers.DecimalField(
         max_digits=15, decimal_places=2,
@@ -63,7 +60,7 @@ class ProductSerializer(BaseSerializer):
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'code', 'description', 'brand', 'image',
+            'id', 'name', 'code', 'description', 'brand','location',
             'category', 'type',
             'category_name', 'type_name',
             'has_individual_stock',
