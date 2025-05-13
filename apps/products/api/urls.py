@@ -9,6 +9,12 @@ from apps.products.api.views.product_files_view import (
     product_file_delete_view,
     product_file_download_view
 )
+from apps.products.api.views.subproduct_files_view import (
+    subproduct_file_upload_view,
+    subproduct_file_list_view,
+    subproduct_file_delete_view,
+    subproduct_file_download_view
+)
 
 urlpatterns = [
     # --- 📂 Categorías ---
@@ -36,4 +42,10 @@ urlpatterns = [
     path('products/<str:product_id>/files/upload/', product_file_upload_view, name='product-file-upload'),
     path('products/<str:product_id>/files/<str:file_id>/delete/', product_file_delete_view, name='product-file-delete'),
     path('products/<str:product_id>/files/<str:file_id>/download/', product_file_download_view, name='product-file-download'),
+
+    # --- 🎞️ Archivos Multimedia de Subproductos ---
+    path('products/<str:product_id>/subproducts/<str:subproduct_id>/files/',subproduct_file_list_view,name='subproduct-file-list'),
+    path('products/<str:product_id>/subproducts/<str:subproduct_id>/files/upload/',subproduct_file_upload_view,name='subproduct-file-upload'),
+    path('products/<str:product_id>/subproducts/<str:subproduct_id>/files/<str:file_id>/delete/',subproduct_file_delete_view,name='subproduct-file-delete'),
+    path('products/<str:product_id>/subproducts/<str:subproduct_id>/files/<str:file_id>/download/',subproduct_file_download_view,name='subproduct-file-download'),
 ]

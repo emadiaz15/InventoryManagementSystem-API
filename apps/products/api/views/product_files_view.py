@@ -1,6 +1,6 @@
 
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 from django.conf import settings
@@ -40,7 +40,7 @@ ALLOWED_CONTENT_TYPES = getattr(settings, "ALLOWED_CONTENT_TYPES", set())
     responses=product_image_upload_doc["responses"]
 )
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminUser])
 def product_file_upload_view(request, product_id: str):
     # Validar existencia del producto
     get_object_or_404(Product, pk=product_id)
@@ -118,7 +118,7 @@ def product_file_list_view(request, product_id: str):
     responses=product_image_delete_doc["responses"]
 )
 @api_view(["DELETE"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminUser])
 def product_file_delete_view(request, product_id: str, file_id: str):
     get_object_or_404(Product, pk=product_id)
 
