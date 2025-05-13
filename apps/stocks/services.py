@@ -17,7 +17,6 @@ User = settings.AUTH_USER_MODEL
 @transaction.atomic
 def initialize_product_stock(product: Product, user: User, 
                              initial_quantity: Decimal = Decimal('0.00'),
-                             location: str = None, 
                              reason: str = "Stock Inicial por Creación") -> ProductStock:
     """
     Crea el registro ProductStock inicial para un producto y el evento de stock correspondiente.
@@ -34,17 +33,16 @@ def initialize_product_stock(product: Product, user: User,
         raise ValidationError("La cantidad inicial debe ser un número válido.")
 
     # Verificar si ya existe un registro de stock para este producto y ubicación.
-    query_params = {'product': product, 'location': location}
+    query_params = {'product': product}
     existing_stock = ProductStock.objects.filter(**query_params).first()
     if existing_stock:
         raise ValueError(
-            f"Ya existe stock para '{product.name}' en la ubicación '{location or 'N/A'}'. Use ajuste de stock."
+            f"Ya existe stock para '{product.name}'. Use ajuste de stock."
         )
 
     stock_instance = ProductStock(
         product=product,
-        quantity=initial_quantity,
-        location=location
+        quantity=initial_quantity
     )
     # Guardar usando BaseModel.save para asignar created_by
     stock_instance.save(user=user)
@@ -57,7 +55,6 @@ def initialize_product_stock(product: Product, user: User,
             quantity_change=initial_quantity,
             event_type='ingreso_inicial',
             created_by=user,
-            location=stock_instance.location,
             notes=reason
         )
 
@@ -94,8 +91,7 @@ def adjust_product_stock(product_stock: ProductStock, quantity_change: Decimal,
         subproduct_stock=None,
         quantity_change=quantity_change,
         event_type='ingreso_ajuste' if quantity_change > 0 else 'egreso_ajuste',
-        created_by=user,
-        location=product_stock.location,
+        created_by=user,        
         notes=reason
     )
     print(f"--- Servicio: Stock ajustado para Producto {product_stock.product.pk} ---")
@@ -106,8 +102,7 @@ def adjust_product_stock(product_stock: ProductStock, quantity_change: Decimal,
 
 @transaction.atomic
 def initialize_subproduct_stock(subproduct: Subproduct, user: User, 
-                                initial_quantity: Decimal = Decimal('0.00'),
-                                location: str = None, 
+                                initial_quantity: Decimal = Decimal('0.00'), 
                                 reason: str = "Stock Inicial por Creación") -> SubproductStock:
     """
     Crea el registro SubproductStock inicial para un subproducto y el evento correspondiente.
@@ -123,17 +118,16 @@ def initialize_subproduct_stock(subproduct: Subproduct, user: User,
     except (InvalidOperation, TypeError):
         raise ValidationError("La cantidad inicial debe ser un número válido.")
 
-    query_params = {'subproduct': subproduct, 'location': location}
+    query_params = {'subproduct': subproduct}
     existing_stock = SubproductStock.objects.filter(**query_params).first()
     if existing_stock:
         raise ValueError(
-            f"Ya existe stock para '{subproduct.name}' en la ubicación '{location or 'N/A'}'. Use ajuste de stock."
+            f"Ya existe stock para '{subproduct.name}'. Use ajuste de stock."
         )
 
     stock_instance = SubproductStock(
         subproduct=subproduct,
-        quantity=initial_quantity,
-        location=location
+        quantity=initial_quantity
     )
     stock_instance.save(user=user)
 
@@ -144,7 +138,6 @@ def initialize_subproduct_stock(subproduct: Subproduct, user: User,
             quantity_change=initial_quantity,
             event_type='ingreso_inicial',
             created_by=user,
-            location=stock_instance.location,
             notes=reason
         )
     print(f"--- Servicio: Stock inicial creado para Subproducto {subproduct.pk} ---")
@@ -181,7 +174,6 @@ def adjust_subproduct_stock(subproduct_stock: SubproductStock, quantity_change: 
         quantity_change=quantity_change,
         event_type='ingreso_ajuste' if quantity_change > 0 else 'egreso_ajuste',
         created_by=user,
-        location=subproduct_stock.location,
         notes=reason
     )
     print(f"--- Servicio: Stock ajustado para Subproducto {subproduct_stock.subproduct.pk} ---")
@@ -190,8 +182,7 @@ def adjust_subproduct_stock(subproduct_stock: SubproductStock, quantity_change: 
 
 @transaction.atomic
 def dispatch_subproduct_stock_for_cut(subproduct: Subproduct, cutting_quantity: Decimal,
-                                      order_pk: int, user_performing_cut: User,
-                                      location: str = None) -> SubproductStock:
+                                      order_pk: int, user_performing_cut: User) -> SubproductStock:
     """
     Descuenta stock de un subproducto debido a una orden de corte y crea el evento.
     """
@@ -210,13 +201,12 @@ def dispatch_subproduct_stock_for_cut(subproduct: Subproduct, cutting_quantity: 
     try:
         stock_to_update = SubproductStock.objects.select_for_update().get(
             subproduct=subproduct,
-            location=location,
             status=True
         )
     except SubproductStock.DoesNotExist:
-        raise ValidationError(f"No se encontró stock activo para '{subproduct.name}' en la ubicación '{location or 'N/A'}'.")
+        raise ValidationError(f"No se encontró stock activo para '{subproduct.name}'.")
     except SubproductStock.MultipleObjectsReturned:
-        raise ValidationError(f"Múltiples registros de stock encontrados para '{subproduct.name}' en la ubicación '{location or 'N/A'}'. Se requiere lógica adicional.")
+        raise ValidationError(f"Múltiples registros de stock encontrados para '{subproduct.name}'. Se requiere lógica adicional.")
     
     if cutting_quantity > stock_to_update.quantity:
         raise ValidationError(
@@ -232,7 +222,6 @@ def dispatch_subproduct_stock_for_cut(subproduct: Subproduct, cutting_quantity: 
         quantity_change=-cutting_quantity,
         event_type='egreso_corte',
         created_by=user_performing_cut,
-        location=stock_to_update.location,
         notes=f"Egreso por Orden de Corte #{order_pk}"
     )
     print(f"--- Servicio: Stock descontado por corte para Subproducto {subproduct.pk} ---")

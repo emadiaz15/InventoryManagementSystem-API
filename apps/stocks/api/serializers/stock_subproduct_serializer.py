@@ -18,7 +18,7 @@ class StockSubproductSerializer(BaseSerializer):
     class Meta:
         model = SubproductStock
         fields = [
-            'id', 'subproduct', 'quantity', 'location', # Campos específicos
+            'id', 'subproduct', 'quantity', # Campos específicos
             'subproduct_name', # Representación
             'status', # Campo booleano heredado
             # Campos de auditoría (formateados por BaseSerializer.to_representation)

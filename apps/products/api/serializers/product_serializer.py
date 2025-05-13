@@ -61,7 +61,7 @@ class ProductSerializer(BaseSerializer):
         model = Product
         fields = [
             'id', 'name', 'code', 'description', 'brand','location',
-            'category', 'type',
+            'category', 'type', 'position',
             'category_name', 'type_name',
             'has_individual_stock',
             'current_stock',

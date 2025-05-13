@@ -16,17 +16,13 @@ class SubproductStock(BaseModel):
         max_digits=15, decimal_places=2, default=0,
         verbose_name="Cantidad Actual"
     )
-    location = models.CharField(
-        max_length=100, null=True, blank=True,
-        verbose_name="Ubicación"
-    )
 
     class Meta:
         verbose_name = "Stock de Subproducto"
         verbose_name_plural = "Stocks de Subproductos"
         # Asegura que no haya dos registros para el mismo subproducto en la misma ubicación
-        unique_together = [['subproduct', 'location']]
+        unique_together = ['subproduct']
 
     def __str__(self):
         subproduct_name = getattr(self.subproduct, 'name', f'ID:{self.subproduct_id}')
-        return f"Stock de {subproduct_name}: {self.quantity} @ {self.location or 'N/A'}"
+        return f"Stock de {subproduct_name}: {self.quantity}"

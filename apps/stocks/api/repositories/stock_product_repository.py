@@ -46,7 +46,7 @@ class StockProductRepository:
 
     # --- Método Create BÁSICO ---
     @staticmethod
-    def create_stock(product: Product, quantity: float, user, location: str = None) -> ProductStock:
+    def create_stock(product: Product, quantity: float, user) -> ProductStock:
         """
         Crea un registro de ProductStock básico.
         La creación del StockEvent inicial debe manejarse en un Servicio/Transacción.
@@ -65,9 +65,7 @@ class StockProductRepository:
 
         stock = ProductStock(
             product=product,
-            quantity=quantity,
-            location=location
-            # created_by será asignado por save()
+            quantity=quantity            # created_by será asignado por save()
         )
         stock.save(user=user) # Delega a BaseModel
         return stock

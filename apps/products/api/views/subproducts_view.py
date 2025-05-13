@@ -105,7 +105,6 @@ def create_subproduct(request, prod_pk):
                 subproduct=subp,
                 user=request.user,
                 initial_quantity=initial_qty,
-                location=data.get('initial_stock_location'),
                 reason=data.get('initial_stock_reason')
             )
     except Exception as e:
@@ -196,7 +195,7 @@ def subproduct_detail(request, prod_pk, subp_pk):
                 qty_change = serializer.validated_data.get('quantity_change')
                 reason     = serializer.validated_data.get('reason')
                 if qty_change is not None:
-                    stock_rec = SubproductStock.objects.select_for_update().get(subproduct=updated, location=None, status=True)
+                    stock_rec = SubproductStock.objects.select_for_update().get(subproduct=updated, status=True)
                     adjust_subproduct_stock(
                         subproduct_stock=stock_rec,
                         quantity_change=qty_change,

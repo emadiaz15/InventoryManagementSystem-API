@@ -13,7 +13,7 @@ class Subproduct(BaseModel):
     gross_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Peso Bruto (kg)")
     net_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Peso Neto (kg)")
     initial_stock_quantity = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Cantidad de Stock Inicial")
-    initial_stock_location = models.CharField(
+    location = models.CharField(
         max_length=100,
         choices=[
             ("Deposito Principal", "Depósito Principal"),

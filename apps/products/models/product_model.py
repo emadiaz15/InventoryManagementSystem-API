@@ -16,8 +16,8 @@ class Product(BaseModel):
     code = models.CharField(max_length=20, unique=True, null=True, blank=True, verbose_name="Código")
     description = models.TextField(null=True, blank=True, verbose_name="Descripción")
     brand = models.CharField(max_length=255, null=True, blank=True, verbose_name="Marca")
-    location = models.CharField(max_length=255, null=True, blank=True, verbose_name="Posición")
-    
+    location = models.CharField(max_length=255, null=True, blank=True, verbose_name="Ubicación")
+    position = models.CharField(max_length=255, null=True, blank=True, verbose_name="Posición")
     # --- Relaciones ForeignKey ---
     category = models.ForeignKey(
         Category,

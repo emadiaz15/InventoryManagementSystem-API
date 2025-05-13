@@ -47,7 +47,6 @@ class StockEvent(BaseModel): # HEREDA DE BASEMODEL
         choices=EVENT_TYPES,
         help_text="Tipo de evento de stock"
     )
-    location = models.CharField(max_length=100, null=True, blank=True, help_text="Ubicación donde ocurrió el evento")
     notes = models.TextField(blank=True, null=True, verbose_name="Notas Adicionales") # Campo útil
 
     class Meta:

@@ -16,10 +16,6 @@ class ProductStock(BaseModel):
         max_digits=15, decimal_places=2, default=0,
         verbose_name="Cantidad Actual"
     )
-    location = models.CharField( 
-        max_length=100, null=True, blank=True,
-        verbose_name="Ubicación"
-    )
 
     class Meta:
         verbose_name = "Stock de Producto"
@@ -28,4 +24,4 @@ class ProductStock(BaseModel):
 
     def __str__(self):
         product_name = getattr(self.product, 'name', f'ID:{self.product_id}')
-        return f"Stock de {product_name}: {self.quantity} @ {self.location or 'N/A'}"
+        return f"Stock de {product_name}: {self.quantity}"

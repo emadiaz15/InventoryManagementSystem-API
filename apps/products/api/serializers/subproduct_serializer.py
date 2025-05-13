@@ -44,7 +44,7 @@ class SubProductSerializer(BaseSerializer):
             'id', 'brand', 'number_coil',
             'initial_enumeration', 'final_enumeration',
             'gross_weight', 'net_weight',
-            'initial_stock_quantity', 'initial_stock_location',
+            'initial_stock_quantity', 'location',
             'technical_sheet_photo', 'form_type', 'observations',
             'parent', 'parent_name',
             'current_stock', 'status',
