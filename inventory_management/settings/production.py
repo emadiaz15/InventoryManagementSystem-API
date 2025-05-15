@@ -43,7 +43,7 @@ CSRF_TRUSTED_ORIGINS = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',')
 CORS_ALLOWED_ORIGINS = os.getenv('DJANGO_CORS_ALLOWED_ORIGINS', '').split(',')
 CORS_ALLOWED_ORIGIN_REGEXES = []
 CORS_ALLOW_HEADERS = [
-    'authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with',
+    'authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with', 'x-api-key'
 ]
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_ALL_ORIGINS = False

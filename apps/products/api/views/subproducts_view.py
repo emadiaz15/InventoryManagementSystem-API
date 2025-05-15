@@ -58,6 +58,7 @@ def subproduct_list(request, prod_pk):
     )
 
     paginator = Pagination()
+    paginator.page_size = 8  # <- ajustamos aquí el tamaño de página a 8
     page = paginator.paginate_queryset(qs, request)
     serializer = SubProductSerializer(page, many=True, context={'request': request})
     return paginator.get_paginated_response(serializer.data)
@@ -75,56 +76,33 @@ def subproduct_list(request, prod_pk):
 @permission_classes([IsAdminUser])
 def create_subproduct(request, prod_pk):
     """
-    Endpoint para crear un nuevo subproducto e inicializar su stock.
-    Solo administradores.
+    Crea un nuevo subproducto asignándole el producto padre.
+    La inicialización de stock se delega a otro servicio.
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
-    data = request.data.copy()
-    data.setdefault('initial_stock_reason', 'Stock Inicial por Creación Subproducto')
-    data.setdefault('initial_stock_location', None)
 
-    # Validar cantidad inicial
-    qty_str = data.pop('initial_stock_quantity', '0')
-    try:
-        initial_qty = Decimal(qty_str)
-        if initial_qty < 0:
-            raise ValueError("Cantidad negativa")
-    except (InvalidOperation, ValueError):
-        raise serializers.ValidationError({
-            "initial_stock_quantity": f"Valor inválido ('{qty_str}') para cantidad inicial."
-        })
-
-    serializer = SubProductSerializer(data=data, context={'request': request, 'parent_product': parent})
+    # Construimos el serializer e inyectamos el parent en el contexto
+    serializer = SubProductSerializer(
+        data=request.data,
+        context={'request': request, 'parent_product': parent}
+    )
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # Guardamos pasando el user para la auditoría
     try:
         with transaction.atomic():
             subp = serializer.save(user=request.user)
-            initialize_subproduct_stock(
-                subproduct=subp,
-                user=request.user,
-                initial_quantity=initial_qty,
-                location=data.get('initial_stock_location'),
-                reason=data.get('initial_stock_reason')
-            )
+    except serializers.ValidationError as e:
+        return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        logger.error(f"Error creando subproducto: {e}")
-        detail = getattr(e, 'detail', str(e))
-        return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # Re-anotar stock para la respuesta
-    annotated = Subproduct.objects.annotate(
-        current_stock_val=Subquery(
-            SubproductStock.objects.filter(subproduct=subp, status=True)
-            .values('quantity')[:1],
-            output_field=DecimalField(max_digits=15, decimal_places=2)
-        )
-    ).annotate(
-        current_stock=Coalesce('current_stock_val', Decimal('0.00'), output_field=DecimalField(max_digits=15, decimal_places=2))
-    ).get(pk=subp.pk)
-
-    resp_ser = SubProductSerializer(annotated, context={'request': request, 'parent_product': parent})
+    # Serializamos de nuevo para la respuesta
+    resp_ser = SubProductSerializer(
+        subp,
+        context={'request': request, 'parent_product': parent}
+    )
     return Response(resp_ser.data, status=status.HTTP_201_CREATED)
 
 # --- Obtener, actualizar y eliminar subproducto por ID ---
@@ -196,7 +174,7 @@ def subproduct_detail(request, prod_pk, subp_pk):
                 qty_change = serializer.validated_data.get('quantity_change')
                 reason     = serializer.validated_data.get('reason')
                 if qty_change is not None:
-                    stock_rec = SubproductStock.objects.select_for_update().get(subproduct=updated, location=None, status=True)
+                    stock_rec = SubproductStock.objects.select_for_update().get(subproduct=updated, status=True)
                     adjust_subproduct_stock(
                         subproduct_stock=stock_rec,
                         quantity_change=qty_change,

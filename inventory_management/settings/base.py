@@ -198,3 +198,11 @@ DEFAULT_PARSER_CLASSES = [
     'rest_framework.parsers.MultiPartParser',
     'rest_framework.parsers.FormParser',
 ]
+
+# --- Restricción solo por tipo MIME seguro (imagen/video) ---
+ALLOWED_CONTENT_TYPES = {
+    "image/jpeg", "image/png", "image/webp", "image/jpg",
+    "video/mp4", "video/mpeg", "video/quicktime",
+    "video/webm", "video/x-msvideo", "video/x-matroska",
+    "application/pdf"
+}

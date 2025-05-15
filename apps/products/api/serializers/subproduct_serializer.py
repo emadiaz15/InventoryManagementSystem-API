@@ -17,6 +17,7 @@ class SubProductSerializer(BaseSerializer):
 
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
     parent_name = serializers.CharField(source='parent.name', read_only=True)
+    parent_type_name = serializers.CharField(source='parent.type.name', read_only=True)
 
     current_stock = serializers.DecimalField(
         max_digits=15, decimal_places=2,
@@ -44,16 +45,16 @@ class SubProductSerializer(BaseSerializer):
             'id', 'brand', 'number_coil',
             'initial_enumeration', 'final_enumeration',
             'gross_weight', 'net_weight',
-            'initial_stock_quantity', 'initial_stock_location',
+            'initial_stock_quantity', 'location',
             'technical_sheet_photo', 'form_type', 'observations',
-            'parent', 'parent_name',
+            'parent', 'parent_name', 'parent_type_name',
             'current_stock', 'status',
             'created_at', 'modified_at', 'deleted_at',
             'created_by', 'modified_by', 'deleted_by',
             'quantity_change', 'reason'
         ]
         read_only_fields = [
-            'parent', 'parent_name', 'status', 'current_stock',
+            'parent', 'parent_name', 'parent_type_name', 'status', 'current_stock',
             'created_at', 'modified_at', 'deleted_at',
             'created_by', 'modified_by', 'deleted_by'
         ]
@@ -78,10 +79,12 @@ class SubProductSerializer(BaseSerializer):
             raise serializers.ValidationError("La cantidad inicial de stock no puede ser negativa.")
         return value
 
-    # CREATE asigna el parent desde el contexto
-    def create(self, validated_data):
+    # CREATE asigna el parent desde el contexto y acepta el user pasado por BaseSerializer.save()
+    def create(self, validated_data, user=None):
         parent_product = self.context.get('parent_product')
         if not parent_product:
-            raise serializers.ValidationError("Error interno: Falta 'parent_product' en el contexto del serializador.")
+            raise serializers.ValidationError(
+                "Error interno: Falta 'parent_product' en el contexto del serializador."
+            )
         validated_data['parent'] = parent_product
-        return super().create(validated_data)
+        return super().create(validated_data, user=user)

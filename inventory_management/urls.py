@@ -1,19 +1,42 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import HttpResponse, HttpResponseRedirect
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+import requests
 
-# Rutas de la API definidas en cada aplicación
+# ========================
+# 🔀 PROXY FASTAPI PRODUCT
+# ========================
+def proxy_to_fastapi(request, path):
+    fastapi_url = f"http://localhost:8001/api/v1/product/{path}"
+    try:
+        response = requests.request(
+            method=request.method,
+            url=fastapi_url,
+            headers={k: v for k, v in request.headers.items() if k.lower() != 'host'},
+            data=request.body,
+            stream=True
+        )
+        return HttpResponse(
+            response.content,
+            status=response.status_code,
+            content_type=response.headers.get('Content-Type')
+        )
+    except requests.exceptions.RequestException as e:
+        return HttpResponse(f"Error al conectar con FastAPI: {e}", status=500)
+
+# ========================
+# 🔌 DJANGO URL PATTERNS
+# ========================
 api_patterns = [
-    path('users/', include('apps.users.api.urls')),  # Rutas de la app `users`
-    path('inventory/', include('apps.products.api.urls')),  # Rutas de la app `products`
-    path('cutting/', include('apps.cuts.api.urls')),  # Rutas de la app `cutting`
-    path('stocks/', include('apps.stocks.api.urls')),  # Rutas para los eventos de stock
+    path('users/', include('apps.users.api.urls')),         # Usuarios
+    path('inventory/', include('apps.products.api.urls')),  # Productos
+    path('cutting/', include('apps.cuts.api.urls')),        # Cortes
+    path('stocks/', include('apps.stocks.api.urls')),       # Stock
 ]
 
-# Rutas para la documentación de la API con drf-spectacular
 schema_patterns = [
     path('', lambda request: HttpResponseRedirect('swagger-ui/')),
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
@@ -30,5 +53,11 @@ urlpatterns = [
     path('api/v1/docs/', include(schema_patterns)),
 ]
 
+# ✅ Media files
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# ✅ FASTAPI Proxy (solo para /api/v1/product/**)
+urlpatterns += [
+    re_path(r'^api/v1/product/(?P<path>.*)$', proxy_to_fastapi),
+]

@@ -128,7 +128,6 @@ def create_product(request):
                     product=product,
                     user=request.user,
                     initial_quantity=initial_qty,
-                    location=location,
                     reason=reason
                 )
     except Exception as e:
@@ -177,7 +176,9 @@ def product_detail(request, prod_pk):
     - PUT: actualización stock/opcional (solo staff).  
     - DELETE: baja suave (solo staff).
     """
-    product = get_object_or_404(ProductRepository.get_by_id(prod_pk))
+    product = ProductRepository.get_by_id(prod_pk)
+    if not product:
+        return Response({"detail": "Producto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
     # --- GET ---
     if request.method == 'GET':
@@ -226,7 +227,7 @@ def product_detail(request, prod_pk):
                 reason     = serializer.validated_data.get('reason')
                 if qty_change is not None:
                     if updated.has_individual_stock:
-                        stock_rec = ProductStock.objects.select_for_update().get(product=updated, location=None)
+                        stock_rec = ProductStock.objects.select_for_update().get(product=updated)
                         adjust_product_stock(
                             product_stock=stock_rec,
                             quantity_change=qty_change,

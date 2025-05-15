@@ -27,7 +27,7 @@ class ProductRepository:
             return None
 
     @staticmethod
-    def create(name: str, description: str, category_id: int, type_id: int, user, code: int = None, brand: str = None, image=None, location=None) -> Product:
+    def create(name: str, description: str, category_id: int, type_id: int, user, code: int = None, brand: str = None, location=None, position=None) -> Product:
         """
         Crea un nuevo producto usando la lógica de BaseModel.save.
         Ya no maneja 'quantity'.
@@ -49,13 +49,13 @@ class ProductRepository:
             code=code,
             brand=brand,
             location=location,
-            image=image
+            position=position,
         )
         product_instance.save(user=user)
         return product_instance
 
     @staticmethod
-    def update(product_instance: Product, user, name: str = None, description: str = None, category_id: int = None, type_id: int = None, code: int = None, brand: str = None, image=None) -> Product:
+    def update(product_instance: Product, user, name: str = None, description: str = None, category_id: int = None, type_id: int = None, code: int = None, brand: str = None, location=None, position=None) -> Product:
         """
         Actualiza un producto usando la lógica de BaseModel.save.
         No maneja quantity ni status (usar repo/servicio de stock o soft_delete).
@@ -70,8 +70,10 @@ class ProductRepository:
             product_instance.brand = brand; changes_made = True
         if code is not None and product_instance.code != code:
             product_instance.code = code; changes_made = True
-        if image is not None and product_instance.image != image:
-            product_instance.image = image; changes_made = True
+        if location is not None and product_instance.location != location:
+            product_instance.location = location; changes_made = True
+        if position is not None and product_instance.position != position:
+            product_instance.position = position; changes_made = True
 
         # Manejar FKs
         if category_id is not None and product_instance.category_id != category_id:

@@ -1,31 +1,76 @@
-# apps/products/docs/product_image_doc.py
-
 from drf_spectacular.utils import OpenApiResponse, OpenApiParameter
 
-# --- Listar imágenes de un producto ---
-list_product_images_doc = {
-    "tags": ["Product Images"],
-    "summary": "Listar imágenes de un producto",
-    "operation_id": "list_product_images",
-    "description": "Obtiene todas las imágenes asociadas a un producto específico desde el servicio externo.",
+# --- Subir imagen o video de producto ---
+product_image_upload_doc = {
+    "tags": ["Productos - Archivos"],
+    "summary": "Subir imagen o video de producto",
+    "operation_id": "uploadProductFile",
+    "description": (
+        "Sube un archivo multimedia (imagen o video) asociado a un producto. "
+        "Solo administradores pueden realizar esta acción. "
+        "Formatos permitidos: JPEG, PNG, WEBP, MP4, MOV, AVI, WEBM, MKV."
+    ),
     "parameters": [
         OpenApiParameter(
             name="product_id",
             location=OpenApiParameter.PATH,
             required=True,
             type=str,
-            description="ID del producto al cual pertenecen las imágenes."
+            description="ID del producto al cual se sube el archivo."
+        )
+    ],
+    "requestBody": {
+        "required": True,
+        "content": {
+            "multipart/form-data": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "file": {
+                            "type": "string",
+                            "format": "binary",
+                            "description": "Archivo multimedia a subir"
+                        }
+                    },
+                    "required": ["file"]
+                }
+            }
+        }
+    },
+    "responses": {
+        201: OpenApiResponse(description="Archivo subido exitosamente"),
+        400: OpenApiResponse(description="Archivo inválido o falta archivo"),
+        500: OpenApiResponse(description="Error inesperado al subir el archivo"),
+        404: OpenApiResponse(description="Producto no encontrado")
+    }
+}
+
+# --- Listar archivos (imágenes/videos) del producto ---
+product_image_list_doc = {
+    "tags": ["Productos - Archivos"],
+    "summary": "Listar archivos del producto",
+    "operation_id": "listProductFiles",
+    "description": (
+        "Devuelve una lista de archivos multimedia (imágenes/videos) vinculados a un producto específico."
+    ),
+    "parameters": [
+        OpenApiParameter(
+            name="product_id",
+            location=OpenApiParameter.PATH,
+            required=True,
+            type=str,
+            description="ID del producto del cual se listan los archivos."
         )
     ],
     "responses": {
         200: OpenApiResponse(
-            description="Lista de imágenes recuperadas exitosamente",
+            description="Lista de archivos obtenida exitosamente",
             response={
                 'application/json': {
                     'schema': {
                         'type': 'object',
                         'properties': {
-                            'images': {
+                            'files': {
                                 'type': 'array',
                                 'items': {
                                     'type': 'object',
@@ -42,74 +87,71 @@ list_product_images_doc = {
                 }
             }
         ),
-        404: OpenApiResponse(description="Producto o imágenes no encontradas")
-    }
-}
-
-# --- Subir una nueva imagen al producto ---
-upload_product_image_doc = {
-    "tags": ["Product Images"],
-    "summary": "Subir imagen a producto",
-    "operation_id": "upload_product_image",
-    "description": "Sube una nueva imagen para un producto específico.",
-    "parameters": [
-        OpenApiParameter(
-            name="product_id",
-            location=OpenApiParameter.PATH,
-            required=True,
-            type=str,
-            description="ID del producto al cual se sube la imagen."
-        )
-    ],
-    "requestBody": {
-        "required": True,
-        "content": {
-            "multipart/form-data": {
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "file": {
-                            "type": "string",
-                            "format": "binary",
-                            "description": "Archivo de imagen a subir"
-                        }
-                    },
-                    "required": ["file"]
-                }
-            }
-        }
-    },
-    "responses": {
-        201: OpenApiResponse(description="Imagen subida exitosamente"),
-        400: OpenApiResponse(description="Datos inválidos o falta de archivo"),
+        500: OpenApiResponse(description="Error interno del servidor"),
         404: OpenApiResponse(description="Producto no encontrado")
     }
 }
 
-# --- Eliminar una imagen de un producto ---
-delete_product_image_doc = {
-    "tags": ["Product Images"],
-    "summary": "Eliminar imagen de producto",
-    "operation_id": "delete_product_image",
-    "description": "Elimina una imagen existente asociada a un producto específico.",
+# --- Eliminar archivo multimedia del producto ---
+product_image_delete_doc = {
+    "tags": ["Productos - Archivos"],
+    "summary": "Eliminar archivo del producto",
+    "operation_id": "deleteProductFile",
+    "description": "Elimina un archivo específico (imagen o video) de un producto. Solo administradores.",
     "parameters": [
         OpenApiParameter(
             name="product_id",
             location=OpenApiParameter.PATH,
             required=True,
             type=str,
-            description="ID del producto asociado a la imagen."
+            description="ID del producto asociado al archivo"
         ),
         OpenApiParameter(
             name="file_id",
             location=OpenApiParameter.PATH,
             required=True,
             type=str,
-            description="ID de la imagen a eliminar."
+            description="ID del archivo a eliminar"
         )
     ],
     "responses": {
-        200: OpenApiResponse(description="Imagen eliminada exitosamente"),
-        404: OpenApiResponse(description="Producto o imagen no encontrados")
+        200: OpenApiResponse(description="Archivo eliminado exitosamente"),
+        404: OpenApiResponse(description="Producto o archivo no encontrado"),
+        500: OpenApiResponse(description="Error al eliminar archivo")
+    }
+}
+
+# --- Descargar archivo multimedia del producto ---
+product_image_download_doc = {
+    "tags": ["Productos - Archivos"],
+    "summary": "Descargar archivo del producto",
+    "operation_id": "downloadProductFile",
+    "description": (
+        "Devuelve un archivo multimedia (imagen o video) vinculado a un producto. "
+        "Usa un token JWT temporal para validar el acceso. "
+        "El archivo se sirve como binario protegido con cabecera `Content-Disposition` inline."
+    ),
+    "parameters": [
+        OpenApiParameter(
+            name="product_id",
+            location=OpenApiParameter.PATH,
+            required=True,
+            type=str,
+            description="ID del producto al que pertenece el archivo"
+        ),
+        OpenApiParameter(
+            name="file_id",
+            location=OpenApiParameter.PATH,
+            required=True,
+            type=str,
+            description="ID del archivo a descargar"
+        )
+    ],
+    "responses": {
+        200: OpenApiResponse(
+            description="Archivo binario descargado exitosamente (image/video)",
+        ),
+        404: OpenApiResponse(description="Archivo no encontrado"),
+        500: OpenApiResponse(description="Error inesperado al descargar archivo")
     }
 }

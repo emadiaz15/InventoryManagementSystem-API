@@ -53,7 +53,7 @@ class SubproductRepository:
         allowed_fields = {
             'brand', 'number_coil', 'initial_enumeration', 'final_enumeration',
             'gross_weight', 'net_weight', 'initial_stock_quantity',
-            'initial_stock_location', 'technical_sheet_photo', 'form_type', 'observations'
+            'location', 'technical_sheet_photo', 'form_type', 'observations'
         }
 
         for field, value in data.items():

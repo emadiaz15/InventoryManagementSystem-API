@@ -41,7 +41,7 @@ class StockSubproductRepository:
 
     # --- Método Create BÁSICO ---
     @staticmethod
-    def create_stock(subproduct: Subproduct, quantity: float, user, location: str = None) -> SubproductStock:
+    def create_stock(subproduct: Subproduct, quantity: float, user) -> SubproductStock:
         """
         Crea un registro de SubproductStock básico.
         La creación del StockEvent inicial debe manejarse en un Servicio.
@@ -56,9 +56,7 @@ class StockSubproductRepository:
 
         stock = SubproductStock(
             subproduct=subproduct,
-            quantity=quantity,
-            location=location
-
+            quantity=quantity
         )
         stock.save(user=user) # Delega a BaseModel
         return stock

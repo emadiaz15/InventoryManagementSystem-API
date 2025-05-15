@@ -17,7 +17,7 @@ class StockProductSerializer(BaseSerializer):  # HEREDA DE BASE SERIALIZER
     class Meta:
         model = ProductStock
         fields = [
-            'id', 'product', 'quantity', 'location',  # Campos específicos
+            'id', 'product', 'quantity',  # Campos específicos
             'product_name',  # Representación
             'status',  # Campo booleano heredado
             # Campos de auditoría (formateados por BaseSerializer.to_representation)

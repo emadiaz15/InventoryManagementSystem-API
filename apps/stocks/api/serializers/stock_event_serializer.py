@@ -30,7 +30,7 @@ class StockEventSerializer(BaseSerializer):
         fields = [
             'id',
             # Campos específicos del evento
-            'quantity_change', 'event_type', 'location', 'notes',
+            'quantity_change', 'event_type', 'notes',
             # FKs (solo IDs para posible entrada, representación arriba)
             'product_stock', 'subproduct_stock',
             # Campos de representación
