@@ -37,7 +37,7 @@ def upload_profile_image(file, user_id: int) -> dict:
             getattr(file, "content_type", "application/octet-stream")
         )
     }
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"x-api-key":    f"Bearer {token}"}
     resp = requests.post(url, headers=headers, files=files)
     resp.raise_for_status()
     return resp.json()
@@ -63,7 +63,7 @@ def replace_profile_image(file, file_id: str, user_id: int) -> dict:
             getattr(file, "content_type", "application/octet-stream")
         )
     }
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"x-api-key":    f"Bearer {token}"}
 
     resp = requests.put(url, headers=headers, files=files)
     resp.raise_for_status()
@@ -76,7 +76,7 @@ def delete_profile_image(file_id: str, user_id: int):
     """
     token = generate_jwt({"user_id": user_id})
     url = f"{DRIVE_API_BASE_URL.rstrip('/')}/profile/delete/{file_id}"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"x-api-key":    f"Bearer {token}"}
 
     resp = requests.delete(url, headers=headers)
     resp.raise_for_status()
