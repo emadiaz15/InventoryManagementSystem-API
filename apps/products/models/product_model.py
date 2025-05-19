@@ -42,7 +42,12 @@ class Product(BaseModel):
         blank=True,
         verbose_name="Ubicación"
     )
-
+    position = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name="Posición"
+    )
     # --- Relaciones ForeignKey ---
     category = models.ForeignKey(
         Category,
