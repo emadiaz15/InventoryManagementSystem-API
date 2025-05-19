@@ -13,7 +13,7 @@ class SubproductFileRepository:
         """
         Lista todas las imágenes asociadas a un subproducto.
         """
-        return SubproductImage.objects.filter(subproduct_id=subproduct_id)
+        return SubproductImage.objects.filter(subproduct_id=subproduct_id).order_by("created_at")
 
     @staticmethod
     def get_by_id(file_id: str):
@@ -51,7 +51,7 @@ class SubproductFileRepository:
             return None
 
     @staticmethod
-    def create(subproduct_id: int, drive_file_id: str) -> SubproductImage:
+    def create(subproduct_id: int, drive_file_id: str, url: str = "", name: str = "", mime_type: str = "") -> SubproductImage:
         """
         Crea un nuevo SubproductImage vinculado al subproducto indicado.
         """
@@ -62,5 +62,8 @@ class SubproductFileRepository:
 
         return SubproductImage.objects.create(
             subproduct=subp,
-            drive_file_id=drive_file_id
+            drive_file_id=drive_file_id,
+            url=url,
+            name=name,
+            mimeType=mime_type
         )
