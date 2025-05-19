@@ -13,7 +13,7 @@ class SubproductFileRepository:
         """
         Lista todas las imágenes asociadas a un subproducto.
         """
-        return SubproductImage.objects.filter(subproduct_id=subproduct_id)
+        return SubproductImage.objects.filter(subproduct_id=subproduct_id).order_by("created_at")
 
     @staticmethod
     def get_by_id(file_id: str):

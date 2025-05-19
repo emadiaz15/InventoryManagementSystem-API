@@ -3,9 +3,8 @@ from apps.products.models.subproduct_image_model import SubproductImage
 
 class SubproductImageSerializer(serializers.ModelSerializer):
     """
-    Serializer para imágenes multimedia asociadas a un Subproducto.
-    Devuelve los metadatos necesarios para visualizar correctamente
-    los archivos en el frontend.
+    📸 Serializer para archivos multimedia de subproducto.
+    Expone metadatos útiles para descarga y vista previa.
     """
     filename = serializers.SerializerMethodField()
     content_type = serializers.SerializerMethodField()
@@ -23,7 +22,7 @@ class SubproductImageSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_filename(self, obj):
-        return getattr(obj, 'name', f"{obj.drive_file_id}")
+        return obj.name or obj.drive_file_id
 
     def get_content_type(self, obj):
-        return getattr(obj, 'mimeType', 'application/octet-stream')
+        return obj.mimeType or 'application/octet-stream'
