@@ -28,9 +28,9 @@ THIRD_APPS = [
     'sslserver'
 ]
 
-LOCAL_APPS = [
-    'apps.products',
+LOCAL_APPS = [    
     'apps.users',
+    'apps.products',
     'apps.core',
     'apps.cuts',
     'apps.stocks',
