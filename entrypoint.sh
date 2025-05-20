@@ -1,38 +1,43 @@
 #!/bin/sh
 set -e
 
-# Detectar ambiente (DEV o PROD)
-if [ "$DJANGO_SETTINGS_MODULE" = "inventory_management.settings.production" ]; then
-  echo "⌛ Esperando a que la base de datos esté lista en $PGHOST:$PGPORT..."
+echo "🔍 Entorno activo: $DJANGO_SETTINGS_MODULE"
 
-  until nc -z -v -w30 "$PGHOST" "$PGPORT"
-  do
-    echo "⏳ Aún esperando la base de datos en $PGHOST:$PGPORT..."
+# 🔁 Variables básicas
+USE_SQLITE=${USE_SQLITE:-false}
+PORT=${PORT:-8000}
+
+# ⏳ Solo esperar DB si es PostgreSQL
+if [ "$USE_SQLITE" != "true" ]; then
+  if [ -z "$PGHOST" ] || [ -z "$PGPORT" ]; then
+    echo "❌ Variables PGHOST/PGPORT no definidas. ¿Olvidaste definirlas en producción?"
+    exit 1
+  fi
+
+  echo "⌛ Esperando la base de datos PostgreSQL en $PGHOST:$PGPORT..."
+  until nc -z -v -w30 "$PGHOST" "$PGPORT"; do
+    echo "⏳ Esperando conexión con PostgreSQL..."
     sleep 1
   done
-
-  echo "✅ Base de datos disponible!"
+  echo "✅ Conectado a PostgreSQL!"
 else
-  echo "💻 Ambiente de desarrollo detectado, no esperamos base de datos externa (SQLite usado)"
+  echo "🧪 Modo SQLite detectado: saltando espera de DB"
 fi
 
-echo "🔧 Aplicando migraciones..."
+# 🧱 Migraciones
+echo "🔧 Migrando 'users' primero..."
+python manage.py makemigrations users || true
+python manage.py migrate users || true
 
-# 🧠 Aseguramos que users esté migrado antes que otras dependencias
-python manage.py makemigrations users
-python manage.py migrate users
+echo "🔧 Aplicando migraciones generales..."
+python manage.py makemigrations || true
+python manage.py migrate || true
 
-# Luego migramos todo lo demás
-python manage.py makemigrations
-python manage.py migrate --noinput
-
-# 🚀 Modo celery (opcional)
-if [ "$1" = "celery" ]; then
-  shift
-  echo "🚀 Iniciando Celery worker..."
-  exec celery -A inventory_management "$@"
+# 🚀 Iniciar servidor correcto según entorno
+if [ "$DJANGO_SETTINGS_MODULE" = "inventory_management.settings.production" ]; then
+  echo "🚀 Iniciando Gunicorn en puerto $PORT (modo producción)"
+  exec gunicorn inventory_management.wsgi:application --bind 0.0.0.0:$PORT
+else
+  echo "🚧 Iniciando runserver en puerto $PORT (modo desarrollo)"
+  exec python manage.py runserver 0.0.0.0:$PORT
 fi
-
-# 🚀 Iniciar servidor Django
-echo "🚀 Iniciando servidor Django..."
-exec python manage.py runserver 0.0.0.0:8000

@@ -1,31 +1,36 @@
-# Usa una imagen oficial de Python optimizada
+# ✅ Imagen oficial de Python + Alpine
 FROM python:3.10.13-alpine
 
-# Establece el directorio de trabajo
+# 📁 Directorio de trabajo
 WORKDIR /app
 
-# Instala las dependencias necesarias del sistema
-RUN apk add --no-cache gcc musl-dev libffi-dev python3-dev \
-    postgresql-dev jpeg-dev zlib-dev
+# 🧰 Paquetes necesarios para compilar y conectar con Postgres
+RUN apk add --no-cache \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    python3-dev \
+    postgresql-dev \
+    jpeg-dev \
+    zlib-dev \
+    netcat-openbsd
 
-# Copia las dependencias y las instala
-COPY requirements.txt /app/
+# 📦 Instala dependencias Python
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia el código de la aplicación
-COPY . /app/
+# 📁 Copia el resto del proyecto
+COPY . .
 
-# Copia el entrypoint
-COPY entrypoint.sh /app/entrypoint.sh
+# ⚙️ Permisos para el entrypoint
 RUN chmod +x /app/entrypoint.sh
 
-# Variables de entorno importantes
-ARG DJANGO_SETTINGS_MODULE=inventory_management.settings.local
-ENV DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE}
+# 🔐 Variables necesarias para Django
+ENV DJANGO_SETTINGS_MODULE=inventory_management.settings.production
 ENV PYTHONUNBUFFERED=1
 
-# Expone el puerto configurado en Railway o por defecto 8000
-EXPOSE ${PORT:-8000}
+# 🌐 Puerto expuesto (Railway mapea automáticamente el puerto)
+EXPOSE 8000
 
-# Usa un entrypoint personalizado
+# 🚀 Script de arranque
 ENTRYPOINT ["/app/entrypoint.sh"]
