@@ -39,9 +39,12 @@ def cutting_order_assigned_list(request):
     Endpoint para listar las órdenes de corte asignadas al usuario autenticado.
     """
     qs = CuttingOrderRepository.get_cutting_orders_assigned_to(request.user)
-    page = Pagination().paginate_queryset(qs, request)
-    ser = CuttingOrderSerializer(page, many=True, context={'request': request})
-    return Pagination().get_paginated_response(ser.data)
+
+    # 🔁 Igual que en product_list
+    paginator = Pagination()
+    page = paginator.paginate_queryset(qs, request)
+    serializer = CuttingOrderSerializer(page, many=True, context={'request': request})
+    return paginator.get_paginated_response(serializer.data)
 
 
 # --- Listar todas las órdenes de corte ---
@@ -60,9 +63,12 @@ def cutting_order_list(request):
     Endpoint para listar todas las órdenes de corte activas.
     """
     qs = CuttingOrderRepository.get_all_active()
-    page = Pagination().paginate_queryset(qs, request)
-    ser = CuttingOrderSerializer(page, many=True, context={'request': request})
-    return Pagination().get_paginated_response(ser.data)
+
+    # 🔁 Consistente con product_list
+    paginator = Pagination()
+    page = paginator.paginate_queryset(qs, request)
+    serializer = CuttingOrderSerializer(page, many=True, context={'request': request})
+    return paginator.get_paginated_response(serializer.data)
 
 
 # --- Crear una nueva orden de corte ---

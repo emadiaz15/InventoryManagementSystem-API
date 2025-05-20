@@ -1,4 +1,3 @@
-
 from django.utils import timezone
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 
@@ -27,10 +26,20 @@ class ProductRepository:
             return None
 
     @staticmethod
-    def create(name: str, description: str, category_id: int, type_id: int, user, code: int = None, brand: str = None, location=None, position=None) -> Product:
+    def create(
+        name: str,
+        description: str,
+        category_id: int,
+        type_id: int,
+        user,
+        code: int = None,
+        brand: str = None,
+        location=None,
+        position=None,
+        has_subproducts: bool = False
+    ) -> Product:
         """
         Crea un nuevo producto usando la lógica de BaseModel.save.
-        Ya no maneja 'quantity'.
         """
         try:
             category_instance = Category.objects.get(pk=category_id)
@@ -50,15 +59,27 @@ class ProductRepository:
             brand=brand,
             location=location,
             position=position,
+            has_subproducts=has_subproducts 
         )
         product_instance.save(user=user)
         return product_instance
 
     @staticmethod
-    def update(product_instance: Product, user, name: str = None, description: str = None, category_id: int = None, type_id: int = None, code: int = None, brand: str = None, location=None, position=None) -> Product:
+    def update(
+        product_instance: Product,
+        user,
+        name: str = None,
+        description: str = None,
+        category_id: int = None,
+        type_id: int = None,
+        code: int = None,
+        brand: str = None,
+        location=None,
+        position=None,
+        has_subproducts: bool = None
+    ) -> Product:
         """
         Actualiza un producto usando la lógica de BaseModel.save.
-        No maneja quantity ni status (usar repo/servicio de stock o soft_delete).
         """
         changes_made = False
 
@@ -74,6 +95,8 @@ class ProductRepository:
             product_instance.location = location; changes_made = True
         if position is not None and product_instance.position != position:
             product_instance.position = position; changes_made = True
+        if has_subproducts is not None and product_instance.has_subproducts != has_subproducts:
+            product_instance.has_subproducts = has_subproducts; changes_made = True
 
         # Manejar FKs
         if category_id is not None and product_instance.category_id != category_id:
@@ -83,11 +106,8 @@ class ProductRepository:
             try: product_instance.type = Type.objects.get(pk=type_id); changes_made = True
             except Type.DoesNotExist: raise ValueError(f"El tipo con ID {type_id} no existe.")
 
-        # El campo 'status' (booleano) no se maneja aquí, se usa soft_delete
-
-        # Si hubo cambios, llamar a save pasando el usuario
         if changes_made:
-            product_instance.save(user=user) # BaseModel.save() asigna modified_*
+            product_instance.save(user=user)
         return product_instance
 
     @staticmethod
@@ -95,5 +115,5 @@ class ProductRepository:
         """Realiza un soft delete usando la lógica de BaseModel.delete."""
         if not isinstance(product_instance, Product):
              raise ValueError("Se requiere una instancia de Product válida.")
-        product_instance.delete(user=user) # Delega a BaseModel
+        product_instance.delete(user=user)
         return product_instance

@@ -67,13 +67,10 @@ class Product(BaseModel):
     )
 
     # --- NUEVO CAMPO PARA CONTROL DE STOCK ---
-    has_individual_stock = models.BooleanField(
-        default=True,
-        verbose_name="Tiene Stock Individual",
-        help_text=(
-            "Si es True, el stock se busca en ProductStock. "
-            "Si es False, se calcula desde SubproductStock."
-        )
+    has_subproducts = models.BooleanField(
+        default=False,
+        verbose_name="Tiene Subproductos",
+        help_text="Si es True, este producto tiene subproductos asociados."
     )
     # -----------------------------------------
 
