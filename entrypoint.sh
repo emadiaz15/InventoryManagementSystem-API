@@ -5,7 +5,6 @@ set -e
 if [ "$DJANGO_SETTINGS_MODULE" = "inventory_management.settings.production" ]; then
   echo "⌛ Esperando a que la base de datos esté lista en $PGHOST:$PGPORT..."
 
-  # Espera que Postgres esté listo
   until nc -z -v -w30 "$PGHOST" "$PGPORT"
   do
     echo "⏳ Aún esperando la base de datos en $PGHOST:$PGPORT..."
@@ -17,17 +16,23 @@ else
   echo "💻 Ambiente de desarrollo detectado, no esperamos base de datos externa (SQLite usado)"
 fi
 
-echo "🔧 Aplicando migraciones de base de datos..."
-python manage.py makemigrations --noinput
+echo "🔧 Aplicando migraciones..."
+
+# 🧠 Aseguramos que users esté migrado antes que otras dependencias
+python manage.py makemigrations users
+python manage.py migrate users
+
+# Luego migramos todo lo demás
+python manage.py makemigrations
 python manage.py migrate --noinput
 
-# Si el primer argumento es "celery", arranca celery
+# 🚀 Modo celery (opcional)
 if [ "$1" = "celery" ]; then
   shift
   echo "🚀 Iniciando Celery worker..."
   exec celery -A inventory_management "$@"
 fi
 
-# En cualquier otro caso, arranca Django server
+# 🚀 Iniciar servidor Django
 echo "🚀 Iniciando servidor Django..."
 exec python manage.py runserver 0.0.0.0:8000
