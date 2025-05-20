@@ -1,38 +1,42 @@
 #!/bin/sh
 set -e
 
-# Detectar ambiente (DEV o PROD)
-if [ "$DJANGO_SETTINGS_MODULE" = "inventory_management.settings.production" ]; then
-  echo "⌛ Esperando a que la base de datos esté lista en $PGHOST:$PGPORT..."
-
-  until nc -z -v -w30 "$PGHOST" "$PGPORT"
-  do
-    echo "⏳ Aún esperando la base de datos en $PGHOST:$PGPORT..."
-    sleep 1
-  done
-
-  echo "✅ Base de datos disponible!"
-else
-  echo "💻 Ambiente de desarrollo detectado, no esperamos base de datos externa (SQLite usado)"
+# ⚙️ Validar variables necesarias
+if [ -z "$PGHOST" ] || [ -z "$PGPORT" ]; then
+  echo "❌ Variables de conexión a base de datos no definidas (PGHOST o PGPORT)"
+  exit 1
 fi
 
-echo "🔧 Aplicando migraciones..."
+if [ -z "$PORT" ]; then
+  echo "❌ Variable PORT no está definida (Railway la define automáticamente)"
+  exit 1
+fi
 
-# 🧠 Aseguramos que users esté migrado antes que otras dependencias
+echo "⌛ Esperando la base de datos en $PGHOST:$PGPORT..."
+until nc -z -v -w30 "$PGHOST" "$PGPORT"; do
+  echo "⏳ Esperando conexión con DB..."
+  sleep 1
+done
+echo "✅ Base de datos conectada!"
+
+# 🧱 Migraciones
+echo "🔧 Migrando 'users' primero..."
 python manage.py makemigrations users
 python manage.py migrate users
 
-# Luego migramos todo lo demás
+echo "🔧 Aplicando todas las migraciones restantes..."
 python manage.py makemigrations
-python manage.py migrate --noinput
+python manage.py migrate
 
-# 🚀 Modo celery (opcional)
-if [ "$1" = "celery" ]; then
-  shift
-  echo "🚀 Iniciando Celery worker..."
-  exec celery -A inventory_management "$@"
+# 🎯 Collect static
+echo "📦 Recolectando archivos estáticos..."
+python manage.py collectstatic --noinput
+
+# 🚀 Start server
+if [ "$DJANGO_SETTINGS_MODULE" = "inventory_management.settings.production" ]; then
+  echo "🚀 Iniciando Gunicorn en $PORT (modo producción)"
+  exec gunicorn inventory_management.wsgi:application --bind 0.0.0.0:$PORT
+else
+  echo "🚧 Iniciando runserver (modo desarrollo)"
+  exec python manage.py runserver 0.0.0.0:$PORT
 fi
-
-# 🚀 Iniciar servidor Django
-echo "🚀 Iniciando servidor Django..."
-exec python manage.py runserver 0.0.0.0:8000
