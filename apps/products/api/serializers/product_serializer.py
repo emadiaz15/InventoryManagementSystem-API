@@ -63,7 +63,7 @@ class ProductSerializer(BaseSerializer):
             'id', 'name', 'code', 'description', 'brand','location',
             'category', 'type', 'position',
             'category_name', 'type_name',
-            'has_individual_stock',
+            'has_subproducts', 
             'current_stock',
             'subproducts',
             'product_images',
@@ -73,7 +73,7 @@ class ProductSerializer(BaseSerializer):
             'quantity_change', 'reason',
         ]
         read_only_fields = [
-            'status', 'has_individual_stock', 'subproducts', 'current_stock',
+            'status', 'subproducts', 'current_stock',
             'product_images',
             'created_at', 'modified_at', 'deleted_at',
             'created_by', 'modified_by', 'deleted_by',

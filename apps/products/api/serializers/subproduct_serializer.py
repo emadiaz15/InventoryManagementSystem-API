@@ -18,6 +18,7 @@ class SubProductSerializer(BaseSerializer):
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
     parent_name = serializers.CharField(source='parent.name', read_only=True)
     parent_type_name = serializers.CharField(source='parent.type.name', read_only=True)
+    parent_code = serializers.CharField(source='parent.code', read_only=True)
 
     current_stock = serializers.DecimalField(
         max_digits=15, decimal_places=2,
@@ -48,7 +49,7 @@ class SubProductSerializer(BaseSerializer):
             'initial_stock_quantity', 'location',
             'technical_sheet_photo', 'form_type', 'observations',
             'parent', 'parent_name', 'parent_type_name',
-            'current_stock', 'status',
+            'current_stock', 'status','parent_code', 
             'created_at', 'modified_at', 'deleted_at',
             'created_by', 'modified_by', 'deleted_by',
             'quantity_change', 'reason'
@@ -69,8 +70,28 @@ class SubProductSerializer(BaseSerializer):
     def validate(self, data):
         quantity_change = data.get('quantity_change')
         reason = data.get('reason')
+
         if quantity_change is not None and quantity_change != 0 and not reason:
             raise serializers.ValidationError({"reason": ["Se requiere una razón para el ajuste de stock."]})
+
+        # --- Protección anti-duplicados ---
+        parent = self.context.get("parent_product")
+        number_coil = data.get("number_coil")
+        
+        if parent and number_coil:
+            qs = Subproduct.objects.filter(
+                parent=parent,
+                number_coil=number_coil,
+                status=True
+            )
+            # Si es edición (tiene instancia), excluir el mismo ID
+            if self.instance:
+                qs = qs.exclude(id=self.instance.id)
+
+            if qs.exists():
+                raise serializers.ValidationError({
+                    "number_coil": "Ya existe un subproducto con ese número de bobina para este producto."
+                })
         return data
 
     # Validación de cantidad inicial

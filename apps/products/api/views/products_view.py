@@ -59,8 +59,8 @@ def product_list(request):
         subproduct_stock_total=Subquery(subproduct_stock_sum_sq, output_field=DecimalField(max_digits=15, decimal_places=2))
     ).annotate(
         current_stock=Case(
-            When(has_individual_stock=True, individual_stock_qty__isnull=False, then=F('individual_stock_qty')),
-            When(has_individual_stock=False, subproduct_stock_total__isnull=False, then=F('subproduct_stock_total')),
+            When(has_subproducts=False, individual_stock_qty__isnull=False, then=F('individual_stock_qty')),
+            When(has_subproducts=True, subproduct_stock_total__isnull=False, then=F('subproduct_stock_total')),
             default=Decimal('0.00'),
             output_field=DecimalField(max_digits=15, decimal_places=2)
         )
@@ -95,7 +95,8 @@ def create_product(request):
     Solo administradores.
     """
     data = request.data.copy()
-    data['has_individual_stock'] = True
+    data['has_subproducts'] = False
+
 
     # Extraer stock inicial
     qty_str = data.pop('initial_stock_quantity', '0')
@@ -123,7 +124,7 @@ def create_product(request):
     try:
         with transaction.atomic():
             product = serializer.save(user=request.user)
-            if product.has_individual_stock:
+            if not product.has_subproducts:
                 initialize_product_stock(
                     product=product,
                     user=request.user,
@@ -200,8 +201,8 @@ def product_detail(request, prod_pk):
             )
         ).annotate(
             current_stock=Case(
-                When(has_individual_stock=True, individual_stock_qty__isnull=False, then=F('individual_stock_qty')),
-                When(has_individual_stock=False, subproduct_stock_total__isnull=False, then=F('subproduct_stock_total')),
+                When(has_subproducts=False, individual_stock_qty__isnull=False, then=F('individual_stock_qty')),
+                When(has_subproducts=True, subproduct_stock_total__isnull=False, then=F('subproduct_stock_total')),
                 default=Decimal('0.00'),
                 output_field=DecimalField(max_digits=15, decimal_places=2)
             )
@@ -226,7 +227,7 @@ def product_detail(request, prod_pk):
                 qty_change = serializer.validated_data.get('quantity_change')
                 reason     = serializer.validated_data.get('reason')
                 if qty_change is not None:
-                    if updated.has_individual_stock:
+                    if not updated.has_subproducts:
                         stock_rec = ProductStock.objects.select_for_update().get(product=updated)
                         adjust_product_stock(
                             product_stock=stock_rec,
