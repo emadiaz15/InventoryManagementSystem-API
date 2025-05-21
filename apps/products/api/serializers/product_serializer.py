@@ -87,7 +87,10 @@ class ProductSerializer(BaseSerializer):
         return value
 
     def validate_code(self, value):
-        if Product.objects.filter(code=value, status=True).exists():
+        qs = Product.objects.filter(code=value, status=True)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)  # ⚠️ Evita compararse consigo mismo
+        if qs.exists():
             raise serializers.ValidationError("Ya existe un producto con este código.")
         return value
 
