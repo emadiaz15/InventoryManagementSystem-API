@@ -28,6 +28,7 @@ class CuttingOrder(BaseModel):
     order_number = models.PositiveIntegerField(
         verbose_name='Número de Pedido',
         help_text='Número de pedido manual, entero único',
+        default=0,
         unique=True
         )
     customer = models.CharField(
