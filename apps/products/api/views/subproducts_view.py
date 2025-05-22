@@ -15,6 +15,7 @@ from drf_spectacular.utils import extend_schema
 from apps.core.pagination import Pagination
 from apps.products.api.serializers.subproduct_serializer import SubProductSerializer
 from apps.products.api.repositories.subproduct_repository import SubproductRepository
+from apps.products.filters.subproduct_filter import SubproductFilter
 from apps.products.docs.subproduct_doc import (
     list_subproducts_doc,
     create_subproduct_doc,
@@ -42,23 +43,36 @@ logger = logging.getLogger(__name__)
 @permission_classes([IsAuthenticated])
 def subproduct_list(request, prod_pk):
     """
-    Endpoint para listar subproductos activos de un producto padre, con paginación
-    e incluyendo el stock actual calculado.
+    Endpoint para listar subproductos de un producto padre,
+    filtrables por status, con paginación e incluyendo el stock actual.
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
 
+    # Subconsulta para stock actual
     stock_sq = SubproductStock.objects.filter(
         subproduct=OuterRef('pk'), status=True
     ).values('quantity')[:1]
 
     qs = SubproductRepository.get_all_active(parent.pk).annotate(
-        current_stock_val=Subquery(stock_sq, output_field=DecimalField(max_digits=15, decimal_places=2))
+        current_stock_val=Subquery(
+            stock_sq, output_field=DecimalField(max_digits=15, decimal_places=2)
+        )
     ).annotate(
-        current_stock=Coalesce('current_stock_val', Decimal('0.00'), output_field=DecimalField(max_digits=15, decimal_places=2))
+        current_stock=Coalesce(
+            'current_stock_val', Decimal('0.00'),
+            output_field=DecimalField(max_digits=15, decimal_places=2)
+        )
     )
 
+    # ——— Aplicar filtros de URL (?status=true/false) ———
+    filterset = SubproductFilter(request.GET, queryset=qs)
+    if not filterset.is_valid():
+        return Response(filterset.errors, status=status.HTTP_400_BAD_REQUEST)
+    qs = filterset.qs
+
+    # ——— Paginar y serializar ———
     paginator = Pagination()
-    paginator.page_size = 8  # <- ajustamos aquí el tamaño de página a 8
+    paginator.page_size = 8
     page = paginator.paginate_queryset(qs, request)
     serializer = SubProductSerializer(page, many=True, context={'request': request})
     return paginator.get_paginated_response(serializer.data)

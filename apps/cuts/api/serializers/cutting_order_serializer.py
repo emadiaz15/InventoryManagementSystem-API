@@ -40,6 +40,7 @@ class CuttingOrderSerializer(BaseSerializer):
         choices=CuttingOrder.WORKFLOW_STATUS_CHOICES,
         required=False
     )
+    order_number = serializers.IntegerField()
     workflow_status_display = serializers.CharField(
         source='get_workflow_status_display', read_only=True
     )
@@ -51,7 +52,7 @@ class CuttingOrderSerializer(BaseSerializer):
             'assigned_to', 'completed_at',
             'items',
             'status', 'created_at', 'modified_at', 'deleted_at',
-            'created_by', 'modified_by', 'deleted_by',
+            'created_by', 'modified_by', 'deleted_by','order_number'
         ]
         read_only_fields = [
             'id', 'status', 'completed_at',

@@ -25,6 +25,11 @@ class CuttingOrder(BaseModel):
         default='pending',
         verbose_name='Estado del Flujo'
     )
+    order_number = models.PositiveIntegerField(
+        verbose_name='Número de Pedido',
+        help_text='Número de pedido manual, entero único',
+        unique=True
+        )
     customer = models.CharField(
         max_length=255,
         help_text='Cliente para quien es la orden de corte',
