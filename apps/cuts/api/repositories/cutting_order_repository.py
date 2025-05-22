@@ -53,6 +53,7 @@ class CuttingOrderRepository:
     @staticmethod
     @transaction.atomic
     def create(
+        order_number: int,
         customer: str,
         items: List[Dict[str, Any]],
         user_creator,
@@ -63,6 +64,9 @@ class CuttingOrderRepository:
         Crea una orden de corte y sus items en una sola transacción.
         items: lista de dicts {'subproduct': Subproduct, 'cutting_quantity': Decimal}
         """
+        if order_number is None:
+            raise ValidationError("Número de pedido requerido.")
+        order = CuttingOrder(order_number=order_number)
         if not customer:
             raise ValidationError("Cliente requerido.")
         if not user_creator or not getattr(user_creator, 'is_authenticated', False):
