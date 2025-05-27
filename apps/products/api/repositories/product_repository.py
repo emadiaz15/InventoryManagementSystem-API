@@ -30,8 +30,8 @@ class ProductRepository:
         name: str,
         description: str,
         category_id: int,
-        type_id: int,
-        user,
+        type_id: int = None,  # ✅ Ahora opcional
+        user=None,
         code: int = None,
         brand: str = None,
         location=None,
@@ -41,28 +41,35 @@ class ProductRepository:
         """
         Crea un nuevo producto usando la lógica de BaseModel.save.
         """
+        # 🧱 Verificamos la categoría obligatoria
         try:
             category_instance = Category.objects.get(pk=category_id)
         except Category.DoesNotExist:
             raise ValueError(f"La categoría con ID {category_id} no existe.")
-        try:
-            type_instance = Type.objects.get(pk=type_id)
-        except Type.DoesNotExist:
-            raise ValueError(f"El tipo con ID {type_id} no existe.")
 
+        # 🧩 Type es opcional
+        type_instance = None
+        if type_id is not None:
+            try:
+                type_instance = Type.objects.get(pk=type_id)
+            except Type.DoesNotExist:
+                raise ValueError(f"El tipo con ID {type_id} no existe.")
+
+        # 🛠️ Instanciamos el producto
         product_instance = Product(
             name=name,
             description=description,
             category=category_instance,
-            type=type_instance,
+            type=type_instance,  # ✅ Puede ser None
             code=code,
             brand=brand,
             location=location,
             position=position,
-            has_subproducts=has_subproducts 
+            has_subproducts=has_subproducts
         )
         product_instance.save(user=user)
         return product_instance
+
 
     @staticmethod
     def update(
@@ -71,7 +78,7 @@ class ProductRepository:
         name: str = None,
         description: str = None,
         category_id: int = None,
-        type_id: int = None,
+        type_id: int = None,  # ✅ puede ser None explícitamente
         code: int = None,
         brand: str = None,
         location=None,
@@ -98,16 +105,29 @@ class ProductRepository:
         if has_subproducts is not None and product_instance.has_subproducts != has_subproducts:
             product_instance.has_subproducts = has_subproducts; changes_made = True
 
-        # Manejar FKs
+        # --- 🔁 FK: Categoría (obligatoria) ---
         if category_id is not None and product_instance.category_id != category_id:
-            try: product_instance.category = Category.objects.get(pk=category_id); changes_made = True
-            except Category.DoesNotExist: raise ValueError(f"La categoría con ID {category_id} no existe.")
-        if type_id is not None and product_instance.type_id != type_id:
-            try: product_instance.type = Type.objects.get(pk=type_id); changes_made = True
-            except Type.DoesNotExist: raise ValueError(f"El tipo con ID {type_id} no existe.")
+            try:
+                product_instance.category = Category.objects.get(pk=category_id)
+                changes_made = True
+            except Category.DoesNotExist:
+                raise ValueError(f"La categoría con ID {category_id} no existe.")
+
+        # --- 🔁 FK: Type (opcional) ---
+        if product_instance.type_id != type_id:
+            if type_id is None:
+                product_instance.type = None
+                changes_made = True
+            else:
+                try:
+                    product_instance.type = Type.objects.get(pk=type_id)
+                    changes_made = True
+                except Type.DoesNotExist:
+                    raise ValueError(f"El tipo con ID {type_id} no existe.")
 
         if changes_made:
             product_instance.save(user=user)
+
         return product_instance
 
     @staticmethod
