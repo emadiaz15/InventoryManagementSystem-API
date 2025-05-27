@@ -61,8 +61,8 @@ class Product(BaseModel):
         Type,
         on_delete=models.PROTECT,
         related_name='products',
-        null=False,
-        blank=False,
+        null=True,
+        blank=True,
         verbose_name="Tipo"
     )
 
