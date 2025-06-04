@@ -4,7 +4,7 @@ Este proyecto es el backend de un sistema de gestión de productos orientado a l
 
 ## **Índice**
 
-- [Descripcion del proyecto](#Descripcion-del-proyecto)
+- [Descripción del proyecto](#Descripcion-del-proyecto)
 - [Características](#características)
 - [Requisitos](#requisitos)
 - [Instalación](#instalación)
