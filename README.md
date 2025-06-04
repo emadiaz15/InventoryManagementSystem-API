@@ -103,21 +103,21 @@ DATABASE_URL=postgres://tu_usuario:tu_contraseña@localhost:5432/nombre_base_dat
 
 ### Endpoints principales
 
-- **Autenticación**: `/api/user/`
-- **Productos**: `/api/products/`
-- **Categorías**: `/api/categories/`
-- **Tipos**: `/api/types/`
+- **Autenticación**: `/api/v1/user/`
+- **Productos**: `/api/v1/products/`
+- **Categorías**: `/api/v1/categories/`
+- **Tipos**: `/api/v1/types/`
 
 ## **API Endpoints**
 
-| Método | Endpoint            | Descripción                           |
-| ------ | ------------------- | ------------------------------------- |
-| POST   | /api/auth/login/    | Inicia sesión y obtiene el token JWT. |
-| GET    | /api/products/      | Obtiene la lista de productos.        |
-| POST   | /api/products/      | Crea un nuevo producto.               |
-| GET    | /api/products/<id>/ | Obtiene los detalles de un producto.  |
-| PUT    | /api/products/<id>/ | Actualiza un producto existente.      |
-| DELETE | /api/products/<id>/ | Elimina un producto.                  |
+| Método| Endpoint              | Descripción                           |
+| ------| -------------------   | ------------------------------------- |
+| POST  |/api/v1/user/login/    | Inicia sesión y obtiene el token JWT. |
+| GET   |/api/v1/products/      | Obtiene la lista de productos.        |
+| POST  |/api/v1/products       | Crea un nuevo producto.               |
+| GET   |/api/v1/products/<id>/ | Obtiene los detalles de un producto.  |
+| PUT   |/api/v1/products/<id>/ | Actualiza un producto existente.      |
+| DELETE|/api/v1/products/<id>/ | Elimina un producto.                  |
 
 ## **Arquitectura**
 
