@@ -2,7 +2,7 @@ import os
 from django.test import TestCase
 from apps.products.models import Product, Category, Type
 from django.contrib.auth import get_user_model
-from apps.stocks.models.stock_model import Stock
+from apps.stocks.models.stock_product_model import ProductStock
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
@@ -158,7 +158,7 @@ class StockModelTest(TestCase):
         )
 
     def test_create_stock(self):
-        stock = Stock.objects.create(
+        stock = ProductStock.objects.create(
             product=self.product,
             quantity=100.0,
             user=self.user
@@ -168,8 +168,8 @@ class StockModelTest(TestCase):
         self.assertEqual(stock.user, self.user)
 
     def test_get_latest_stock(self):
-        Stock.objects.create(product=self.product, quantity=100.0, user=self.user)
-        Stock.objects.create(product=self.product, quantity=50.0, user=self.user)
+        ProductStock.objects.create(product=self.product, quantity=100.0, user=self.user)
+        ProductStock.objects.create(product=self.product, quantity=50.0, user=self.user)
         latest_stock = self.product.latest_stock
         self.assertEqual(latest_stock.quantity, 50.0)
 
