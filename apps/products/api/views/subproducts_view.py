@@ -72,7 +72,7 @@ def subproduct_list(request, prod_pk):
 
     # ——— Paginar y serializar ———
     paginator = Pagination()
-    paginator.page_size = 8
+    paginator.page_size = 10
     page = paginator.paginate_queryset(qs, request)
     serializer = SubProductSerializer(page, many=True, context={'request': request})
     return paginator.get_paginated_response(serializer.data)

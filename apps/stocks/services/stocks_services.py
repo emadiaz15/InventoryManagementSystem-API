@@ -1,9 +1,9 @@
-# services.py
 from decimal import Decimal, InvalidOperation
 from django.db import transaction
 from django.utils import timezone
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.conf import settings
+from django.db.models import Sum
 
 # Importa los modelos necesarios
 from apps.products.models.product_model import Product
@@ -13,6 +13,35 @@ from apps.stocks.models import ProductStock, SubproductStock, StockEvent
 User = settings.AUTH_USER_MODEL
 
 # ========================== FUNCIONES PARA PRODUCT STOCK (Productos sin subproductos) ==========================
+
+def check_subproduct_stock(subproduct: Subproduct, quantity_needed: Decimal, location: str = None):
+    """
+    Verifica si hay stock suficiente para un subproducto. Lanza ValidationError si no hay suficiente.
+    Opcionalmente puede filtrar por ubicación.
+    """
+    if not isinstance(subproduct, Subproduct) or not subproduct.pk:
+        raise ValidationError("Subproducto inválido.")
+
+    try:
+        quantity_needed = Decimal(quantity_needed)
+        if quantity_needed <= 0:
+            raise ValidationError("La cantidad requerida debe ser positiva.")
+    except (InvalidOperation, TypeError):
+        raise ValidationError("La cantidad requerida debe ser un número válido.")
+
+    qs = SubproductStock.objects.filter(subproduct=subproduct, status=True)
+    if location:
+        qs = qs.filter(location=location)
+
+    total_available = sum(s.quantity for s in qs)
+
+    if quantity_needed > total_available:
+        raise ValidationError(
+            f"Stock insuficiente para el subproducto {subproduct.pk}. "
+            f"Requiere {quantity_needed}, disponible {total_available}."
+        )
+    return True
+
 
 @transaction.atomic
 def initialize_product_stock(product: Product, user: User, 
@@ -232,20 +261,19 @@ def dispatch_subproduct_stock_for_cut(subproduct: Subproduct, cutting_quantity: 
 
 def validate_and_correct_stock():
     """
-    Recorre todos los productos y, para aquellos que tienen subproductos,
-    ajusta el registro de stock (ProductStock) para que su cantidad coincida
-    con la suma de las cantidades de sus subproductos.
-    Se asume que cada producto tiene un ProductStock asociado a través del atributo 'stock_record'.
+    Actualiza el stock del producto padre si `has_subproducts=True` con la suma de subproductos activos.
     """
-    # Importa ProductStock desde su ubicación real
-    from apps.stocks.models.stock_product_model import ProductStock
-
     for product in Product.objects.all():
         total_subproduct_quantity = Decimal('0.00')
         
+
         for subproduct in product.subproducts.all():
             total_subproduct_quantity += subproduct.quantity
-        
+            total_subproduct_quantity += (
+                SubproductStock.objects
+                    .filter(subproduct=subproduct, status=True)
+                    .aggregate(total=Sum('quantity'))['total'] or Decimal('0.00')
+            )
         try:
             stock_record = product.stock_record
         except ProductStock.DoesNotExist:
@@ -257,4 +285,3 @@ def validate_and_correct_stock():
             stock_record.quantity = total_subproduct_quantity
             stock_record.save()
             print(f"Stock del producto {product.name} actualizado a {stock_record.quantity}")
-
