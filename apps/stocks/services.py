@@ -1,6 +1,7 @@
 # services.py
 from decimal import Decimal, InvalidOperation
 from django.db import transaction
+from django.db.models import Sum
 from django.utils import timezone
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.conf import settings
@@ -242,9 +243,13 @@ def validate_and_correct_stock():
 
     for product in Product.objects.all():
         total_subproduct_quantity = Decimal('0.00')
-        
+
         for subproduct in product.subproducts.all():
-            total_subproduct_quantity += subproduct.quantity
+            total_subproduct_quantity += (
+                SubproductStock.objects
+                    .filter(subproduct=subproduct, status=True)
+                    .aggregate(total=Sum('quantity'))['total'] or Decimal('0.00')
+            )
         
         try:
             stock_record = product.stock_record
