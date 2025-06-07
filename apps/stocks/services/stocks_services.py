@@ -1,7 +1,6 @@
 from decimal import Decimal, InvalidOperation
 from django.db import transaction
-from django.utils import timezone
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.db.models import Sum
 
@@ -263,7 +262,7 @@ def validate_and_correct_stock():
     """
     Actualiza el stock del producto padre si `has_subproducts=True` con la suma de subproductos activos.
     """
-    for product in Product.objects.all():
+    for product in Product.objects.filter(has_subproducts=True):
         total_subproduct_quantity = Decimal('0.00')
         
 
