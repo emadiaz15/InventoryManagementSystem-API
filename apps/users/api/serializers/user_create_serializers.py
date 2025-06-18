@@ -2,9 +2,9 @@ import logging
 from django.db import IntegrityError, transaction
 from rest_framework import serializers
 
-from apps.users.services.profile_image_services import upload_profile_image
 from apps.users.models.user_model import User
 from .user_base_serializers import UserSerializer
+from apps.storages_client.services.profile_image import upload_profile_image
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class UserCreateSerializer(UserSerializer):
         if image_file:
             try:
                 result = upload_profile_image(image_file, user.id)
-                user.image = result.get('file_id')
+                user.image = result.get('key')  # Guardamos el 'key' que representa el path en MinIO
                 user.save(update_fields=['image'])
             except Exception as e:
                 logger.warning(f"No se pudo subir la imagen de perfil: {e}")

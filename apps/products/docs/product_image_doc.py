@@ -3,12 +3,12 @@ from drf_spectacular.utils import OpenApiResponse, OpenApiParameter
 # --- Subir imagen o video de producto ---
 product_image_upload_doc = {
     "tags": ["Productos - Archivos"],
-    "summary": "Subir imagen o video de producto",
-    "operation_id": "uploadProductFile",
+    "summary": "Subir imágenes o videos de un producto",
+    "operation_id": "uploadProductFiles",
     "description": (
-        "Sube un archivo multimedia (imagen o video) asociado a un producto. "
+        "Sube uno o varios archivos multimedia (imágenes o videos) asociados a un producto. "
         "Solo administradores pueden realizar esta acción. "
-        "Formatos permitidos: JPEG, PNG, WEBP, MP4, MOV, AVI, WEBM, MKV."
+        "Los formatos permitidos son configurables vía `ALLOWED_UPLOAD_EXTENSIONS` en el entorno."
     ),
     "parameters": [
         OpenApiParameter(
@@ -16,7 +16,7 @@ product_image_upload_doc = {
             location=OpenApiParameter.PATH,
             required=True,
             type=str,
-            description="ID del producto al cual se sube el archivo."
+            description="ID del producto al cual se suben los archivos."
         )
     ],
     "requestBody": {
@@ -27,9 +27,12 @@ product_image_upload_doc = {
                     "type": "object",
                     "properties": {
                         "file": {
-                            "type": "string",
-                            "format": "binary",
-                            "description": "Archivo multimedia a subir"
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "binary"
+                            },
+                            "description": "Lista de archivos multimedia a subir"
                         }
                     },
                     "required": ["file"]
@@ -38,20 +41,22 @@ product_image_upload_doc = {
         }
     },
     "responses": {
-        201: OpenApiResponse(description="Archivo subido exitosamente"),
-        400: OpenApiResponse(description="Archivo inválido o falta archivo"),
-        500: OpenApiResponse(description="Error inesperado al subir el archivo"),
-        404: OpenApiResponse(description="Producto no encontrado")
+        201: OpenApiResponse(description="Todos los archivos subidos correctamente"),
+        207: OpenApiResponse(description="Algunos archivos subidos correctamente, otros fallaron"),
+        400: OpenApiResponse(description="Archivos inválidos o no enviados"),
+        404: OpenApiResponse(description="Producto no encontrado"),
+        500: OpenApiResponse(description="Error inesperado al subir archivos")
     }
 }
 
-# --- Listar archivos (imágenes/videos) del producto ---
+# --- Listar archivos multimedia del producto ---
 product_image_list_doc = {
     "tags": ["Productos - Archivos"],
     "summary": "Listar archivos del producto",
     "operation_id": "listProductFiles",
     "description": (
-        "Devuelve una lista de archivos multimedia (imágenes/videos) vinculados a un producto específico."
+        "Devuelve una lista de archivos multimedia (imágenes o videos) asociados a un producto. "
+        "Requiere autenticación."
     ),
     "parameters": [
         OpenApiParameter(
@@ -59,27 +64,25 @@ product_image_list_doc = {
             location=OpenApiParameter.PATH,
             required=True,
             type=str,
-            description="ID del producto del cual se listan los archivos."
+            description="ID del producto del cual se listan los archivos"
         )
     ],
     "responses": {
         200: OpenApiResponse(
             description="Lista de archivos obtenida exitosamente",
             response={
-                'application/json': {
-                    'schema': {
-                        'type': 'object',
-                        'properties': {
-                            'files': {
-                                'type': 'array',
-                                'items': {
-                                    'type': 'object',
-                                    'properties': {
-                                        'id': {'type': 'string'},
-                                        'name': {'type': 'string'},
-                                        'mimeType': {'type': 'string'},
-                                        'createdTime': {'type': 'string', 'format': 'date-time'}
-                                    }
+                "application/json": {
+                    "type": "object",
+                    "properties": {
+                        "files": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "name": {"type": "string"},
+                                    "mimeType": {"type": "string"},
+                                    "createdTime": {"type": "string", "format": "date-time"}
                                 }
                             }
                         }
@@ -87,17 +90,20 @@ product_image_list_doc = {
                 }
             }
         ),
-        500: OpenApiResponse(description="Error interno del servidor"),
-        404: OpenApiResponse(description="Producto no encontrado")
+        404: OpenApiResponse(description="Producto no encontrado"),
+        500: OpenApiResponse(description="Error al listar archivos")
     }
 }
 
 # --- Eliminar archivo multimedia del producto ---
 product_image_delete_doc = {
     "tags": ["Productos - Archivos"],
-    "summary": "Eliminar archivo del producto",
+    "summary": "Eliminar archivo de producto",
     "operation_id": "deleteProductFile",
-    "description": "Elimina un archivo específico (imagen o video) de un producto. Solo administradores.",
+    "description": (
+        "Elimina un archivo multimedia (imagen o video) asociado a un producto. "
+        "Solo administradores."
+    ),
     "parameters": [
         OpenApiParameter(
             name="product_id",
@@ -115,8 +121,8 @@ product_image_delete_doc = {
         )
     ],
     "responses": {
-        200: OpenApiResponse(description="Archivo eliminado exitosamente"),
-        404: OpenApiResponse(description="Producto o archivo no encontrado"),
+        200: OpenApiResponse(description="Archivo eliminado correctamente"),
+        404: OpenApiResponse(description="Archivo no encontrado o no vinculado al producto"),
         500: OpenApiResponse(description="Error al eliminar archivo")
     }
 }
@@ -127,9 +133,10 @@ product_image_download_doc = {
     "summary": "Descargar archivo del producto",
     "operation_id": "downloadProductFile",
     "description": (
-        "Devuelve un archivo multimedia (imagen o video) vinculado a un producto. "
-        "Usa un token JWT temporal para validar el acceso. "
-        "El archivo se sirve como binario protegido con cabecera `Content-Disposition` inline."
+        "Descarga un archivo multimedia (imagen o video) vinculado a un producto. "
+        "Requiere autenticación con token JWT. "
+        "El archivo se devuelve como binario con cabecera `Content-Disposition: inline`. "
+        "El parámetro `?force=true` permite omitir validación de asociación."
     ),
     "parameters": [
         OpenApiParameter(
@@ -145,13 +152,18 @@ product_image_download_doc = {
             required=True,
             type=str,
             description="ID del archivo a descargar"
+        ),
+        OpenApiParameter(
+            name="force",
+            location=OpenApiParameter.QUERY,
+            required=False,
+            type=bool,
+            description="Omitir validación de vinculación del archivo con el producto"
         )
     ],
     "responses": {
-        200: OpenApiResponse(
-            description="Archivo binario descargado exitosamente (image/video)",
-        ),
-        404: OpenApiResponse(description="Archivo no encontrado"),
+        200: OpenApiResponse(description="Archivo descargado exitosamente"),
+        404: OpenApiResponse(description="Archivo no encontrado o acceso no permitido"),
         500: OpenApiResponse(description="Error inesperado al descargar archivo")
     }
 }

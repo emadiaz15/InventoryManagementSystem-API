@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError
 from apps.users.models.user_model import User
 from django.conf import settings
 
+
 class UserRepository:
     """
     Repositorio para User. Centraliza operaciones de lectura y escritura.
@@ -36,7 +37,6 @@ class UserRepository:
         user.save()
         return user
 
-
     @staticmethod
     def update(user_instance: User, **kwargs) -> User:
         """
@@ -61,8 +61,7 @@ class UserRepository:
     @staticmethod
     def generate_password_reset_token(user: User) -> str:
         """Genera un token único de restablecimiento de contraseña para el usuario."""
-        generator = PasswordResetTokenGenerator()
-        return generator.make_token(user)
+        return PasswordResetTokenGenerator().make_token(user)
 
     @staticmethod
     def build_password_reset_url(user: User, request) -> str:
@@ -76,10 +75,12 @@ class UserRepository:
     def send_password_reset_email(user: User, request, from_email: str = None):
         """Envía el correo con el enlace para restablecer contraseña."""
         if from_email is None:
-            from_email or getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@yourapp.com")
+            from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@yourapp.com")
+
         reset_url = UserRepository.build_password_reset_url(user, request)
         subject = 'Solicitud de restablecimiento de contraseña'
         message = f"Usa este enlace para cambiar tu contraseña:\n\n{reset_url}"
+
         send_mail(
             subject=subject,
             message=message,
@@ -99,8 +100,7 @@ class UserRepository:
         except (TypeError, ValueError, OverflowError):
             raise ValidationError('UID inválido.')
 
-        generator = PasswordResetTokenGenerator()
-        if not generator.check_token(user, token):
+        if not PasswordResetTokenGenerator().check_token(user, token):
             raise ValidationError('Token inválido o expirado.')
 
         if len(new_password) < 8:

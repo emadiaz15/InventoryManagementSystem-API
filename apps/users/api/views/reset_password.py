@@ -10,6 +10,8 @@ from apps.users.api.repositories.user_repository import UserRepository
 from apps.users.api.serializers.password_reset_serializers import PasswordResetConfirmSerializer
 
 
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
 @extend_schema(
     summary=password_reset_confirm_doc["summary"],
     description=password_reset_confirm_doc["description"],
@@ -19,16 +21,13 @@ from apps.users.api.serializers.password_reset_serializers import PasswordResetC
     request=password_reset_confirm_doc["request"],
     responses=password_reset_confirm_doc["responses"],
 )
-@api_view(['POST'])
-@permission_classes([IsAdminUser])
 def password_reset_confirm(request, uidb64: str, token: str):
     """
     🛠️ Permite a un administrador restablecer la contraseña de un usuario mediante token y uid.
     🔐 Seguridad: solo admins pueden usar este endpoint.
     """
     serializer = PasswordResetConfirmSerializer(data=request.data)
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    serializer.is_valid(raise_exception=True)
 
     new_password = serializer.validated_data["password"]
 
@@ -41,8 +40,8 @@ def password_reset_confirm(request, uidb64: str, token: str):
     except ValidationError as e:
         detail = e.detail if hasattr(e, 'detail') else str(e)
         return Response({'detail': detail}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception:
+    except Exception as e:
         return Response(
-            {'detail': 'Error interno al restablecer la contraseña.'},
+            {'detail': f'Error interno al restablecer la contraseña: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

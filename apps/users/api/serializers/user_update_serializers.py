@@ -1,10 +1,9 @@
 import logging
-import re
 from django.db import IntegrityError
 from rest_framework import serializers
 
 from apps.users.models.user_model import User
-from apps.users.services.profile_image_services import (
+from apps.storages_client.services.profile_image import (
     upload_profile_image, delete_profile_image
 )
 from .user_base_serializers import UserSerializer
@@ -48,7 +47,7 @@ class UserUpdateSerializer(UserSerializer):
                 if instance.image:
                     delete_profile_image(instance.image, instance.id)
                 result = upload_profile_image(image_file, instance.id)
-                instance.image = result.get('file_id')
+                instance.image = result.get('key')  # Usamos `key`, no `file_id`
                 instance.save(update_fields=["image"])
         except Exception as e:
             logger.warning(f"No se pudo manejar la imagen de perfil: {e}")

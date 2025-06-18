@@ -1,19 +1,22 @@
+import logging
 import requests
-from django.http import JsonResponse
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from drf_spectacular.utils import extend_schema
+from django.http import JsonResponse
 
 from apps.users.models.user_model import User
 from apps.users.api.repositories.user_repository import UserRepository
 from apps.users.api.serializers.user_create_serializers import UserCreateSerializer
 from apps.users.api.serializers.user_update_serializers import UserUpdateSerializer
 from apps.users.api.serializers.user_detail_serializers import UserDetailSerializer
-from apps.users.services.profile_image_services import delete_profile_image, replace_profile_image
-
+from apps.storages_client.services.profile_image import (
+    delete_profile_image,
+    replace_profile_image,
+)
 from apps.core.pagination import Pagination
 from ...filters import UserFilter
 from apps.users.docs.user_doc import (
@@ -21,9 +24,8 @@ from apps.users.docs.user_doc import (
     manage_user_doc, image_delete_doc, image_replace_doc
 )
 
-# ========================
-# OBTENER PERFIL AUTENTICADO
-# ========================
+logger = logging.getLogger(__name__)
+
 @extend_schema(
     summary=get_user_profile_doc["summary"],
     description=get_user_profile_doc["description"],
@@ -40,9 +42,7 @@ def profile_view(request):
     )
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-# ========================
-# LISTAR USUARIOS
-# ========================
+
 @extend_schema(
     summary=list_users_doc["summary"],
     description=list_users_doc["description"],
@@ -64,9 +64,7 @@ def user_list_view(request):
     serializer = UserDetailSerializer(page, many=True, context={"request": request, "include_image_url": True})
     return paginator.get_paginated_response(serializer.data)
 
-# ========================
-# CREAR NUEVO USUARIO
-# ========================
+
 @extend_schema(
     summary=create_user_doc["summary"],
     description=create_user_doc["description"],
@@ -86,9 +84,7 @@ def user_create_view(request):
         return Response(response_data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# ========================
-# DETALLE / EDITAR / ELIMINAR USUARIO
-# ========================
+
 @extend_schema(
     summary=manage_user_doc["summary"],
     description=manage_user_doc["description"],
@@ -141,21 +137,17 @@ def user_detail_view(request, pk=None):
         if not is_admin:
             return Response({'detail': 'No tienes permiso para eliminar este usuario.'}, status=status.HTTP_403_FORBIDDEN)
 
-        # 🧨 Eliminar imagen de perfil si existe
         if user_instance.image:
             try:
                 delete_profile_image(user_instance.image, user_instance.id)
                 user_instance.image = None
                 user_instance.save(update_fields=["image"])
             except Exception as e:
-                # Loguear pero no bloquear la eliminación del usuario
-                print(f"⚠️ Error al eliminar imagen de Google Drive: {e}")
+                logger.warning(f"⚠️ Error al eliminar imagen de perfil: {e}")
 
-        # ✅ Eliminar usuario (soft delete)
         UserRepository.soft_delete(user_instance)
 
         return Response({'message': 'Usuario eliminado (soft) correctamente y su imagen también.'}, status=status.HTTP_200_OK)
-
 
 
 @extend_schema(
@@ -171,9 +163,6 @@ def user_detail_view(request, pk=None):
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser])
 def image_replace_view(request, file_id: str):
-    """
-    Admin puede reemplazar cualquier imagen. Usuario solo la suya.
-    """
     target_user = request.user
     if request.user.is_staff:
         user_id_param = request.GET.get("user_id")
@@ -196,24 +185,18 @@ def image_replace_view(request, file_id: str):
 
     try:
         result = replace_profile_image(new_file, file_id, target_user.id)
-        target_user.image = result.get("file_id")
+        target_user.image = result.get("key")
         target_user.save(update_fields=["image"])
         return JsonResponse({
             "message": "Imagen reemplazada correctamente.",
             "file_id": target_user.image
         }, status=200)
     except requests.HTTPError as e:
-        return JsonResponse({
-            "detail": f"Error HTTP al reemplazar imagen: {str(e)}"
-        }, status=500)
+        return JsonResponse({"detail": f"Error HTTP al reemplazar imagen: {str(e)}"}, status=500)
     except Exception as e:
-        return JsonResponse({
-            "detail": f"Error inesperado: {str(e)}"
-        }, status=500)
+        return JsonResponse({"detail": f"Error inesperado: {str(e)}"}, status=500)
 
-# ========================
-# DELETE ✅ CON CONTROL DE ACCESO
-# ========================
+
 @extend_schema(
     summary=image_delete_doc["summary"],
     description=image_delete_doc["description"],
@@ -225,14 +208,9 @@ def image_replace_view(request, file_id: str):
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def image_delete_view(request, file_id: str):
-    """
-    Elimina la imagen de perfil del usuario autenticado o de otro usuario si es admin.
-    Devuelve el usuario actualizado con image="" y image_url=null.
-    """
     requester = request.user
     user_id = request.query_params.get("user_id")
 
-    # 🔐 Permisos
     if requester.is_staff and user_id:
         try:
             user = User.objects.get(pk=user_id)
@@ -250,7 +228,6 @@ def image_delete_view(request, file_id: str):
     if str(user.image) != str(file_id):
         return JsonResponse({"detail": "No tienes permiso para eliminar esta imagen."}, status=403)
 
-    # 🧨 Borrado externo
     try:
         delete_profile_image(file_id, user.id)
     except requests.HTTPError as e:
@@ -260,10 +237,8 @@ def image_delete_view(request, file_id: str):
     except Exception as e:
         return JsonResponse({"detail": f"Error inesperado: {str(e)}"}, status=500)
 
-    # 🧼 Limpieza local
     user.image = ""
     user.save(update_fields=["image"])
 
-    # 🧠 Devolver user actualizado
     serializer = UserDetailSerializer(user, context={"request": request, "include_image_url": True})
     return Response(serializer.data, status=status.HTTP_200_OK)

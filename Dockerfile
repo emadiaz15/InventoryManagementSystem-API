@@ -1,10 +1,10 @@
-# ✅ Imagen oficial de Python + Alpine
+# ✅ Imagen oficial de Python con Alpine
 FROM python:3.10.13-alpine
 
 # 📁 Directorio de trabajo
 WORKDIR /app
 
-# 🧰 Paquetes necesarios para compilar y conectar con Postgres
+# 🔧 Instala dependencias necesarias para compilar y ejecutar (Postgres, Pillow, etc.)
 RUN apk add --no-cache \
     gcc \
     musl-dev \
@@ -13,23 +13,27 @@ RUN apk add --no-cache \
     postgresql-dev \
     jpeg-dev \
     zlib-dev \
-    netcat-openbsd
+    netcat-openbsd \
+    curl
 
-# 📦 Instala dependencias Python
+# 📦 Instala requerimientos
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 📁 Copia el resto del proyecto
+# 📁 Copia el resto del código del proyecto
 COPY . .
 
-# ⚙️ Permisos para el entrypoint
+# 🔐 Da permisos de ejecución al script de arranque
 RUN chmod +x /app/entrypoint.sh
 
-# 🔐 Variables necesarias para Django
-ENV DJANGO_SETTINGS_MODULE=inventory_management.settings.production
+# 🧠 Variables por defecto (pueden ser sobreescritas en Railway o local)
+ARG DJANGO_SETTINGS_MODULE=inventory_management.settings.local
+ENV DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
+
+# 🚫 Desactiva buffering de Python para que los logs salgan en tiempo real
 ENV PYTHONUNBUFFERED=1
 
-# 🌐 Puerto expuesto (Railway mapea automáticamente el puerto)
+# 🌐 Puerto por defecto (puede ser sobrescrito por Railway)
 EXPOSE 8000
 
 # 🚀 Script de arranque

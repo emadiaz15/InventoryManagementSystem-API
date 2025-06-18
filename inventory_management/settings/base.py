@@ -25,7 +25,8 @@ THIRD_APPS = [
     'celery',
     'corsheaders',
     'csp',
-    'sslserver'
+    'sslserver',
+    'storages'
 ]
 
 LOCAL_APPS = [    
@@ -34,7 +35,7 @@ LOCAL_APPS = [
     'apps.core',
     'apps.cuts',
     'apps.stocks',
-    'apps.drive'
+    'apps.storages_client',
 ]
 
 INSTALLED_APPS = BASE_APPS + THIRD_APPS + LOCAL_APPS

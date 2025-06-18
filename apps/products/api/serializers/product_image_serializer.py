@@ -4,4 +4,5 @@ from apps.products.models.product_image_model import ProductImage
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ['id', 'drive_file_id', 'created_at']
+        fields = ['id', 'key', 'url', 'name', 'mime_type', 'created_at']
+        read_only_fields = fields

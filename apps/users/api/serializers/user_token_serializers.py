@@ -1,7 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from apps.users.services.profile_image_services import generate_jwt
 
 User = get_user_model()
 
@@ -42,7 +41,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return {
             "refresh_token": data.get("refresh"),
             "access_token": data.get("access"),
-            "fastapi_token": generate_jwt({"user_id": user.id}),
             "user": {
                 "id": user.id,
                 "username": user.username,

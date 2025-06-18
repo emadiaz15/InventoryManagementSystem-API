@@ -53,27 +53,38 @@ class LogoutView(APIView):
                 {"error": "Se requiere el refresh_token."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Validar estructura básica del JWT (3 partes)
+        if refresh_token.count('.') != 2:
+            logger.warning("Token de logout con formato inválido.")
+            return Response(
+                {"message": "Sesión finalizada."},  # Respuesta neutral
+                status=status.HTTP_205_RESET_CONTENT
+            )
+
         try:
             token = RefreshToken(refresh_token)
             if token.token_type != "refresh":
+                logger.warning("Token proporcionado no es de tipo refresh.")
                 return Response(
-                    {"error": "El token proporcionado no es un refresh token."},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"message": "Sesión finalizada."},  # Neutral
+                    status=status.HTTP_205_RESET_CONTENT
                 )
+
             token.blacklist()
             return Response(
-                {"message": "Refresh token invalidado correctamente."},
+                {"message": "Sesión finalizada."},
                 status=status.HTTP_205_RESET_CONTENT
             )
         except TokenError:
-            logger.warning("Intento de logout con token inválido o expirado.")
+            logger.warning("Token inválido o expirado durante logout.")
             return Response(
-                {"error": "Refresh token inválido o expirado."},
-                status=status.HTTP_400_BAD_REQUEST
+                {"message": "Sesión finalizada."},
+                status=status.HTTP_205_RESET_CONTENT
             )
         except Exception as e:
-            logger.error(f"Error inesperado en logout: {e}")
+            logger.error(f"Error inesperado al cerrar sesión: {e}")
             return Response(
-                {"error": "Error interno al invalidar el token."},
+                {"error": "Error interno al procesar la solicitud."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

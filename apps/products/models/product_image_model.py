@@ -8,9 +8,27 @@ class ProductImage(models.Model):
         related_name="product_images",
         verbose_name="Producto"
     )
-    drive_file_id = models.CharField(
+    key = models.CharField(
         max_length=255,
-        verbose_name="ID en Google Drive"
+        default="temp-key",  # ✅ Default temporal
+        verbose_name="Nombre del archivo en S3 (key)"
+    )
+    url = models.URLField(
+        max_length=500,
+        default="http://localhost/fake-url",  # ✅ Default temporal
+        verbose_name="URL pública en S3"
+    )
+    name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="Nombre del archivo"
+    )
+    mime_type = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Tipo MIME"
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

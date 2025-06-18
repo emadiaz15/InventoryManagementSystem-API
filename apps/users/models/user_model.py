@@ -29,9 +29,6 @@ class UserManager(BaseUserManager):
         return self._create_user(username, email, name, last_name, password, False, False, dni, **extra_fields)
 
     def create_superuser(self, username, email, name, last_name, password=None, dni=None, **extra_fields):
-        """
-        El superuser siempre será activo, staff y superuser.
-        """
         extra_fields.setdefault('is_active', True)
         return self._create_user(username, email, name, last_name, password, True, True, dni, **extra_fields)
 
@@ -41,7 +38,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     name       = models.CharField('Name', max_length=255)
     last_name  = models.CharField('Lastname', max_length=255)
     dni        = models.CharField('DNI', max_length=10, unique=True, db_index=True, null=True, blank=True)
-    image      = models.URLField('Image URL (FastAPI Service)', max_length=500, null=True, blank=True)
+    image      = models.URLField('Image URL (S3 public link)', max_length=500, null=True, blank=True)
     is_active  = models.BooleanField(default=True)
     is_staff   = models.BooleanField(default=False)
     historical = HistoricalRecords()

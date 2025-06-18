@@ -1,6 +1,6 @@
-import os
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from apps.storages_client.services.profile_image import get_profile_image_url
 
 User = get_user_model()
 
@@ -14,18 +14,17 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'name', 'last_name',
             'dni', 'image', 'image_url', 'is_staff', 'is_active'
         ]
-        read_only_fields = fields  # Todos los campos son solo lectura
+        read_only_fields = fields
 
     def get_image_url(self, obj):
         """
-        Retorna la URL pública de la imagen del usuario, si existe.
-        Depende del context['include_image_url'] para habilitarla.
+        Retorna una URL firmada (temporal) para acceder a la imagen de perfil
+        solo si se pasó 'include_image_url=True' en el contexto.
         """
         if not obj.image or not isinstance(obj.image, str):
             return None
 
         if self.context.get("include_image_url", False):
-            public_url = os.environ.get("PUBLIC_DRIVE_URL", "http://localhost:8001").rstrip("/")
-            return f"{public_url}/profile/download/{obj.image}"
+            return get_profile_image_url(obj.image)
 
         return None
