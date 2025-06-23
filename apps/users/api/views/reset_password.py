@@ -12,15 +12,7 @@ from apps.users.api.serializers.password_reset_serializers import PasswordResetC
 
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
-@extend_schema(
-    summary=password_reset_confirm_doc["summary"],
-    description=password_reset_confirm_doc["description"],
-    tags=password_reset_confirm_doc["tags"],
-    operation_id=password_reset_confirm_doc["operation_id"],
-    parameters=password_reset_confirm_doc["parameters"],
-    request=password_reset_confirm_doc["request"],
-    responses=password_reset_confirm_doc["responses"],
-)
+@extend_schema(**password_reset_confirm_doc)
 def password_reset_confirm(request, uidb64: str, token: str):
     """
     🛠️ Permite a un administrador restablecer la contraseña de un usuario mediante token y uid.
@@ -35,10 +27,11 @@ def password_reset_confirm(request, uidb64: str, token: str):
         UserRepository.confirm_password_reset(uidb64, token, new_password)
         return Response(
             {'message': 'Contraseña restablecida correctamente.'},
+            headers={"X-Invalidate-Users-Cache": "true"},
             status=status.HTTP_200_OK
         )
     except ValidationError as e:
-        detail = e.detail if hasattr(e, 'detail') else str(e)
+        detail = str(e.detail) if hasattr(e, 'detail') else str(e)
         return Response({'detail': detail}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response(

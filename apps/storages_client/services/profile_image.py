@@ -27,6 +27,9 @@ def _validate_file_extension(filename: str):
 
 
 def upload_profile_image(file, user_id: int) -> dict:
+    """
+    Sube una nueva imagen de perfil al bucket correspondiente.
+    """
     _validate_file_extension(file.name)
 
     _, ext = os.path.splitext(file.name)
@@ -37,18 +40,25 @@ def upload_profile_image(file, user_id: int) -> dict:
 
     logger.info(f"⬆️ Subiendo imagen de perfil para user_id={user_id} a {filename}")
 
-    s3.upload_fileobj(
-        Fileobj=file,
-        Bucket=settings.AWS_STORAGE_BUCKET_NAME,
-        Key=filename,
-        ExtraArgs={"ContentType": file.content_type},
-    )
+    try:
+        s3.upload_fileobj(
+            Fileobj=file,
+            Bucket=settings.AWS_PROFILE_BUCKET_NAME,
+            Key=filename,
+            ExtraArgs={"ContentType": file.content_type},
+        )
+    except Exception as e:
+        logger.error(f"❌ Error al subir imagen de perfil: {e}")
+        raise Exception("Error al subir la imagen de perfil.")
 
-    url = generate_presigned_url(bucket=settings.AWS_STORAGE_BUCKET_NAME, object_name=filename)
+    url = generate_presigned_url(bucket=settings.AWS_PROFILE_BUCKET_NAME, object_name=filename)
     return {"url": url, "key": filename}
 
 
 def replace_profile_image(file, file_id: str, user_id: int) -> dict:
+    """
+    Reemplaza la imagen de perfil existente.
+    """
     _validate_file_extension(file.name)
 
     logger.info(f"♻️ Reemplazando imagen de perfil {file_id} para user_id={user_id}")
@@ -56,29 +66,46 @@ def replace_profile_image(file, file_id: str, user_id: int) -> dict:
     s3 = get_minio_client()
     file.seek(0)
 
-    s3.upload_fileobj(
-        Fileobj=file,
-        Bucket=settings.AWS_STORAGE_BUCKET_NAME,
-        Key=file_id,
-        ExtraArgs={"ContentType": file.content_type},
-    )
+    try:
+        s3.upload_fileobj(
+            Fileobj=file,
+            Bucket=settings.AWS_PROFILE_BUCKET_NAME,
+            Key=file_id,
+            ExtraArgs={"ContentType": file.content_type},
+        )
+    except Exception as e:
+        logger.error(f"❌ Error al reemplazar imagen de perfil: {e}")
+        raise Exception("Error al reemplazar la imagen de perfil.")
 
-    url = generate_presigned_url(bucket=settings.AWS_STORAGE_BUCKET_NAME, object_name=file_id)
+    url = generate_presigned_url(bucket=settings.AWS_PROFILE_BUCKET_NAME, object_name=file_id)
     return {"url": url, "key": file_id}
 
 
 def delete_profile_image(file_id: str, user_id: int) -> dict:
+    """
+    Elimina la imagen de perfil.
+    """
     logger.info(f"🗑️ Eliminando imagen de perfil {file_id} para user_id={user_id}")
 
     s3 = get_minio_client()
-    s3.delete_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=file_id)
+
+    try:
+        s3.delete_object(Bucket=settings.AWS_PROFILE_BUCKET_NAME, Key=file_id)
+    except Exception as e:
+        logger.error(f"❌ Error al eliminar imagen de perfil: {e}")
+        raise Exception("Error al eliminar la imagen de perfil.")
+
     return {"message": "Deleted", "key": file_id}
 
 
 def get_profile_image_url(file_id: str, expiry_seconds: int = 300) -> str:
+    """
+    Genera una URL presignada temporal para visualizar la imagen de perfil.
+    """
     logger.debug(f"🔐 Generando URL firmada para {file_id}")
+
     return generate_presigned_url(
-        bucket=settings.AWS_STORAGE_BUCKET_NAME,
+        bucket=settings.AWS_PROFILE_BUCKET_NAME,
         object_name=file_id,
         expiry_seconds=expiry_seconds
     )

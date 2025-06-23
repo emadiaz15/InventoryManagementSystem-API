@@ -111,13 +111,17 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Documentación de la API para el Sistema de Gestión de Inventario',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'SECURITY': [{'jwtAuth': []}],
-    'SCHEMAS': {
-        'jwtAuth': {
-            'type': 'apiKey',
-            'in': 'header',
-            'name': 'Authorization',
-            'description': 'Use JWT token for authentication',
+    'SECURITY': [{'jwtAuth': []}],  # Seguridad global para Swagger
+    'COMPONENT_SPLIT_REQUEST': True,
+    'COMPONENT_NO_READ_ONLY_REQUIRED': True,
+    'COMPONENTS': {
+        'securitySchemes': {
+            'jwtAuth': {
+                'type': 'apiKey',
+                'in': 'header',
+                'name': 'Authorization',
+                'description': 'Use un token JWT con el prefijo Bearer',
+            }
         }
     }
 }

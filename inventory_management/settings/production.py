@@ -123,3 +123,4 @@ LOGGING = {
         'level': 'WARNING',
     },
 }
+MINIO_PUBLIC_URL = os.getenv("MINIO_PUBLIC_URL", AWS_S3_ENDPOINT_URL)

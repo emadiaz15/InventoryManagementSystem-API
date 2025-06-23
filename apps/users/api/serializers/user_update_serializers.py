@@ -38,16 +38,18 @@ class UserUpdateSerializer(UserSerializer):
 
         # Lógica para manejo de imagen
         try:
-            if 'image' in self.initial_data and self.initial_data['image'] in [None, '', 'null']:
-                if instance.image:
-                    delete_profile_image(instance.image, instance.id)
-                    instance.image = None
-                    instance.save(update_fields=["image"])
+            eliminar_imagen = 'image' in self.initial_data and self.initial_data['image'] in [None, '', 'null']
+            
+            if eliminar_imagen and instance.image:
+                delete_profile_image(instance.image, instance.id)
+                instance.image = None
+                instance.save(update_fields=["image"])
+            
             elif image_file:
                 if instance.image:
                     delete_profile_image(instance.image, instance.id)
                 result = upload_profile_image(image_file, instance.id)
-                instance.image = result.get('key')  # Usamos `key`, no `file_id`
+                instance.image = result.get('key')
                 instance.save(update_fields=["image"])
         except Exception as e:
             logger.warning(f"No se pudo manejar la imagen de perfil: {e}")

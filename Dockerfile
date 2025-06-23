@@ -1,10 +1,10 @@
-# ✅ Imagen oficial de Python con Alpine
+# ✅ Imagen base oficial y segura
 FROM python:3.10.13-alpine
 
 # 📁 Directorio de trabajo
 WORKDIR /app
 
-# 🔧 Instala dependencias necesarias para compilar y ejecutar (Postgres, Pillow, etc.)
+# 🔧 Dependencias del sistema necesarias para compilar y ejecutar (Postgres, Pillow, etc.)
 RUN apk add --no-cache \
     gcc \
     musl-dev \
@@ -14,26 +14,31 @@ RUN apk add --no-cache \
     jpeg-dev \
     zlib-dev \
     netcat-openbsd \
-    curl
+    curl \
+    build-base \
+    libjpeg \
+    libjpeg-turbo-dev \
+    py3-pip
 
-# 📦 Instala requerimientos
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# ⚡ Actualiza pip para evitar problemas
+RUN pip install --upgrade pip
 
-# 📁 Copia el resto del código del proyecto
-COPY . .
+# 📦 Copia primero solo los requirements y los instala (mejor cache)
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# 🔐 Da permisos de ejecución al script de arranque
+# 📁 Copia el resto del proyecto
+COPY . /app
+
+# 🔐 Permisos al script de arranque
 RUN chmod +x /app/entrypoint.sh
 
-# 🧠 Variables por defecto (pueden ser sobreescritas en Railway o local)
+# 🧠 Variables de entorno por defecto
 ARG DJANGO_SETTINGS_MODULE=inventory_management.settings.local
 ENV DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
-
-# 🚫 Desactiva buffering de Python para que los logs salgan en tiempo real
 ENV PYTHONUNBUFFERED=1
 
-# 🌐 Puerto por defecto (puede ser sobrescrito por Railway)
+# 🌐 Puerto expuesto
 EXPOSE 8000
 
 # 🚀 Script de arranque
