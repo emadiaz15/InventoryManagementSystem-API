@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from apps.storages_client.services.profile_image import get_profile_image_url
 
 User = get_user_model()
 
@@ -34,7 +35,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 code="incorrect_password"
             )
 
-        # Ajustamos el campo username para que JWT lo maneje correctamente
         attrs[self.username_field] = user.username
         data = super().validate(attrs)
 
@@ -50,5 +50,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 "is_staff": user.is_staff,
                 "is_active": user.is_active,
                 "image": user.image,
+                "image_url": get_profile_image_url(user.image) if user.image else None
             }
         }

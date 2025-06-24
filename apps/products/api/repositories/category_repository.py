@@ -38,18 +38,23 @@ class CategoryRepository:
     # --- UPDATE (Delega a save de BaseModel) ---
     @staticmethod
     def update(category_instance: Category, user, name: str = None, description: str = None) -> Category:
-        """Actualiza una categoría usando la lógica de BaseModel.save."""
-        changes_made = False
-        if name is not None and category_instance.name != name:
+        """
+        Actualiza una categoría usando la lógica de BaseModel.save.
+        Siempre guarda si se envían campos, incluso si no cambian.
+        Esto asegura que los validadores del serializer se ejecuten siempre.
+        """
+        if name is not None:
             category_instance.name = name
-            changes_made = True
-        if description is not None and category_instance.description != description:
-            category_instance.description = description
-            changes_made = True
 
-        if changes_made:
-            category_instance.save(user=user) # BaseModel.save() asigna modified_*
+        if description is not None:
+            category_instance.description = description
+
+        # Siempre guarda si se recibió al menos un campo, independientemente de si cambió visualmente
+        if name is not None or description is not None:
+            category_instance.save(user=user)  # BaseModel.save() asigna modified_*
+
         return category_instance
+
 
     # --- SOFT DELETE (Delega a delete de BaseModel) ---
     @staticmethod
