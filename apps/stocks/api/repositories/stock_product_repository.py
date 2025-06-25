@@ -1,6 +1,9 @@
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from apps.products.models.product_model import Product
 from apps.stocks.models.stock_product_model import ProductStock
+import logging
+
+logger = logging.getLogger(__name__)
 
 class StockProductRepository:
     """
@@ -34,7 +37,9 @@ class StockProductRepository:
             return None
         except ProductStock.MultipleObjectsReturned:
              # Decide cómo manejar este caso si puede ocurrir
-             print(f"ALERTA: Múltiples ProductStock activos encontrados para Producto ID {product.pk}")
+             logger.info(
+                 f"ALERTA: Múltiples ProductStock activos encontrados para Producto ID {product.pk}"
+             )
              return ProductStock.objects.filter(product=product, status=True).first()
 
 
