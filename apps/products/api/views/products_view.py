@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
+from django.views.decorators.cache import cache_page
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from drf_spectacular.utils import extend_schema
 
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 # --- Listar productos activos con paginación y stock calculado ---
 @extend_schema(
-    summary=list_product_doc["summary"], 
+    summary=list_product_doc["summary"],
     description=list_product_doc["description"],
     tags=list_product_doc["tags"],
     operation_id=list_product_doc["operation_id"],
@@ -39,6 +40,8 @@ logger = logging.getLogger(__name__)
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+# La caché se invalida automáticamente al crear o modificar productos
+@cache_page(60 * 15)
 def product_list(request):
     """
     Endpoint para listar productos activos con paginación y stock calculado.
