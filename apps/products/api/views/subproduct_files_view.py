@@ -53,7 +53,11 @@ def subproduct_file_upload_view(request, product_id: str, subproduct_id: str):
     results, errors = [], []
     for file in files:
         try:
-            result = upload_subproduct_file(file=file, subproduct_id=int(subproduct_id))
+            result = upload_subproduct_file(
+                file=file,
+                product_id=int(product_id),
+                subproduct_id=int(subproduct_id),
+            )
             SubproductFileRepository.create(
                 subproduct_id=int(subproduct_id),
                 key=result["key"],

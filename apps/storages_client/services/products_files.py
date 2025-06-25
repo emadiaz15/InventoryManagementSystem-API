@@ -1,9 +1,12 @@
 import os
 import uuid
 from mimetypes import guess_type
+import logging
 from django.conf import settings
 from apps.storages_client.clients.minio_client import get_minio_client
 from apps.storages_client.services.s3_file_access import generate_presigned_url
+
+logger = logging.getLogger(__name__)
 
 
 def _validate_file_extension(filename: str):
@@ -57,7 +60,7 @@ def delete_product_file(key: str) -> bool:
         s3.delete_object(Bucket=settings.AWS_PRODUCT_BUCKET_NAME, Key=key)
         return True
     except Exception as e:
-        print(f"❌ Error al eliminar archivo de producto ({key}): {e}")
+        logger.error(f"❌ Error al eliminar archivo de producto ({key}): {e}")
         return False
 
 
@@ -72,5 +75,7 @@ def get_product_file_url(key: str, expiry_seconds: int = 300) -> str | None:
             expiry_seconds=expiry_seconds
         )
     except Exception as e:
-        print(f"❌ Error al generar URL firmada para archivo de producto ({key}): {e}")
+        logger.error(
+            f"❌ Error al generar URL firmada para archivo de producto ({key}): {e}"
+        )
         return None

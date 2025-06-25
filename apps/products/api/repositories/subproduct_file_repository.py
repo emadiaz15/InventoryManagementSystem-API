@@ -3,6 +3,9 @@ from apps.products.models.subproduct_image_model import SubproductImage
 from apps.products.models.subproduct_model import Subproduct
 from django.conf import settings
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class SubproductFileRepository:
     """
@@ -30,7 +33,9 @@ class SubproductFileRepository:
             key=file_id
         ).exists()
         if not exists:
-            print(f"🛑 NO EXISTE SubproductFile: key={file_id}, subproduct_id={subproduct_id}")
+            logger.info(
+                f"🛑 NO EXISTE SubproductFile: key={file_id}, subproduct_id={subproduct_id}"
+            )
         return exists
 
     @staticmethod
