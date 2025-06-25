@@ -4,7 +4,7 @@ from apps.stocks.api.views.stock_event_subproduct_view import subproduct_stock_e
 
 urlpatterns = [
     # Historial de eventos de stock para productos
-    path('products/<int:product_pk>/stock/events/', product_stock_event_history, name='product-stock-events'),
+    path('products/<int:pk>/stock/events/', product_stock_event_history, name='product-stock-events'),
 
     # Historial de eventos de stock para subproductos
     path('products/<int:product_pk>/subproducts/<int:subproduct_pk>/stock/events/', subproduct_stock_event_history, name='subproduct-stock-events'),
