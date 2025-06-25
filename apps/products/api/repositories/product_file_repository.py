@@ -1,7 +1,10 @@
 import os
+import logging
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from apps.products.models.product_image_model import ProductImage
 from apps.products.models.product_model import Product
+
+logger = logging.getLogger(__name__)
 
 class ProductNotFound(Exception):
     pass
@@ -36,7 +39,9 @@ class ProductFileRepository:
         query = ProductImage.objects.filter(product_id=product_id, key=file_id)
         exists = query.exists()
         if not exists:
-            print(f"🛑 NO EXISTE: key={file_id}, product_id={product_id}")
+            logger.info(
+                f"🛑 NO EXISTE: key={file_id}, product_id={product_id}"
+            )
         return exists
 
     @staticmethod

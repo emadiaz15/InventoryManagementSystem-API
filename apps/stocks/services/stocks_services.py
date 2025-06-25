@@ -3,11 +3,14 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.db.models import Sum
+import logging
 
 # Importa los modelos necesarios
 from apps.products.models.product_model import Product
 from apps.products.models.subproduct_model import Subproduct
 from apps.stocks.models import ProductStock, SubproductStock, StockEvent
+
+logger = logging.getLogger(__name__)
 
 User = settings.AUTH_USER_MODEL
 
@@ -86,7 +89,9 @@ def initialize_product_stock(product: Product, user: User,
             notes=reason
         )
 
-    print(f"--- Servicio: Stock inicial creado para Producto {product.pk} ---")
+    logger.info(
+        f"--- Servicio: Stock inicial creado para Producto {product.pk} ---"
+    )
     return stock_instance
 
 
@@ -122,7 +127,9 @@ def adjust_product_stock(product_stock: ProductStock, quantity_change: Decimal,
         created_by=user,        
         notes=reason
     )
-    print(f"--- Servicio: Stock ajustado para Producto {product_stock.product.pk} ---")
+    logger.info(
+        f"--- Servicio: Stock ajustado para Producto {product_stock.product.pk} ---"
+    )
     return product_stock
 
 
@@ -168,7 +175,9 @@ def initialize_subproduct_stock(subproduct: Subproduct, user: User,
             created_by=user,
             notes=reason
         )
-    print(f"--- Servicio: Stock inicial creado para Subproducto {subproduct.pk} ---")
+    logger.info(
+        f"--- Servicio: Stock inicial creado para Subproducto {subproduct.pk} ---"
+    )
     return stock_instance
 
 
@@ -204,7 +213,9 @@ def adjust_subproduct_stock(subproduct_stock: SubproductStock, quantity_change: 
         created_by=user,
         notes=reason
     )
-    print(f"--- Servicio: Stock ajustado para Subproducto {subproduct_stock.subproduct.pk} ---")
+    logger.info(
+        f"--- Servicio: Stock ajustado para Subproducto {subproduct_stock.subproduct.pk} ---"
+    )
     return subproduct_stock
 
 
@@ -252,7 +263,9 @@ def dispatch_subproduct_stock_for_cut(subproduct: Subproduct, cutting_quantity: 
         created_by=user_performing_cut,
         notes=f"Egreso por Orden de Corte #{order_pk}"
     )
-    print(f"--- Servicio: Stock descontado por corte para Subproducto {subproduct.pk} ---")
+    logger.info(
+        f"--- Servicio: Stock descontado por corte para Subproducto {subproduct.pk} ---"
+    )
     return stock_to_update
 
 
@@ -276,11 +289,15 @@ def validate_and_correct_stock():
         try:
             stock_record = product.stock_record
         except ProductStock.DoesNotExist:
-            print(f"No existe registro de stock para el producto {product.name}")
+            logger.info(
+                f"No existe registro de stock para el producto {product.name}"
+            )
             continue
         
         if stock_record.quantity != total_subproduct_quantity:
-            print(f"Corrigiendo stock para el producto {product.name}")
+            logger.info(f"Corrigiendo stock para el producto {product.name}")
             stock_record.quantity = total_subproduct_quantity
             stock_record.save()
-            print(f"Stock del producto {product.name} actualizado a {stock_record.quantity}")
+            logger.info(
+                f"Stock del producto {product.name} actualizado a {stock_record.quantity}"
+            )
