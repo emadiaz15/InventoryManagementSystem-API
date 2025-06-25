@@ -300,6 +300,9 @@ def validate_and_correct_stock():
             logger.info(f"Corrigiendo stock para el producto {product.name}")
             stock_record.quantity = total_subproduct_quantity
             stock_record.save()
+
+            print(f"Stock del producto {product.name} actualizado a {stock_record.quantity}")
+            
             logger.info(
                 f"Stock del producto {product.name} actualizado a {stock_record.quantity}"
             )
