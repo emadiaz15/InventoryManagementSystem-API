@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
+from django.views.decorators.cache import cache_page
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from drf_spectacular.utils import extend_schema
 
@@ -41,6 +42,8 @@ logger = logging.getLogger(__name__)
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+# La caché se invalida automáticamente al crear o modificar subproductos
+@cache_page(60 * 15)
 def subproduct_list(request, prod_pk):
     """
     Endpoint para listar subproductos de un producto padre,
