@@ -120,9 +120,16 @@ def category_detail(request, category_pk):
 
         serializer = CategorySerializer(category, data=request.data, context={'request': request}, partial=True)
         if serializer.is_valid():
-            updated = serializer.save(user=request.user)
-            return Response(CategorySerializer(updated, context={'request': request}).data)
+            validated_data = serializer.validated_data
+            updated_category = CategoryRepository.update(
+                category_instance=category,
+                user=request.user,
+                name=validated_data.get('name'),
+                description=validated_data.get('description')
+            )
+            return Response(CategorySerializer(updated_category, context={'request': request}).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
     # --- DELETE (soft delete) ---
     if request.method == 'DELETE':

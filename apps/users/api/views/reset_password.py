@@ -10,25 +10,16 @@ from apps.users.api.repositories.user_repository import UserRepository
 from apps.users.api.serializers.password_reset_serializers import PasswordResetConfirmSerializer
 
 
-@extend_schema(
-    summary=password_reset_confirm_doc["summary"],
-    description=password_reset_confirm_doc["description"],
-    tags=password_reset_confirm_doc["tags"],
-    operation_id=password_reset_confirm_doc["operation_id"],
-    parameters=password_reset_confirm_doc["parameters"],
-    request=password_reset_confirm_doc["request"],
-    responses=password_reset_confirm_doc["responses"],
-)
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
+@extend_schema(**password_reset_confirm_doc)
 def password_reset_confirm(request, uidb64: str, token: str):
     """
     🛠️ Permite a un administrador restablecer la contraseña de un usuario mediante token y uid.
     🔐 Seguridad: solo admins pueden usar este endpoint.
     """
     serializer = PasswordResetConfirmSerializer(data=request.data)
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    serializer.is_valid(raise_exception=True)
 
     new_password = serializer.validated_data["password"]
 
@@ -36,13 +27,14 @@ def password_reset_confirm(request, uidb64: str, token: str):
         UserRepository.confirm_password_reset(uidb64, token, new_password)
         return Response(
             {'message': 'Contraseña restablecida correctamente.'},
+            headers={"X-Invalidate-Users-Cache": "true"},
             status=status.HTTP_200_OK
         )
     except ValidationError as e:
-        detail = e.detail if hasattr(e, 'detail') else str(e)
+        detail = str(e.detail) if hasattr(e, 'detail') else str(e)
         return Response({'detail': detail}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception:
+    except Exception as e:
         return Response(
-            {'detail': 'Error interno al restablecer la contraseña.'},
+            {'detail': f'Error interno al restablecer la contraseña: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

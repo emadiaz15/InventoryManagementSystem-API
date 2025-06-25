@@ -1,10 +1,10 @@
-# ✅ Imagen oficial de Python + Alpine
+# ✅ Imagen base oficial y segura
 FROM python:3.10.13-alpine
 
 # 📁 Directorio de trabajo
 WORKDIR /app
 
-# 🧰 Paquetes necesarios para compilar y conectar con Postgres
+# 🔧 Dependencias del sistema necesarias para compilar y ejecutar (Postgres, Pillow, etc.)
 RUN apk add --no-cache \
     gcc \
     musl-dev \
@@ -13,23 +13,32 @@ RUN apk add --no-cache \
     postgresql-dev \
     jpeg-dev \
     zlib-dev \
-    netcat-openbsd
+    netcat-openbsd \
+    curl \
+    build-base \
+    libjpeg \
+    libjpeg-turbo-dev \
+    py3-pip
 
-# 📦 Instala dependencias Python
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# ⚡ Actualiza pip para evitar problemas
+RUN pip install --upgrade pip
+
+# 📦 Copia primero solo los requirements y los instala (mejor cache)
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # 📁 Copia el resto del proyecto
-COPY . .
+COPY . /app
 
-# ⚙️ Permisos para el entrypoint
+# 🔐 Permisos al script de arranque
 RUN chmod +x /app/entrypoint.sh
 
-# 🔐 Variables necesarias para Django
-ENV DJANGO_SETTINGS_MODULE=inventory_management.settings.production
+# 🧠 Variables de entorno por defecto
+ARG DJANGO_SETTINGS_MODULE=inventory_management.settings.local
+ENV DJANGO_SETTINGS_MODULE=$DJANGO_SETTINGS_MODULE
 ENV PYTHONUNBUFFERED=1
 
-# 🌐 Puerto expuesto (Railway mapea automáticamente el puerto)
+# 🌐 Puerto expuesto
 EXPOSE 8000
 
 # 🚀 Script de arranque

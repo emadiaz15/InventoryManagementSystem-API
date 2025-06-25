@@ -3,32 +3,30 @@ from apps.products.models.subproduct_model import Subproduct
 
 
 class SubproductImage(models.Model):
-    """
-    Modelo de imágenes multimedia asociadas a un subproducto.
-    """
     subproduct = models.ForeignKey(
         Subproduct,
         on_delete=models.CASCADE,
         related_name="subproduct_images",
         verbose_name="Subproducto"
     )
-    drive_file_id = models.CharField(
+    key = models.CharField(
         max_length=255,
-        verbose_name="ID en Google Drive"
+        default="temp-key",  # ⚠️ Default temporal solo para migrar
+        verbose_name="Nombre del archivo en S3 (key)"
     )
-    url = models.URLField(  # 🆕 NUEVO
+    url = models.URLField(
         max_length=500,
         blank=True,
         null=True,
-        verbose_name="URL de descarga directa"
+        verbose_name="URL pública en S3"
     )
-    name = models.CharField(  # 🆕 NUEVO
+    name = models.CharField(
         max_length=255,
         blank=True,
         null=True,
         verbose_name="Nombre del archivo"
     )
-    mimeType = models.CharField(  # 🆕 NUEVO
+    mime_type = models.CharField(
         max_length=100,
         blank=True,
         null=True,

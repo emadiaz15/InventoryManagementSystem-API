@@ -2,31 +2,27 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
-from django.conf import settings
-from drf_spectacular.utils import extend_schema
-from django.http import HttpResponse, Http404
+from django.http import HttpResponseRedirect, Http404
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 import logging
 
 from apps.products.models import Product, Subproduct
 from apps.products.api.repositories.subproduct_file_repository import SubproductFileRepository
-from apps.products.services.subproduct_image_service import (
+from apps.storages_client.services.subproducts_files import (
     upload_subproduct_file,
-    list_subproduct_files,
     delete_subproduct_file,
-    download_subproduct_file,
+    get_subproduct_file_url
 )
-from apps.products.api.serializers.subproduct_image_serializer import SubproductImageSerializer
 from apps.products.docs.subproduct_image_doc import (
     subproduct_image_upload_doc,
     subproduct_image_list_doc,
     subproduct_image_download_doc,
     subproduct_image_delete_doc,
 )
-from apps.drive.utils.jwt_utils import extract_bearer_token
 
 logger = logging.getLogger(__name__)
-ALLOWED_CONTENT_TYPES = getattr(settings, "ALLOWED_CONTENT_TYPES", set())
+ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 
 @extend_schema(
     tags=subproduct_image_upload_doc["tags"],
@@ -54,21 +50,18 @@ def subproduct_file_upload_view(request, product_id: str, subproduct_id: str):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    token = extract_bearer_token(request, token_type="fastapi")
     results, errors = [], []
-
     for file in files:
         try:
-            result = upload_subproduct_file(file=file, product_id=product_id, subproduct_id=subproduct_id, token=token)
-            file_id = result.get("file_id")
-            if not file_id:
-                raise ValueError("El microservicio no devolvió un 'file_id' válido.")
-
-            if not SubproductFileRepository.exists(int(subproduct_id), file_id):
-                SubproductFileRepository.create(subproduct_id=int(subproduct_id), drive_file_id=file_id)
-
-            results.append(file_id)
-
+            result = upload_subproduct_file(file=file, subproduct_id=int(subproduct_id))
+            SubproductFileRepository.create(
+                subproduct_id=int(subproduct_id),
+                key=result["key"],
+                url=result["url"],
+                name=result["name"],
+                mime_type=result["mimeType"]
+            )
+            results.append(result["key"])
         except Exception as e:
             logger.error(f"❌ Error subiendo archivo {file.name}: {e}")
             errors.append({file.name: str(e)})
@@ -100,9 +93,17 @@ def subproduct_file_list_view(request, product_id: str, subproduct_id: str):
     get_object_or_404(Subproduct, pk=subproduct_id, parent_id=product_id, status=True)
 
     try:
-        queryset = SubproductFileRepository.get_all_by_subproduct(subproduct_id)
-        serialized = SubproductImageSerializer(queryset, many=True)
-        return Response({"files": serialized.data}, status=status.HTTP_200_OK)
+        files = SubproductFileRepository.get_all_by_subproduct(int(subproduct_id))
+        return Response({
+            "files": [
+                {
+                    "key": f.key,
+                    "name": f.name,
+                    "mimeType": f.mime_type,
+                    "url": f.get_presigned_url()
+                } for f in files
+            ]
+        }, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"❌ Error listando archivos de subproducto {subproduct_id}: {e}")
         return Response({"detail": f"Error listando archivos: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -126,14 +127,12 @@ def subproduct_file_download_view(request, product_id: str, subproduct_id: str, 
         raise Http404(f"🛑 Archivo {file_id} no está vinculado al subproducto {subproduct_id}")
 
     try:
-        token = extract_bearer_token(request, token_type="fastapi")
-        content, filename, content_type = download_subproduct_file(product_id, subproduct_id, file_id, token)
-        response = HttpResponse(content, content_type=content_type)
-        response["Content-Disposition"] = f'inline; filename="{filename}"'
-        return response
+        url = get_subproduct_file_url(file_id)
+        return HttpResponseRedirect(url)
     except Exception as e:
-        logger.error(f"❌ Error descargando archivo {file_id} de subproducto {subproduct_id}: {e}")
-        return Response({"detail": f"No se pudo descargar el archivo: {str(e)}"}, status=status.HTTP_404_NOT_FOUND)
+        logger.error(f"❌ Error generando URL presignada para archivo {file_id} del subproducto {subproduct_id}: {e}")
+        return Response({"detail": "Error generando acceso al archivo."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @extend_schema(
     tags=subproduct_image_delete_doc["tags"],
@@ -153,9 +152,8 @@ def subproduct_file_delete_view(request, product_id: str, subproduct_id: str, fi
         return Response({"detail": "El archivo no está vinculado a este subproducto."}, status=status.HTTP_404_NOT_FOUND)
 
     try:
-        token = extract_bearer_token(request, token_type="fastapi")
-        delete_subproduct_file(product_id=product_id, subproduct_id=subproduct_id, file_id=file_id, token=token)
-        SubproductFileRepository.delete(file_id=file_id)
+        delete_subproduct_file(file_id)
+        SubproductFileRepository.delete(file_id)
         return Response({"detail": "Archivo eliminado correctamente."}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"❌ Error eliminando archivo {file_id} de subproducto {subproduct_id}: {e}")

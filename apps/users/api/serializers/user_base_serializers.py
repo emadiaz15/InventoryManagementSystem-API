@@ -26,12 +26,18 @@ class UserSerializer(serializers.ModelSerializer):
         required=False,
         allow_blank=True,
     )
+    image_url = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'name', 'last_name', 'dni', 'is_staff', 'is_active']
-        read_only_fields = ['id']
+        fields = ['id', 'username', 'email', 'name', 'last_name', 'dni', 'is_staff', 'is_active', 'image_url']
+        read_only_fields = ['id', 'image_url']
 
+    def get_image_url(self, obj):
+        if not obj.image or not isinstance(obj.image, str):
+            return None
+        return obj.image  # Ya es una URL pública generada desde MinIO
+       
     def validate_dni(self, value):
         if value and not re.match(r"^\d{7,10}$", value):
             raise serializers.ValidationError("El DNI debe contener entre 7 y 10 dígitos.")

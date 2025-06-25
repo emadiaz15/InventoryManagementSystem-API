@@ -19,6 +19,9 @@ from apps.cuts.docs.cutting_order_doc import (
     update_cutting_order_by_id_doc,
     delete_cutting_order_by_id_doc
 )
+
+from apps.cuts.services.cuts_services import create_full_cutting_order
+
 from apps.cuts.tasks import notify_cut_assignment, notify_cut_status_change
 
 logger = logging.getLogger(__name__)
@@ -92,17 +95,25 @@ def cutting_order_create(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     try:
+        # ⚙️ Datos limpios
         data = serializer.validated_data
-        items = data.pop('items')
-        order = CuttingOrderRepository.create(
+        item = data['items'][0]  # Asumimos que siempre viene 1 item (porque es full_create)
+        subproduct = item['subproduct']
+        cutting_quantity = float(item['cutting_quantity'])
+
+
+        order = create_full_cutting_order(
+            subproduct_id=subproduct.id,
             customer=data['customer'],
-            items=items,
+            cutting_quantity=cutting_quantity,
             user_creator=request.user,
-            assigned_to=data.get('assigned_to'),
-            workflow_status=data.get('workflow_status', 'pending')
+            assigned_to_id=data.get('assigned_to').id if data.get('assigned_to') else None,
+            order_number=data['order_number']
         )
+
         if order.assigned_to:
             notify_cut_assignment.delay(order.assigned_to.id, order.id)
+
         resp = CuttingOrderSerializer(order, context={'request': request})
         return Response(resp.data, status=status.HTTP_201_CREATED)
 
@@ -163,7 +174,7 @@ def cutting_order_detail(request, cuts_pk):
         if not request.user.is_staff:
             return Response({"detail": "Solo staff puede eliminar órdenes."}, status=status.HTTP_403_FORBIDDEN)
         try:
-            CuttingOrderRepository.soft_delete_order(order, request.user)
+            CuttingOrderRepository.soft_delete(order, request.user)
             notify_cut_status_change.delay(order.id, "deleted")
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Exception as e:

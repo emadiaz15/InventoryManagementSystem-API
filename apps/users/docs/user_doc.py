@@ -4,7 +4,6 @@ from apps.users.api.serializers.user_create_serializers import UserCreateSeriali
 from apps.users.api.serializers.user_detail_serializers import UserDetailSerializer
 from apps.users.api.serializers.user_update_serializers import UserUpdateSerializer
 from apps.users.api.serializers.password_reset_serializers import PasswordResetConfirmSerializer
-from apps.users.api.serializers.image_serializers import UserProfileImageSerializer
 
 # --- Autenticación ---
 obtain_jwt_token_pair_doc = {
@@ -34,7 +33,7 @@ logout_user_doc = {
     "responses": {
         205: OpenApiResponse(description="Token invalidado"),
         400: OpenApiResponse(description="Token inválido o faltante"),
-        401: OpenApiResponse(description="No autorizado")
+        401: OpenApiResponse(description="No autenticado")
     }
 }
 
@@ -43,8 +42,7 @@ get_user_profile_doc = {
     "tags": ["Users"],
     "summary": "Obtener perfil",
     "operation_id": "get_user_profile",
-    "description": "Retorna el perfil del usuario autenticado, incluyendo el enlace de descarga de imagen si existe.",
-    "security": [{"jwtAuth": []}],
+    "description": "Retorna el perfil del usuario autenticado, incluyendo la URL firmada de imagen si corresponde.",
     "responses": {
         200: OpenApiResponse(response=UserDetailSerializer, description="Perfil recuperado"),
         401: OpenApiResponse(description="No autenticado")
@@ -56,13 +54,12 @@ list_users_doc = {
     "tags": ["Users"],
     "summary": "Listar usuarios",
     "operation_id": "list_users",
-    "description": "Retorna lista paginada de usuarios. Sólo accesible para administradores.",
-    "security": [{"jwtAuth": []}],
+    "description": "Retorna lista paginada de usuarios. Solo accesible para administradores.",
     "parameters": [
-        OpenApiParameter(name="username", location=OpenApiParameter.QUERY, description="Filtra por username", required=False, type=str),
-        OpenApiParameter(name="email", location=OpenApiParameter.QUERY, description="Filtra por email", required=False, type=str),
-        OpenApiParameter(name="is_active", location=OpenApiParameter.QUERY, description="Filtra por estado activo", required=False, type=bool),
-        OpenApiParameter(name="is_staff", location=OpenApiParameter.QUERY, description="Filtra por rol admin", required=False, type=bool),
+        OpenApiParameter(name="username", location=OpenApiParameter.QUERY, description="Filtrar por username", required=False, type=str),
+        OpenApiParameter(name="email", location=OpenApiParameter.QUERY, description="Filtrar por email", required=False, type=str),
+        OpenApiParameter(name="is_active", location=OpenApiParameter.QUERY, description="Filtrar por estado activo", required=False, type=bool),
+        OpenApiParameter(name="is_staff", location=OpenApiParameter.QUERY, description="Filtrar por rol administrador", required=False, type=bool),
         OpenApiParameter(name="page", location=OpenApiParameter.QUERY, description="Número de página", required=False, type=int),
         OpenApiParameter(name="page_size", location=OpenApiParameter.QUERY, description="Tamaño de página", required=False, type=int)
     ],
@@ -78,7 +75,6 @@ create_user_doc = {
     "summary": "Crear usuario",
     "operation_id": "create_user",
     "description": "Permite a un administrador crear un nuevo usuario. Se puede subir una imagen opcional.",
-    "security": [{"jwtAuth": []}],
     "request": UserCreateSerializer,
     "responses": {
         201: OpenApiResponse(response=UserDetailSerializer, description="Usuario creado correctamente"),
@@ -92,8 +88,7 @@ manage_user_doc = {
     "tags": ["Users"],
     "summary": "Gestión de usuario",
     "operation_id": "manage_user",
-    "description": "GET, PUT y DELETE de un usuario por ID. PUT permite actualizar la imagen.",
-    "security": [{"jwtAuth": []}],
+    "description": "GET, PUT y DELETE de un usuario por ID. PUT permite actualizar la imagen (solo admins o el usuario mismo).",
     "parameters": [
         OpenApiParameter(name="id", location=OpenApiParameter.PATH, required=True, type=int, description="ID del usuario")
     ],
@@ -107,18 +102,6 @@ manage_user_doc = {
 }
 
 # --- Reset de contraseña ---
-send_password_reset_email_doc = {
-    "tags": ["Users"],
-    "summary": "Enviar email de reset",
-    "operation_id": "send_password_reset_email",
-    "description": "Envía al usuario autenticado un enlace para restablecer la contraseña.",
-    "security": [{"jwtAuth": []}],
-    "responses": {
-        200: OpenApiResponse(description="Correo enviado"),
-        401: OpenApiResponse(description="No autenticado")
-    }
-}
-
 password_reset_confirm_doc = {
     "tags": ["Users"],
     "summary": "Confirmar restablecimiento",
@@ -135,32 +118,17 @@ password_reset_confirm_doc = {
     }
 }
 
-# --- Imagenes de perfil ---
+# --- Imágenes de perfil ---
 image_delete_doc = {
     "tags": ["Users"],
-    "summary": "Eliminar imagen",
+    "summary": "Eliminar imagen de perfil",
     "operation_id": "delete_image_profile",
-    "description": "Elimina la imagen de perfil del usuario autenticado desde el servicio FastAPI y limpia el campo en el modelo.",
+    "description": "Elimina la imagen de perfil del usuario desde MinIO/S3 y actualiza el modelo.",
     "parameters": [
-        OpenApiParameter(name="file_id", location=OpenApiParameter.PATH, required=True, type=str, description="ID del archivo en Drive")
+        OpenApiParameter(name="file_id", location=OpenApiParameter.PATH, required=True, type=str, description="Key de la imagen en S3")
     ],
     "responses": {
         200: OpenApiResponse(description="Imagen eliminada correctamente"),
-        404: OpenApiResponse(description="Imagen no encontrada o error de red"),
-        401: OpenApiResponse(description="No autenticado")
-    }
-}
-
-image_proxy_doc = {
-    "tags": ["Users"],
-    "summary": "Obtener imagen de perfil",
-    "operation_id": "get_image_proxy",
-    "description": "Obtiene una imagen de perfil (proxy de FastAPI) a través del backend Django.",
-    "parameters": [
-        OpenApiParameter(name="file_id", location=OpenApiParameter.PATH, required=True, type=str, description="ID del archivo en Drive")
-    ],
-    "responses": {
-        200: OpenApiResponse(description="Imagen devuelta"),
         404: OpenApiResponse(description="Imagen no encontrada"),
         401: OpenApiResponse(description="No autenticado")
     }
@@ -170,9 +138,10 @@ image_replace_doc = {
     "tags": ["Users"],
     "summary": "Reemplazar imagen de perfil",
     "operation_id": "replace_image_profile",
-    "description": "Permite al usuario autenticado reemplazar su imagen de perfil en el servicio externo (FastAPI).",
+    "description": "Permite al usuario (o admin) reemplazar la imagen de perfil almacenada en MinIO/S3.",
     "parameters": [
-        OpenApiParameter(name="file_id", location=OpenApiParameter.PATH, required=True, type=str, description="ID del archivo actual en el servicio Drive"),
+        OpenApiParameter(name="file_id", location=OpenApiParameter.PATH, required=True, type=str, description="Key actual de la imagen en S3"),
+        OpenApiParameter(name="user_id", location=OpenApiParameter.QUERY, required=False, type=int, description="(Solo admin) ID del usuario objetivo")
     ],
     "request": {
         "multipart/form-data": {
@@ -181,7 +150,7 @@ image_replace_doc = {
                 "file": {
                     "type": "string",
                     "format": "binary",
-                    "description": "Archivo de imagen a subir"
+                    "description": "Nuevo archivo de imagen"
                 }
             },
             "required": ["file"]
@@ -198,8 +167,9 @@ image_replace_doc = {
                 }
             }
         ),
-        400: OpenApiResponse(description="Archivo no proporcionado."),
-        404: OpenApiResponse(description="No autorizado para modificar esta imagen."),
-        500: OpenApiResponse(description="Error inesperado al reemplazar la imagen.")
+        400: OpenApiResponse(description="Archivo no proporcionado"),
+        403: OpenApiResponse(description="No autorizado"),
+        404: OpenApiResponse(description="Usuario o imagen no encontrados"),
+        500: OpenApiResponse(description="Error inesperado al reemplazar la imagen")
     }
 }

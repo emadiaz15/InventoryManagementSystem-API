@@ -48,32 +48,44 @@ class LogoutView(APIView):
 
     def post(self, request):
         refresh_token = request.data.get("refresh_token")
+
         if not refresh_token:
             return Response(
                 {"error": "Se requiere el refresh_token."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        if refresh_token.count('.') != 2:
+            logger.warning("Token de logout con formato inválido.")
+            return self._neutral_response()
+
         try:
             token = RefreshToken(refresh_token)
+
             if token.token_type != "refresh":
-                return Response(
-                    {"error": "El token proporcionado no es un refresh token."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                logger.warning("Token proporcionado no es de tipo refresh.")
+                return self._neutral_response()
+
             token.blacklist()
-            return Response(
-                {"message": "Refresh token invalidado correctamente."},
-                status=status.HTTP_205_RESET_CONTENT
-            )
+            return self._neutral_response()
+
         except TokenError:
-            logger.warning("Intento de logout con token inválido o expirado.")
-            return Response(
-                {"error": "Refresh token inválido o expirado."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            logger.warning("Token inválido o expirado durante logout.")
+            return self._neutral_response()
+
         except Exception as e:
-            logger.error(f"Error inesperado en logout: {e}")
+            logger.error(f"Error inesperado al cerrar sesión: {e}")
             return Response(
-                {"error": "Error interno al invalidar el token."},
+                {"error": "Error interno al procesar la solicitud."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @staticmethod
+    def _neutral_response():
+        """
+        Respuesta genérica para ocultar si el token es inválido o ya expiró.
+        """
+        return Response(
+            {"message": "Sesión finalizada."},
+            status=status.HTTP_205_RESET_CONTENT
+        )

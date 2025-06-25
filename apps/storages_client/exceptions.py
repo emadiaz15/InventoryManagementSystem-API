@@ -1,0 +1,2 @@
+class StorageUploadError(Exception):
+    pass
