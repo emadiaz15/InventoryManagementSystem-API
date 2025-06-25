@@ -267,12 +267,14 @@ def validate_and_correct_stock():
         
 
         for subproduct in product.subproducts.all():
-            total_subproduct_quantity += subproduct.quantity
-            total_subproduct_quantity += (
-                SubproductStock.objects
-                    .filter(subproduct=subproduct, status=True)
-                    .aggregate(total=Sum('quantity'))['total'] or Decimal('0.00')
+            total_subproduct_quantity += Decimal(
+                subproduct.initial_stock_quantity or 0
             )
+            active_total = SubproductStock.objects.filter(
+                subproduct=subproduct,
+                status=True
+            ).aggregate(total=Sum('quantity'))['total']
+            total_subproduct_quantity += Decimal(active_total or 0)
         try:
             stock_record = product.stock_record
         except ProductStock.DoesNotExist:
