@@ -35,32 +35,6 @@ def send_assignment_notification(cutting_order):
         fail_silently=False,
     )
     
-@receiver(post_save, sender=User)
-def send_new_user_notification(sender, instance, created, **kwargs):
-    """
-    Envía una notificación por correo electrónico a los administradores
-    cada vez que se crea un nuevo usuario.
-    """
-    if created:
-        # Obtenemos todos los administradores
-        admin_users = User.objects.filter(is_staff=True)
-        recipient_emails = [admin.email for admin in admin_users if admin.email]
-
-        # Asunto y contenido del correo
-        subject = f"Nuevo Usuario Creado: {instance.username}"
-        message = render_to_string('core/new_user_notification_email.html', {'user': instance})
-
-        # Enviamos el correo a todos los administradores
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            recipient_emails,
-            fail_silently=False,
-        )
-        
-        
-
 logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=User)
