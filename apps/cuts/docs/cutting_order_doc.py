@@ -60,7 +60,11 @@ list_assigned_cutting_orders_doc = {
 create_cutting_order_doc = {
     'operation_id': 'create_cutting_order',
     'summary': 'Crea una nueva orden de corte.',
-    'description': 'Crea una nueva orden de corte. Solo usuarios staff pueden crear órdenes de corte.',
+    'description': (
+        'Crea una nueva orden de corte asociada a un producto y con múltiples subproductos. '
+        'Solo usuarios staff pueden crear órdenes. El campo `operator_can_edit_items` '
+        'indica si el operario asignado podrá modificar los items.'
+    ),
     'tags': ['Cutting Orders'],
     'security': [{'jwtAuth': []}],
     'requestBody': {
@@ -121,7 +125,8 @@ update_cutting_order_by_id_doc = {
     'description': (
         'Actualiza una orden de corte específica.\n\n'
         '• Usuarios staff pueden modificar cualquier campo.\n'
-        '• Usuarios asignados pueden actualizar solo el campo `workflow_status`.'
+        '• Usuarios asignados pueden actualizar solo el campo `workflow_status`'
+        ' o también los `items` cuando `operator_can_edit_items` es verdadero.'
     ),
     'tags': ['Cutting Orders'],
     'security': [{'jwtAuth': []}],
