@@ -3,8 +3,11 @@ from django.utils import timezone
 from django.db.models import Q
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
+import logging
 
 User = get_user_model()
+
+logger = logging.getLogger(__name__)
 
 class BaseSerializer(serializers.ModelSerializer):
     """
@@ -99,34 +102,52 @@ class BaseSerializer(serializers.ModelSerializer):
         """
         Maneja la creación, usando el 'user' recibido explícitamente.
         """
-        print(f"--- DEBUG SERIALIZER CREATE v3: Inicio ---")
-        print(f"--- DEBUG SERIALIZER CREATE v3: user recibido: {user} (ID: {getattr(user, 'pk', 'N/A')}) ---")
-        print(f"--- DEBUG SERIALIZER CREATE v3: validated_data: {validated_data} ---")
+        logger.info("--- DEBUG SERIALIZER CREATE v3: Inicio ---")
+        logger.info(
+            f"--- DEBUG SERIALIZER CREATE v3: user recibido: {user} (ID: {getattr(user, 'pk', 'N/A')}) ---"
+        )
+        logger.info(
+            f"--- DEBUG SERIALIZER CREATE v3: validated_data: {validated_data} ---"
+        )
         try:
             instance = self.Meta.model(**validated_data)
-            print(f"--- DEBUG SERIALIZER CREATE v3: Instancia creada en memoria: {instance} ---")
-            print(f"--- DEBUG SERIALIZER CREATE v3: Llamando a instance.save(user={user}) ---")
+            logger.info(
+                f"--- DEBUG SERIALIZER CREATE v3: Instancia creada en memoria: {instance} ---"
+            )
+            logger.info(
+                f"--- DEBUG SERIALIZER CREATE v3: Llamando a instance.save(user={user}) ---"
+            )
             instance.save(user=user)
-            print(f"--- DEBUG SERIALIZER CREATE v3: instance.save() completado. Instancia final: {instance} ---")
+            logger.info(
+                f"--- DEBUG SERIALIZER CREATE v3: instance.save() completado. Instancia final: {instance} ---"
+            )
         except TypeError as e:
-            print(f"--- ERROR SERIALIZER CREATE v3: TypeError: {e} ---")
+            logger.error(f"--- ERROR SERIALIZER CREATE v3: TypeError: {e} ---")
             raise TypeError(f"Error al instanciar {self.Meta.model.__name__}: {e}")
         except DjangoValidationError as e:
-            print(f"--- ERROR SERIALIZER CREATE v3: DjangoValidationError: {e} ---")
+            logger.error(
+                f"--- ERROR SERIALIZER CREATE v3: DjangoValidationError: {e} ---"
+            )
             raise serializers.ValidationError(e.detail)
         except Exception as e:
-            print(f"--- ERROR SERIALIZER CREATE v3: Exception: {e} ---")
+            logger.error(f"--- ERROR SERIALIZER CREATE v3: Exception: {e} ---")
             raise serializers.ValidationError(f"Error inesperado al guardar: {e}")
-        print("--- DEBUG SERIALIZER CREATE v3: Fin ---")
+        logger.info("--- DEBUG SERIALIZER CREATE v3: Fin ---")
         return instance
 
     def update(self, instance, validated_data, user=None):
         """
         Maneja la actualización, usando el 'user' recibido explícitamente.
         """
-        print(f"--- DEBUG SERIALIZER UPDATE v3: Inicio para instancia PK={instance.pk} ---")
-        print(f"--- DEBUG SERIALIZER UPDATE v3: user recibido: {user} (ID: {getattr(user, 'pk', 'N/A')}) ---")
-        print(f"--- DEBUG SERIALIZER UPDATE v3: validated_data: {validated_data} ---")
+        logger.info(
+            f"--- DEBUG SERIALIZER UPDATE v3: Inicio para instancia PK={instance.pk} ---"
+        )
+        logger.info(
+            f"--- DEBUG SERIALIZER UPDATE v3: user recibido: {user} (ID: {getattr(user, 'pk', 'N/A')}) ---"
+        )
+        logger.info(
+            f"--- DEBUG SERIALIZER UPDATE v3: validated_data: {validated_data} ---"
+        )
         validated_data = self._filter_validated_data(validated_data)
         audit_fields = {'created_at', 'created_by', 'modified_at', 'modified_by', 'deleted_at', 'deleted_by', 'status'}
         has_other_changes = False
@@ -147,18 +168,26 @@ class BaseSerializer(serializers.ModelSerializer):
             instance.deleted_by = None
             status_changed = True
         if status_changed or has_other_changes:
-            print(f"Updating instance {instance.pk} modified by user {user.pk if user else 'None'}")
+            logger.info(
+                f"Updating instance {instance.pk} modified by user {user.pk if user else 'None'}"
+            )
         try:
-            print(f"--- DEBUG SERIALIZER UPDATE v3: Llamando a instance.save(user={user}) ---")
+            logger.info(
+                f"--- DEBUG SERIALIZER UPDATE v3: Llamando a instance.save(user={user}) ---"
+            )
             instance.save(user=user)
-            print(f"--- DEBUG SERIALIZER UPDATE v3: instance.save() completado. Instancia final: {instance} ---")
+            logger.info(
+                f"--- DEBUG SERIALIZER UPDATE v3: instance.save() completado. Instancia final: {instance} ---"
+            )
         except DjangoValidationError as e:
-            print(f"--- ERROR SERIALIZER UPDATE v3: DjangoValidationError: {e} ---")
+            logger.error(
+                f"--- ERROR SERIALIZER UPDATE v3: DjangoValidationError: {e} ---"
+            )
             raise serializers.ValidationError(e.detail)
         except Exception as e:
-            print(f"--- ERROR SERIALIZER UPDATE v3: Exception: {e} ---")
+            logger.error(f"--- ERROR SERIALIZER UPDATE v3: Exception: {e} ---")
             raise serializers.ValidationError(f"Error inesperado al guardar: {e}")
-        print(f"--- DEBUG SERIALIZER UPDATE v3: Fin ---")
+        logger.info(f"--- DEBUG SERIALIZER UPDATE v3: Fin ---")
         return instance
 
     def to_representation(self, instance):
