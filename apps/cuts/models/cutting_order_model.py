@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.conf import settings
 
 from apps.products.models.subproduct_model import Subproduct
+from apps.products.models.product_model import Product
 from apps.products.models.base_model import BaseModel
 
 
@@ -27,6 +28,12 @@ class CuttingOrder(BaseModel):
         unique=True,
         default=0
     )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.PROTECT,
+        related_name='cutting_orders',
+        verbose_name='Producto'
+    )
     customer = models.CharField(
         max_length=255,
         help_text='Cliente para quien es la orden de corte',
@@ -42,6 +49,10 @@ class CuttingOrder(BaseModel):
     completed_at = models.DateTimeField(
         null=True, blank=True,
         verbose_name='Fecha de Completado'
+    )
+    operator_can_edit_items = models.BooleanField(
+        default=False,
+        verbose_name='Operario puede editar items'
     )
 
     class Meta:

@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from apps.stocks.models import SubproductStock
 from apps.products.models.subproduct_model import Subproduct
+from apps.products.models.product_model import Product
 from apps.cuts.models.cutting_order_model import CuttingOrder, CuttingOrderItem
 from apps.products.api.serializers.base_serializer import BaseSerializer
 
@@ -29,6 +30,8 @@ class CuttingOrderItemSerializer(serializers.ModelSerializer):
 
 class CuttingOrderSerializer(BaseSerializer):
     items = CuttingOrderItemSerializer(many=True)
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.filter(status=True))
+    operator_can_edit_items = serializers.BooleanField(required=False)
     customer = serializers.CharField()
     assigned_to = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.filter(is_active=True),
@@ -46,7 +49,8 @@ class CuttingOrderSerializer(BaseSerializer):
     class Meta:
         model = CuttingOrder
         fields = [
-            'id', 'customer', 'workflow_status', 'workflow_status_display',
+            'id', 'product', 'operator_can_edit_items',
+            'customer', 'workflow_status', 'workflow_status_display',
             'assigned_to', 'completed_at',
             'items',
             'status', 'created_at', 'modified_at', 'deleted_at',
@@ -64,6 +68,8 @@ class CuttingOrderSerializer(BaseSerializer):
         if not items:
             raise serializers.ValidationError("Debe incluir al menos un item de corte.")
 
+        product = data.get('product') or getattr(self.instance, 'product', None)
+
         qty_per_subproduct = defaultdict(Decimal)
 
         for item in items:
@@ -74,7 +80,12 @@ class CuttingOrderSerializer(BaseSerializer):
             except (InvalidOperation, ValueError):
                 raise serializers.ValidationError("Cantidad inválida en uno de los items.")
 
-            qty_per_subproduct[item['subproduct'].id] += qty
+            subproduct = item['subproduct']
+            if product and subproduct.parent_id != product.id:
+                raise serializers.ValidationError({
+                    'items': f"El subproducto {subproduct.id} no pertenece al producto indicado."
+                })
+            qty_per_subproduct[subproduct.id] += qty
 
         for subproduct_id, total_needed in qty_per_subproduct.items():
             stocks = SubproductStock.objects.filter(subproduct_id=subproduct_id, status=True)
