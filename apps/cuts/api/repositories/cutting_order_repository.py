@@ -4,6 +4,7 @@ from django.db import models, transaction
 
 from apps.cuts.models.cutting_order_model import CuttingOrder, CuttingOrderItem
 from apps.users.models.user_model import User
+from apps.products.models.product_model import Product
 
 
 class CuttingOrderRepository:
@@ -49,19 +50,23 @@ class CuttingOrderRepository:
     def create(
         order_number: int,
         customer: str,
+        product: Product,
         items: List[Dict[str, Any]],
         user_creator: User,
         assigned_to: Optional[User] = None,
-        workflow_status: str = 'pending'
+        workflow_status: str = 'pending',
+        operator_can_edit_items: bool = False
     ) -> CuttingOrder:
         """
         Crea orden de corte + ítems (bulk insert) con validaciones.
         """
-        CuttingOrderRepository._validate_create_input(order_number, customer, items, user_creator)
+        CuttingOrderRepository._validate_create_input(order_number, customer, product, items, user_creator)
 
         order = CuttingOrder(
             order_number=order_number,
             customer=customer,
+            product=product,
+            operator_can_edit_items=operator_can_edit_items,
             assigned_to=assigned_to,
             workflow_status=workflow_status
         )
@@ -94,7 +99,7 @@ class CuttingOrderRepository:
         if not user_modifier or not getattr(user_modifier, 'is_authenticated', False):
             raise ValidationError("Usuario modificador inválido.")
 
-        updatable_fields = {'customer', 'workflow_status', 'assigned_to'}
+        updatable_fields = {'customer', 'workflow_status', 'assigned_to', 'product', 'operator_can_edit_items'}
         changed = False
         for field, value in data.items():
             if field in updatable_fields and getattr(order_instance, field) != value:
@@ -135,11 +140,13 @@ class CuttingOrderRepository:
     # =======================================
 
     @staticmethod
-    def _validate_create_input(order_number, customer, items, user_creator):
+    def _validate_create_input(order_number, customer, product, items, user_creator):
         if not order_number:
             raise ValidationError("Número de pedido requerido.")
         if not customer:
             raise ValidationError("Cliente requerido.")
+        if not product or not isinstance(product, Product):
+            raise ValidationError("Producto requerido.")
         if not user_creator or not getattr(user_creator, 'is_authenticated', False):
             raise ValidationError("Usuario creador inválido.")
         if not items:

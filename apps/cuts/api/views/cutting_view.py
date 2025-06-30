@@ -95,20 +95,23 @@ def cutting_order_create(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        # ⚙️ Datos limpios
         data = serializer.validated_data
-        item = data['items'][0]  # Asumimos que siempre viene 1 item (porque es full_create)
-        subproduct = item['subproduct']
-        cutting_quantity = float(item['cutting_quantity'])
-
+        items = [
+            {
+                'subproduct_id': itm['subproduct'].id,
+                'cutting_quantity': float(itm['cutting_quantity'])
+            }
+            for itm in data['items']
+        ]
 
         order = create_full_cutting_order(
-            subproduct_id=subproduct.id,
+            product_id=data['product'].id,
+            items=items,
             customer=data['customer'],
-            cutting_quantity=cutting_quantity,
             user_creator=request.user,
             assigned_to_id=data.get('assigned_to').id if data.get('assigned_to') else None,
-            order_number=data['order_number']
+            order_number=data['order_number'],
+            operator_can_edit_items=data.get('operator_can_edit_items', False)
         )
 
         if order.assigned_to:
@@ -175,7 +178,7 @@ def cutting_order_detail(request, cuts_pk):
             return Response({"detail": "Solo staff puede eliminar órdenes."}, status=status.HTTP_403_FORBIDDEN)
         try:
             CuttingOrderRepository.soft_delete(order, request.user)
-            notify_cut_status_change.delay(order.id, "deleted")
+            notify_cut_status_change.delay(request.user.id, order.id, "deleted")
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             logger.error(f"Error eliminando orden {cuts_pk}: {e}")
@@ -187,7 +190,10 @@ def cutting_order_detail(request, cuts_pk):
 
     is_staff = request.user.is_staff
     is_assigned = (order.assigned_to_id == request.user.id)
-    only_workflow = set(payload.keys()) == {"workflow_status"}
+    allowed_fields = {"workflow_status"}
+    if order.operator_can_edit_items:
+        allowed_fields.add("items")
+    only_workflow = set(payload.keys()).issubset(allowed_fields)
 
     # Permiso de edición
     if not (is_staff or (is_assigned and only_workflow)):
@@ -207,7 +213,7 @@ def cutting_order_detail(request, cuts_pk):
                 data=data,
                 items=items
             )
-            notify_cut_status_change.delay(updated.id, updated.workflow_status)
+            notify_cut_status_change.delay(request.user.id, updated.id, updated.workflow_status)
         resp = CuttingOrderSerializer(updated, context={'request': request})
         return Response(resp.data)
     except Exception as e:
