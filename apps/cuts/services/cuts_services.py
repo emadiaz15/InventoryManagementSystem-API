@@ -9,6 +9,7 @@ from apps.cuts.models.cutting_order_model import CuttingOrder, CuttingOrderItem
 from apps.cuts.api.repositories.cutting_order_repository import CuttingOrderRepository
 from apps.users.models.user_model import User
 from apps.products.models.subproduct_model import Subproduct
+from apps.products.models.product_model import Product
 from apps.stocks.services.stocks_services import (
     check_subproduct_stock,
     dispatch_subproduct_stock_for_cut
@@ -17,12 +18,13 @@ from apps.stocks.services.stocks_services import (
 # --- Servicio para CREAR una Orden de Corte Completa ---
 @transaction.atomic
 def create_full_cutting_order(
-    subproduct_id: int,
+    product_id: int,
+    items: list,
     customer: str,
-    cutting_quantity: float,
     user_creator: User,
     assigned_to_id: int = None,
-    order_number: int = None
+    order_number: int = None,
+    operator_can_edit_items: bool = False
 ) -> CuttingOrder:
     if not user_creator.is_staff:
         raise PermissionDenied("Solo usuarios Staff pueden crear órdenes de corte.")
@@ -32,46 +34,54 @@ def create_full_cutting_order(
     if order_number is None:
         raise ValidationError("El número de pedido (order_number) es obligatorio.")
 
-    try:
-        cutting_quantity_dec = Decimal(str(cutting_quantity))
-        if cutting_quantity_dec <= 0:
-            raise ValidationError("La cantidad debe ser un número positivo.")
-    except InvalidOperation:
-        raise ValidationError("Cantidad inválida.")
+    product = get_object_or_404(Product, pk=product_id, status=True)
 
-    subproduct = get_object_or_404(Subproduct, pk=subproduct_id, status=True)
-    if not subproduct.parent.has_subproducts:
-        raise ValidationError("El producto asociado no permite subproductos.")
+    if not product.has_subproducts:
+        raise ValidationError("El producto no permite subproductos.")
 
-    check_subproduct_stock(subproduct=subproduct, quantity_needed=cutting_quantity_dec)
+    validated_items = []
+    for item in items:
+        subproduct = get_object_or_404(Subproduct, pk=item['subproduct_id'], status=True)
+        if subproduct.parent_id != product.id:
+            raise ValidationError(f"El subproducto {subproduct.pk} no pertenece al producto indicado.")
+        try:
+            qty = Decimal(str(item['cutting_quantity']))
+            if qty <= 0:
+                raise InvalidOperation
+        except (InvalidOperation, ValueError):
+            raise ValidationError("Cantidad inválida en items.")
+        check_subproduct_stock(subproduct=subproduct, quantity_needed=qty)
+        validated_items.append((subproduct, qty))
 
     assigned_to_user = None
     if assigned_to_id:
         assigned_to_user = get_object_or_404(User, pk=assigned_to_id, is_active=True)
-        if assigned_to_user.is_staff:
-            raise ValidationError("No se puede asignar una orden de corte a un usuario staff.")
 
     order = CuttingOrder.objects.create(
         order_number=order_number,
         customer=customer,
+        product=product,
+        operator_can_edit_items=operator_can_edit_items,
         created_by=user_creator,
         assigned_to=assigned_to_user,
         workflow_status='pending',
     )
 
-    CuttingOrderItem.objects.create(
-        order=order,
-        subproduct=subproduct,
-        cutting_quantity=cutting_quantity_dec,
-        created_by=user_creator
-    )
+    for sub, qty in validated_items:
+        CuttingOrderItem.objects.create(
+            order=order,
+            subproduct=sub,
+            cutting_quantity=qty,
+            created_by=user_creator
+        )
 
-    dispatch_subproduct_stock_for_cut(
-        subproduct=subproduct,
-        cutting_quantity=cutting_quantity_dec,
-        order_pk=order.pk,
-        user_performing_cut=user_creator
-    )
+    for sub, qty in validated_items:
+        dispatch_subproduct_stock_for_cut(
+            subproduct=sub,
+            cutting_quantity=qty,
+            order_pk=order.pk,
+            user_performing_cut=user_creator
+        )
 
     return order
 
@@ -90,15 +100,12 @@ def assign_order_to_operator(order_id: int, operator_id: int, user_assigning: Us
         raise ValidationError(f"La orden no se puede asignar en estado '{order.get_workflow_status_display()}'.")
 
     operator = get_object_or_404(User, pk=operator_id, is_active=True)
-    if operator.is_staff:
-        raise ValidationError("No se puede asignar una orden a un usuario staff.")
 
-    return CuttingOrderRepository.update_order_fields(
-        order,
+    return CuttingOrderRepository.update(
+        order_instance=order,
         user_modifier=user_assigning,
         data={
-            'assigned_to': operator,
-            'assigned_by': user_assigning
+            'assigned_to': operator
         }
     )
 
