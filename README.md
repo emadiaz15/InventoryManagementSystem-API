@@ -135,3 +135,17 @@ La arquitectura de este proyecto sigue un patrón tradicional de MVC (Modelo-Vis
 - **Base de Datos**: PostgreSQL
 - **Autenticación**: JWT (JSON Web Tokens)
 - **Control de Versiones**: Git y GitHub
+
+## **Pruebas**
+
+Para ejecutar las pruebas utiliza la configuración de tests ubicada en `inventory_management.settings.test`.
+
+```bash
+DJANGO_SETTINGS_MODULE=inventory_management.settings.test python manage.py test
+```
+
+O bien con PyTest:
+
+```bash
+DJANGO_SETTINGS_MODULE=inventory_management.settings.test python -m pytest -q
+```
