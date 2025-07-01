@@ -1,6 +1,9 @@
-from .local import *
+from .base import *
 
-# Use in-memory database
+SECRET_KEY = 'test-secret-key'
+DEBUG = True
+ALLOWED_HOSTS = []
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -8,18 +11,22 @@ DATABASES = {
     }
 }
 
-# Use in-memory channel layer to avoid Redis dependency
+# Use in-memory channel layer
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    }
+    },
 }
 
-# Execute Celery tasks locally
+EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
+
 CELERY_TASK_ALWAYS_EAGER = True
-CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_BROKER_URL = 'memory://'
 CELERY_RESULT_BACKEND = 'cache+memory://'
 
-# Local email backend to capture emails in memory
-EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+# Default file storage to local filesystem for tests
+DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+MEDIA_ROOT = BASE_DIR / 'test_media'
+
+MINIO_PUBLIC_URL = 'localhost:9000'

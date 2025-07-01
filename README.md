@@ -138,15 +138,16 @@ La arquitectura de este proyecto sigue un patrón tradicional de MVC (Modelo-Vis
 
 ## **Pruebas**
 
-Para ejecutar las pruebas de la aplicación utiliza la configuración de tests incluida. Esto evita dependencias externas como Redis.
+Para ejecutar las pruebas utiliza la configuración de tests ubicada en `inventory_management.settings.test`.
+
 
 ```bash
 DJANGO_SETTINGS_MODULE=inventory_management.settings.test python manage.py test
 ```
+O bien con PyTest:
 
 También puedes usar `pytest` de la siguiente forma:
 
 ```bash
 DJANGO_SETTINGS_MODULE=inventory_management.settings.test python -m pytest -q
 ```
-
