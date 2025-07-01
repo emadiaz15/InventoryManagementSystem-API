@@ -36,7 +36,6 @@ class UserDetailSerializer(serializers.ModelSerializer):
         """Retorna una URL presignada para la imagen de perfil."""
         if not obj.image or not isinstance(obj.image, str):
             return None
-
         return generate_presigned_url(
             bucket=settings.AWS_PROFILE_BUCKET_NAME,
             object_name=obj.image
