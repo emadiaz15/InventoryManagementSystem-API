@@ -184,35 +184,39 @@ def product_detail(request, prod_pk):
     if not product:
         return Response({"detail": "Producto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
-    # --- GET ---
     if request.method == 'GET':
-        product_qs = ProductRepository.get_all_active_products().annotate(
-            individual_stock_qty=Subquery(
-                ProductStock.objects.filter(product=OuterRef('pk'), status=True)
-                .values('quantity')[:1],
-                output_field=DecimalField(max_digits=15, decimal_places=2)
-            ),
-            subproduct_stock_total=Subquery(
-                SubproductStock.objects.filter(
-                    subproduct__parent_id=OuterRef('pk'),
-                    status=True,
-                    subproduct__status=True
-                ).values('subproduct__parent')
-                 .annotate(total=Sum('quantity'))
-                 .values('total'),
-                output_field=DecimalField(max_digits=15, decimal_places=2)
+        # Definir la función y aplicarle el cache dinámicamente
+        @cache_page(60 * 5)
+        def cached_get(request, prod_pk):
+            product_qs = ProductRepository.get_all_active_products().annotate(
+                individual_stock_qty=Subquery(
+                    ProductStock.objects.filter(product=OuterRef('pk'), status=True)
+                    .values('quantity')[:1],
+                    output_field=DecimalField(max_digits=15, decimal_places=2)
+                ),
+                subproduct_stock_total=Subquery(
+                    SubproductStock.objects.filter(
+                        subproduct__parent_id=OuterRef('pk'),
+                        status=True,
+                        subproduct__status=True
+                    ).values('subproduct__parent')
+                    .annotate(total=Sum('quantity'))
+                    .values('total'),
+                    output_field=DecimalField(max_digits=15, decimal_places=2)
+                )
+            ).annotate(
+                current_stock=Case(
+                    When(has_subproducts=False, individual_stock_qty__isnull=False, then=F('individual_stock_qty')),
+                    When(has_subproducts=True, subproduct_stock_total__isnull=False, then=F('subproduct_stock_total')),
+                    default=Decimal('0.00'),
+                    output_field=DecimalField(max_digits=15, decimal_places=2)
+                )
             )
-        ).annotate(
-            current_stock=Case(
-                When(has_subproducts=False, individual_stock_qty__isnull=False, then=F('individual_stock_qty')),
-                When(has_subproducts=True, subproduct_stock_total__isnull=False, then=F('subproduct_stock_total')),
-                default=Decimal('0.00'),
-                output_field=DecimalField(max_digits=15, decimal_places=2)
-            )
-        )
-        product = get_object_or_404(product_qs, pk=prod_pk)
-        serializer = ProductSerializer(product, context={'request': request})
-        return Response(serializer.data)
+            product = get_object_or_404(product_qs, pk=prod_pk)
+            serializer = ProductSerializer(product, context={'request': request})
+            return Response(serializer.data)
+
+        return cached_get(request, prod_pk)
 
     # --- PUT ---
     if request.method == 'PUT':
