@@ -119,6 +119,21 @@ DATABASE_URL=postgres://tu_usuario:tu_contraseña@localhost:5432/nombre_base_dat
 | PUT   |/api/v1/products/<id>/ | Actualiza un producto existente.      |
 | DELETE|/api/v1/products/<id>/ | Elimina un producto.                  |
 
+### Archivos de Productos y Subproductos
+
+| Método | Endpoint | Descripción | Permisos |
+| ------ | -------- | ----------- | -------- |
+| POST | /api/products/<product_id>/files/upload/ | Sube archivos para el producto | Admin |
+| GET | /api/products/<product_id>/files/ | Lista archivos del producto | Autenticado |
+| GET | /api/products/<product_id>/files/<file_id>/download/ | Descarga un archivo del producto | Autenticado |
+| DELETE | /api/products/<product_id>/files/<file_id>/delete/ | Elimina un archivo del producto | Admin |
+| POST | /api/products/<product_id>/subproducts/<subproduct_id>/files/upload/ | Sube archivos para el subproducto | Admin |
+| GET | /api/products/<product_id>/subproducts/<subproduct_id>/files/ | Lista archivos del subproducto | Autenticado |
+| GET | /api/products/<product_id>/subproducts/<subproduct_id>/files/<file_id>/download/ | Descarga un archivo del subproducto | Autenticado |
+| DELETE | /api/products/<product_id>/subproducts/<subproduct_id>/files/<file_id>/delete/ | Elimina un archivo del subproducto | Admin |
+
+Los endpoints de subida y eliminación requieren permisos de **administrador**. Para listar o descargar archivos basta con estar **autenticado**.
+
 ## **Arquitectura**
 
 La arquitectura de este proyecto sigue un patrón tradicional de MVC (Modelo-Vista-Controlador) y está dividida en módulos clave para la gestión de productos, categorías y tipos.
