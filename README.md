@@ -134,6 +134,71 @@ DATABASE_URL=postgres://tu_usuario:tu_contraseña@localhost:5432/nombre_base_dat
 
 Los endpoints de subida y eliminación requieren permisos de **administrador**. Para listar o descargar archivos basta con estar **autenticado**.
 
+### Categorías
+
+| Método | Endpoint | Descripción | Permisos |
+| ------ | -------- | ----------- | -------- |
+| GET | /api/categories/ | Lista las categorías activas | Autenticado |
+| POST | /api/categories/create/ | Crea una nueva categoría | Admin |
+| GET | /api/categories/<id>/ | Detalles de una categoría | Autenticado |
+| PUT | /api/categories/<id>/ | Actualiza una categoría | Admin |
+| DELETE | /api/categories/<id>/ | Elimina una categoría | Admin |
+
+### Tipos
+
+| Método | Endpoint | Descripción | Permisos |
+| ------ | -------- | ----------- | -------- |
+| GET | /api/types/ | Lista los tipos de productos | Autenticado |
+| POST | /api/types/create/ | Crea un nuevo tipo | Admin |
+| GET | /api/types/<id>/ | Detalles de un tipo | Autenticado |
+| PUT | /api/types/<id>/ | Actualiza un tipo | Admin |
+| DELETE | /api/types/<id>/ | Elimina un tipo | Admin |
+
+### Subproductos
+
+| Método | Endpoint | Descripción | Permisos |
+| ------ | -------- | ----------- | -------- |
+| GET | /api/products/<product_id>/subproducts/ | Lista los subproductos de un producto | Autenticado |
+| POST | /api/products/<product_id>/subproducts/create/ | Crea un subproducto | Admin |
+| GET | /api/products/<product_id>/subproducts/<subproduct_id>/ | Detalles de un subproducto | Autenticado |
+| PUT | /api/products/<product_id>/subproducts/<subproduct_id>/ | Actualiza un subproducto | Admin |
+| DELETE | /api/products/<product_id>/subproducts/<subproduct_id>/ | Elimina un subproducto | Admin |
+
+### Órdenes de Corte
+
+| Método | Endpoint | Descripción | Permisos |
+| ------ | -------- | ----------- | -------- |
+| GET | /api/cutting-orders/ | Lista todas las órdenes de corte | Autenticado |
+| GET | /api/cutting-orders/assigned/ | Órdenes asignadas al usuario | Autenticado |
+| POST | /api/cutting-orders/create/ | Crea una orden de corte | Admin |
+| GET | /api/cutting-orders/<id>/ | Detalle de una orden | Autenticado |
+| PUT | /api/cutting-orders/<id>/ | Actualiza una orden | Admin |
+| PATCH | /api/cutting-orders/<id>/ | Actualiza parcialmente una orden | Admin |
+| DELETE | /api/cutting-orders/<id>/ | Elimina una orden | Admin |
+
+### Eventos de Stock
+
+| Método | Endpoint | Descripción | Permisos |
+| ------ | -------- | ----------- | -------- |
+| GET | /api/products/<id>/stock/events/ | Historial de stock del producto | Autenticado |
+| GET | /api/products/<product_id>/subproducts/<subproduct_id>/stock/events/ | Historial de stock del subproducto | Autenticado |
+
+### Usuarios
+
+| Método | Endpoint | Descripción | Permisos |
+| ------ | -------- | ----------- | -------- |
+| POST | /api/users/login/ | Inicia sesión y obtiene el token JWT | Público |
+| POST | /api/users/register/ | Registra un nuevo usuario | Público |
+| POST | /api/users/logout/ | Cierra la sesión del usuario | Autenticado |
+| GET | /api/users/profile/ | Obtiene el perfil del usuario autenticado | Autenticado |
+| GET | /api/users/list/ | Lista todos los usuarios | Admin |
+| GET | /api/users/<id>/ | Detalles de un usuario | Autenticado |
+| PUT | /api/users/<id>/ | Actualiza un usuario | Propietario/Admin |
+| DELETE | /api/users/<id>/ | Elimina un usuario | Admin |
+| DELETE | /api/users/image/<file_id>/delete/ | Elimina una imagen de perfil | Autenticado |
+| PUT | /api/users/image/<file_id>/replace/ | Reemplaza una imagen de perfil | Autenticado |
+| POST | /api/users/password-reset/confirm/<uidb64>/<token>/ | Confirma el restablecimiento de contraseña | Admin |
+
 ## **Arquitectura**
 
 La arquitectura de este proyecto sigue un patrón tradicional de MVC (Modelo-Vista-Controlador) y está dividida en módulos clave para la gestión de productos, categorías y tipos.
