@@ -197,7 +197,7 @@ Los endpoints de subida y eliminación requieren permisos de **administrador**. 
 | DELETE | /api/users/<id>/ | Elimina un usuario | Admin |
 | DELETE | /api/users/image/<file_id>/delete/ | Elimina una imagen de perfil | Autenticado |
 | PUT | /api/users/image/<file_id>/replace/ | Reemplaza una imagen de perfil | Autenticado |
-| POST | /api/users/password-reset/confirm/<uidb64>/<token>/ | Confirma el restablecimiento de contraseña | Público |
+| POST | /api/users/password-reset/confirm/<uidb64>/<token>/ | Confirma el restablecimiento de contraseña | Admin |
 
 ## **Arquitectura**
 
