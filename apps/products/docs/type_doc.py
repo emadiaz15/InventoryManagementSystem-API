@@ -5,7 +5,11 @@ list_type_doc = {
     "tags": ["Types"],
     "summary": "Listar tipos activos",
     "operation_id": "list_types",
-    "description": "Recupera una lista de todos los tipos activos con paginación y filtros opcionales por nombre.",
+    "description": (
+        "Recupera una lista de todos los tipos activos con paginación y filtros opcionales por nombre. "
+        "⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos) para optimizar el rendimiento. "
+        "Los cambios recientes pueden no reflejarse de inmediato."
+    ),
     "parameters": [
         OpenApiParameter(name="name", location=OpenApiParameter.QUERY, description="Filtrar por nombre del tipo", required=False, type=str)
     ],
@@ -14,12 +18,15 @@ list_type_doc = {
     }
 }
 
-# --- Crear tipo ---
+# --- Crear nuevo tipo ---
 create_type_doc = {
     "tags": ["Types"],
     "summary": "Crear nuevo tipo",
     "operation_id": "create_type",
-    "description": "Crea un nuevo tipo de producto. Requiere permisos de administrador.",
+    "description": (
+        "Crea un nuevo tipo de producto. Requiere permisos de administrador. "
+        "Esta acción invalidará automáticamente la cache del listado de tipos para reflejar el cambio."
+    ),
     "requestBody": {
         "required": True,
         "content": {
@@ -40,7 +47,11 @@ get_type_by_id_doc = {
     "tags": ["Types"],
     "summary": "Obtener tipo por ID",
     "operation_id": "get_type_by_id",
-    "description": "Recupera los detalles de un tipo específico.",
+    "description": (
+        "Recupera los detalles de un tipo específico. "
+        "⚠️ Nota: Este endpoint puede entregar datos cacheados durante 5 minutos. "
+        "Los cambios recientes pueden no reflejarse de inmediato."
+    ),
     "parameters": [
         OpenApiParameter(name="type_pk", location=OpenApiParameter.PATH, required=True, description="ID del tipo", type=int)
     ],
@@ -55,7 +66,10 @@ update_type_by_id_doc = {
     "tags": ["Types"],
     "summary": "Actualizar tipo",
     "operation_id": "update_type",
-    "description": "Actualiza los datos de un tipo específico. Solo administradores.",
+    "description": (
+        "Actualiza los datos de un tipo específico. Solo administradores. "
+        "Esta acción invalidará automáticamente la cache relacionada al tipo."
+    ),
     "parameters": [
         OpenApiParameter(name="type_pk", location=OpenApiParameter.PATH, required=True, description="ID del tipo", type=int)
     ],
@@ -79,7 +93,10 @@ delete_type_by_id_doc = {
     "tags": ["Types"],
     "summary": "Eliminar tipo (soft delete)",
     "operation_id": "delete_type",
-    "description": "Marca un tipo específico como inactivo (soft delete). Requiere permisos de administrador.",
+    "description": (
+        "Marca un tipo específico como inactivo (soft delete). Requiere permisos de administrador. "
+        "Esta acción invalidará automáticamente la cache del listado de tipos."
+    ),
     "parameters": [
         OpenApiParameter(name="type_pk", location=OpenApiParameter.PATH, required=True, description="ID del tipo", type=int)
     ],

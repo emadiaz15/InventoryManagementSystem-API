@@ -211,3 +211,13 @@ ALLOWED_CONTENT_TYPES = {
     "video/webm", "video/x-msvideo", "video/x-matroska",
     "application/pdf"
 }
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv('REDIS_URL', 'redis://localhost:6379/1'),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+    }
+}

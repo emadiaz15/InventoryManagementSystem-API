@@ -20,8 +20,8 @@ from apps.products.docs.category_doc import (
 
 # --- Obtener categorías activas con filtros y paginación ---
 @extend_schema(
-    summary=list_category_doc["summary"], 
-    description=list_category_doc["description"],
+    summary=list_category_doc["summary"],
+    description=list_category_doc["description"] + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos). Los cambios recientes pueden no reflejarse de inmediato.",
     tags=list_category_doc["tags"],
     operation_id=list_category_doc["operation_id"],
     parameters=list_category_doc["parameters"],
@@ -45,8 +45,8 @@ def category_list(request):
 
 # --- Crear nueva categoría (solo admins) ---
 @extend_schema(
-    summary=create_category_doc["summary"], 
-    description=create_category_doc["description"],
+    summary=create_category_doc["summary"],
+    description=create_category_doc["description"] + "\n\nEsta acción invalidará automáticamente la cache de categorías.",
     tags=create_category_doc["tags"],
     operation_id=create_category_doc["operation_id"],
     request=create_category_doc["requestBody"],
@@ -72,7 +72,7 @@ def create_category(request):
 # --- Obtener, actualizar y eliminar categoría por ID ---
 @extend_schema(
     summary=get_category_by_id_doc["summary"],
-    description=get_category_by_id_doc["description"],
+    description=get_category_by_id_doc["description"] + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante 5 minutos. Los cambios recientes pueden no reflejarse de inmediato.",
     tags=get_category_by_id_doc["tags"],
     operation_id=get_category_by_id_doc["operation_id"],
     parameters=get_category_by_id_doc["parameters"],
@@ -80,7 +80,7 @@ def create_category(request):
 )
 @extend_schema(
     summary=update_category_by_id_doc["summary"],
-    description=update_category_by_id_doc["description"],
+    description=update_category_by_id_doc["description"] + "\n\nEsta acción invalidará automáticamente la cache relacionada a la categoría.",
     tags=update_category_by_id_doc["tags"],
     operation_id=update_category_by_id_doc["operation_id"],
     parameters=update_category_by_id_doc["parameters"],
@@ -89,7 +89,7 @@ def create_category(request):
 )
 @extend_schema(
     summary=delete_category_by_id_doc["summary"],
-    description=delete_category_by_id_doc["description"],
+    description=delete_category_by_id_doc["description"] + "\n\nEsta acción invalidará automáticamente la cache de categorías.",
     tags=delete_category_by_id_doc["tags"],
     operation_id=delete_category_by_id_doc["operation_id"],
     parameters=delete_category_by_id_doc["parameters"],

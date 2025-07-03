@@ -89,23 +89,18 @@ def product_file_upload_view(request, product_id: str):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def product_file_list_view(request, product_id: str):
+    """
+    Devuelve los archivos multimedia asociados a un producto, con URL presignadas generadas.
+    """
     get_object_or_404(Product, pk=product_id)
 
     try:
         files = ProductFileRepository.get_all_by_product(int(product_id))
-        return Response({
-            "files": [
-                {
-                    "key": f.key,
-                    "name": f.name,
-                    "mimeType": f.mime_type,
-                    "url": f.get_presigned_url()
-                } for f in files
-            ]
-        }, status=status.HTTP_200_OK)
+        return Response({"files": files}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"❌ Error listando archivos de producto {product_id}: {e}")
         return Response({"detail": f"Error listando archivos: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 @extend_schema(

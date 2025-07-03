@@ -1,11 +1,15 @@
 from drf_spectacular.utils import OpenApiResponse, OpenApiParameter
 
-# --- Documentation for listing subproducts ---
+# --- Listar subproductos ---
 list_subproducts_doc = {
     "tags": ["Subproducts"],
     "summary": "Listar subproductos activos de un producto padre",
     "operation_id": "list_subproducts",
-    "description": "Recupera una lista paginada de subproductos (productos hijo) para un producto padre específico, incluyendo el stock calculado.",
+    "description": (
+        "Recupera una lista paginada de subproductos (productos hijo) para un producto padre específico, incluyendo el stock calculado. "
+        "⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos) para optimizar el rendimiento. "
+        "Los cambios recientes pueden no reflejarse de inmediato."
+    ),
     "parameters": [
         OpenApiParameter(
             name="prod_pk",
@@ -21,12 +25,15 @@ list_subproducts_doc = {
     }
 }
 
-# --- Documentation for creating a subproduct ---
+# --- Crear subproducto ---
 create_subproduct_doc = {
     "tags": ["Subproducts"],
     "summary": "Crear subproducto",
     "operation_id": "create_subproduct",
-    "description": "Crea un nuevo subproducto asociado a un producto padre e inicializa su stock.",
+    "description": (
+        "Crea un nuevo subproducto asociado a un producto padre e inicializa su stock. "
+        "Este endpoint invalidará automáticamente la cache del listado de subproductos correspondiente."
+    ),
     "parameters": [
         OpenApiParameter(
             name="prod_pk",
@@ -36,7 +43,7 @@ create_subproduct_doc = {
             type=int
         ),
     ],
-    "request": {  # Cambié 'requestBody' a 'request'
+    "request": {
         "required": True,
         "content": {
             "application/json": {
@@ -50,12 +57,16 @@ create_subproduct_doc = {
     }
 }
 
-# --- Documentation for retrieving a specific subproduct ---
+# --- Obtener subproducto por ID ---
 get_subproduct_by_id_doc = {
     "tags": ["Subproducts"],
     "summary": "Obtener subproducto por ID",
     "operation_id": "retrieve_subproduct",
-    "description": "Recupera los detalles de un subproducto específico, incluyendo su stock actual.",
+    "description": (
+        "Recupera los detalles de un subproducto específico, incluyendo su stock actual. "
+        "⚠️ Nota: Los datos de este endpoint pueden estar cacheados durante 5 minutos. "
+        "Si se modificó el subproducto recientemente, puede que los cambios no se reflejen de inmediato."
+    ),
     "parameters": [
         OpenApiParameter(
             name="prod_pk",
@@ -78,12 +89,15 @@ get_subproduct_by_id_doc = {
     }
 }
 
-# --- Documentation for updating a specific subproduct ---
+# --- Actualizar subproducto ---
 update_subproduct_by_id_doc = {
     "tags": ["Subproducts"],
     "summary": "Actualizar subproducto",
     "operation_id": "update_subproduct",
-    "description": "Actualiza los detalles de un subproducto específico y ajusta su stock si se indica.",
+    "description": (
+        "Actualiza los detalles de un subproducto específico y ajusta su stock si se indica. "
+        "Este endpoint invalidará automáticamente la cache relacionada al subproducto."
+    ),
     "parameters": [
         OpenApiParameter(
             name="prod_pk",
@@ -100,7 +114,7 @@ update_subproduct_by_id_doc = {
             type=int
         ),
     ],
-    "request": {  # Cambié 'requestBody' a 'request'
+    "request": {
         "required": True,
         "content": {
             "application/json": {
@@ -114,12 +128,15 @@ update_subproduct_by_id_doc = {
     }
 }
 
-# --- Documentation for deleting a subproduct ---
+# --- Eliminar subproducto ---
 delete_subproduct_by_id_doc = {
     "tags": ["Subproducts"],
     "summary": "Eliminar subproducto (soft delete)",
     "operation_id": "delete_subproduct",
-    "description": "Marca un subproducto específico como inactivo (soft delete), estableciendo su status en False.",
+    "description": (
+        "Marca un subproducto específico como inactivo (soft delete), estableciendo su status en False. "
+        "Esta acción invalidará automáticamente la cache del subproducto."
+    ),
     "parameters": [
         OpenApiParameter(
             name="prod_pk",

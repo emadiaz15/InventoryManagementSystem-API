@@ -5,7 +5,12 @@ list_product_doc = {
     "tags": ["Products"],
     "summary": "Listar productos activos con stock calculado",
     "operation_id": "list_products",
-    "description": "Recupera una lista de todos los productos activos con stock calculado. Se puede filtrar por categoría, tipo o estado.",
+    "description": (
+        "Recupera una lista de todos los productos activos con stock calculado. "
+        "Se puede filtrar por categoría, tipo o estado. "
+        "⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos) para optimizar el rendimiento. "
+        "Los cambios recientes pueden no reflejarse de inmediato."
+    ),
     "parameters": [
         OpenApiParameter(name="category", location=OpenApiParameter.QUERY, description="Filtra productos por ID de categoría", required=False, type=int),
         OpenApiParameter(name="type", location=OpenApiParameter.QUERY, description="Filtra productos por ID de tipo", required=False, type=int),
@@ -56,7 +61,10 @@ get_product_by_id_doc = {
     "tags": ["Products"],
     "summary": "Obtener detalles del producto",
     "operation_id": "retrieve_product",
-    "description": "Recupera detalles de un producto específico, incluyendo stock y comentarios relacionados.",
+    "description": (
+        "Recupera detalles de un producto específico, incluyendo stock y comentarios relacionados. "
+        "⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos)."
+        ),
     "parameters": [
         OpenApiParameter(name="prod_pk", location=OpenApiParameter.PATH, required=True, description="ID del producto", type=int)
     ],

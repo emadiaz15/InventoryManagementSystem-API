@@ -153,7 +153,7 @@ def create_subproduct(request, prod_pk):
 def subproduct_detail(request, prod_pk, subp_pk):
     """
     Endpoint para:
-    - GET: consulta (autenticados).  
+    - GET: consulta (autenticados, cacheado).  
     - PUT: actualización stock/opcional (solo staff).  
     - DELETE: baja suave (solo staff).
     """
@@ -161,17 +161,22 @@ def subproduct_detail(request, prod_pk, subp_pk):
 
     # --- GET ---
     if request.method == 'GET':
-        stock_sq = SubproductStock.objects.filter(subproduct=OuterRef('pk'), status=True).values('quantity')[:1]
-        qs = Subproduct.objects.annotate(
-            current_stock_val=Subquery(stock_sq, output_field=DecimalField(max_digits=15, decimal_places=2))
-        ).annotate(
-            current_stock=Coalesce('current_stock_val', Decimal('0.00'), output_field=DecimalField(max_digits=15, decimal_places=2))
-        )
-        instance = get_object_or_404(qs, pk=subp_pk, parent=parent)
-        ser = SubProductSerializer(instance, context={'request': request, 'parent_product': parent})
-        return Response(ser.data)
+        
+        @cache_page(60 * 5)
+        def cached_get(request, prod_pk, subp_pk):
+            stock_sq = SubproductStock.objects.filter(subproduct=OuterRef('pk'), status=True).values('quantity')[:1]
+            qs = Subproduct.objects.annotate(
+                current_stock_val=Subquery(stock_sq, output_field=DecimalField(max_digits=15, decimal_places=2))
+            ).annotate(
+                current_stock=Coalesce('current_stock_val', Decimal('0.00'), output_field=DecimalField(max_digits=15, decimal_places=2))
+            )
+            instance = get_object_or_404(qs, pk=subp_pk, parent=parent)
+            ser = SubProductSerializer(instance, context={'request': request, 'parent_product': parent})
+            return Response(ser.data)
+        
+        return cached_get(request, prod_pk, subp_pk)
 
-    # Carga instancia para PUT/DELETE
+    # Carga instancia para PUT/DELETE (solo subproductos activos)
     instance = get_object_or_404(Subproduct, pk=subp_pk, parent=parent, status=True)
 
     # --- PUT ---
@@ -189,7 +194,7 @@ def subproduct_detail(request, prod_pk, subp_pk):
             with transaction.atomic():
                 updated = serializer.save(user=request.user)
                 qty_change = serializer.validated_data.get('quantity_change')
-                reason     = serializer.validated_data.get('reason')
+                reason = serializer.validated_data.get('reason')
                 if qty_change is not None:
                     stock_rec = SubproductStock.objects.select_for_update().get(subproduct=updated, status=True)
                     adjust_subproduct_stock(
@@ -218,4 +223,5 @@ def subproduct_detail(request, prod_pk, subp_pk):
         except Exception as e:
             logger.error(f"Error eliminando subproducto {subp_pk}: {e}")
             return Response({"detail": "Error interno al eliminar el subproducto."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
         return Response(status=status.HTTP_204_NO_CONTENT)

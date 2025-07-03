@@ -3,6 +3,7 @@ import logging
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from apps.products.models.product_image_model import ProductImage
 from apps.products.models.product_model import Product
+from apps.storages_client.services.products_files import get_product_file_url
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +24,19 @@ class ProductFileRepository:
 
     @staticmethod
     def get_all_by_product(product_id: int):
-        """Lista todas las imágenes asociadas a un producto."""
-        return ProductImage.objects.filter(product_id=product_id)
+        """Lista todas las imágenes asociadas a un producto con URL generada."""
+        return [
+            {
+                "key": f.key,
+                "name": f.name,
+                "mimeType": f.mime_type,
+                "url": get_product_file_url(f.key)
+            }
+            for f in ProductImage.objects.filter(product_id=product_id)
+        ]
 
     @staticmethod
     def get_by_id(file_id: str) -> ProductImage | None:
-        """Obtiene una imagen por su 'key'."""
         try:
             return ProductImage.objects.get(key=file_id)
         except ProductImage.DoesNotExist:
@@ -36,17 +44,10 @@ class ProductFileRepository:
 
     @staticmethod
     def exists(product_id: int, file_id: str) -> bool:
-        query = ProductImage.objects.filter(product_id=product_id, key=file_id)
-        exists = query.exists()
-        if not exists:
-            logger.info(
-                f"🛑 NO EXISTE: key={file_id}, product_id={product_id}"
-            )
-        return exists
+        return ProductImage.objects.filter(product_id=product_id, key=file_id).exists()
 
     @staticmethod
     def delete(file_id: str) -> ProductImage | None:
-        """Elimina la imagen si existe y retorna la instancia eliminada."""
         try:
             image = ProductImage.objects.get(key=file_id)
             image.delete()
@@ -56,14 +57,8 @@ class ProductFileRepository:
 
     @staticmethod
     def create(product_id: int, key: str, url: str = None, name: str = None, mime_type: str = None) -> ProductImage:
-        """Crea una nueva entrada de imagen vinculada a un producto."""
         ProductFileRepository._validate_file_extension(name or key)
-
-        try:
-            product = Product.objects.get(pk=product_id)
-        except Product.DoesNotExist:
-            raise ProductNotFound(f"Producto con ID {product_id} no existe.")
-
+        product = Product.objects.get(pk=product_id)
         return ProductImage.objects.create(
             product=product,
             key=key,

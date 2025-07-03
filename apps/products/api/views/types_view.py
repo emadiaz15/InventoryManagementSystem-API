@@ -18,8 +18,8 @@ from apps.products.docs.type_doc import (
 
 # --- Listar tipos activos con filtros y paginación ---
 @extend_schema(
-    summary=list_type_doc["summary"], 
-    description=list_type_doc["description"],
+    summary=list_type_doc["summary"],
+    description=list_type_doc["description"] + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos). Los cambios recientes pueden no reflejarse de inmediato.",
     tags=list_type_doc["tags"],
     operation_id=list_type_doc["operation_id"],
     parameters=list_type_doc["parameters"],
@@ -43,11 +43,11 @@ def type_list(request):
 
 # --- Crear nuevo tipo de producto (solo admins) ---
 @extend_schema(
-    summary=create_type_doc["summary"], 
-    description=create_type_doc["description"],
+    summary=create_type_doc["summary"],
+    description=create_type_doc["description"] + "\n\nEsta acción invalidará automáticamente la cache de tipos.",
     tags=create_type_doc["tags"],
     operation_id=create_type_doc["operation_id"],
-    request=create_type_doc["requestBody"],  
+    request=create_type_doc["requestBody"],
     responses=create_type_doc["responses"]
 )
 @api_view(['POST'])
@@ -70,7 +70,7 @@ def create_type(request):
 # --- Obtener, actualizar y eliminar tipo por ID ---
 @extend_schema(
     summary=get_type_by_id_doc["summary"],
-    description=get_type_by_id_doc["description"],
+    description=get_type_by_id_doc["description"] + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante 5 minutos. Los cambios recientes pueden no reflejarse de inmediato.",
     tags=get_type_by_id_doc["tags"],
     operation_id=get_type_by_id_doc["operation_id"],
     parameters=get_type_by_id_doc["parameters"],
@@ -78,16 +78,16 @@ def create_type(request):
 )
 @extend_schema(
     summary=update_type_by_id_doc["summary"],
-    description=update_type_by_id_doc["description"],
+    description=update_type_by_id_doc["description"] + "\n\nEsta acción invalidará automáticamente la cache relacionada a los tipos.",
     tags=update_type_by_id_doc["tags"],
     operation_id=update_type_by_id_doc["operation_id"],
     parameters=update_type_by_id_doc["parameters"],
-    request=update_type_by_id_doc["requestBody"], 
+    request=update_type_by_id_doc["requestBody"],
     responses=update_type_by_id_doc["responses"]
 )
 @extend_schema(
     summary=delete_type_by_id_doc["summary"],
-    description=delete_type_by_id_doc["description"],
+    description=delete_type_by_id_doc["description"] + "\n\nEsta acción invalidará automáticamente la cache de tipos.",
     tags=delete_type_by_id_doc["tags"],
     operation_id=delete_type_by_id_doc["operation_id"],
     parameters=delete_type_by_id_doc["parameters"],
