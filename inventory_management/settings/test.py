@@ -30,3 +30,11 @@ DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 MEDIA_ROOT = BASE_DIR / 'test_media'
 
 MINIO_PUBLIC_URL = 'localhost:9000'
+
+# Use local memory cache to avoid Redis dependency in tests
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'test-cache',
+    }
+}
