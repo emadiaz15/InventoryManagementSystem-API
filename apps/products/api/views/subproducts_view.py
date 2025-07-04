@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from decimal import Decimal, InvalidOperation
 import logging
 
@@ -42,7 +43,6 @@ logger = logging.getLogger(__name__)
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-# La caché se invalida automáticamente al crear o modificar subproductos
 @cache_page(60 * 15)
 def subproduct_list(request, prod_pk):
     """
@@ -51,34 +51,27 @@ def subproduct_list(request, prod_pk):
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
 
-    # Subconsulta para stock actual
     stock_sq = SubproductStock.objects.filter(
         subproduct=OuterRef('pk'), status=True
     ).values('quantity')[:1]
 
     qs = SubproductRepository.get_all_active(parent.pk).annotate(
-        current_stock_val=Subquery(
-            stock_sq, output_field=DecimalField(max_digits=15, decimal_places=2)
-        )
+        current_stock_val=Subquery(stock_sq, output_field=DecimalField(max_digits=15, decimal_places=2))
     ).annotate(
-        current_stock=Coalesce(
-            'current_stock_val', Decimal('0.00'),
-            output_field=DecimalField(max_digits=15, decimal_places=2)
-        )
+        current_stock=Coalesce('current_stock_val', Decimal('0.00'), output_field=DecimalField(max_digits=15, decimal_places=2))
     )
 
-    # ——— Aplicar filtros de URL (?status=true/false) ———
     filterset = SubproductFilter(request.GET, queryset=qs)
     if not filterset.is_valid():
         return Response(filterset.errors, status=status.HTTP_400_BAD_REQUEST)
     qs = filterset.qs
 
-    # ——— Paginar y serializar ———
     paginator = Pagination()
     paginator.page_size = 10
     page = paginator.paginate_queryset(qs, request)
     serializer = SubProductSerializer(page, many=True, context={'request': request})
     return paginator.get_paginated_response(serializer.data)
+
 
 # --- Crear nuevo subproducto ---
 @extend_schema(
@@ -94,11 +87,9 @@ def subproduct_list(request, prod_pk):
 def create_subproduct(request, prod_pk):
     """
     Crea un nuevo subproducto asignándole el producto padre.
-    La inicialización de stock se delega a otro servicio.
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
 
-    # Construimos el serializer e inyectamos el parent en el contexto
     serializer = SubProductSerializer(
         data=request.data,
         context={'request': request, 'parent_product': parent}
@@ -106,7 +97,6 @@ def create_subproduct(request, prod_pk):
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # Guardamos pasando el user para la auditoría
     try:
         with transaction.atomic():
             subp = serializer.save(user=request.user)
@@ -115,12 +105,14 @@ def create_subproduct(request, prod_pk):
     except Exception as e:
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # Serializamos de nuevo para la respuesta
+    cache.delete(f"views.decorators.cache.cache_page./api/v1/inventory/products/{prod_pk}/subproducts/")
+
     resp_ser = SubProductSerializer(
         subp,
         context={'request': request, 'parent_product': parent}
     )
     return Response(resp_ser.data, status=status.HTTP_201_CREATED)
+
 
 # --- Obtener, actualizar y eliminar subproducto por ID ---
 @extend_schema(
@@ -153,15 +145,14 @@ def create_subproduct(request, prod_pk):
 def subproduct_detail(request, prod_pk, subp_pk):
     """
     Endpoint para:
-    - GET: consulta (autenticados, cacheado).  
-    - PUT: actualización stock/opcional (solo staff).  
+    - GET: consulta (cacheada).
+    - PUT: actualización (solo staff).
     - DELETE: baja suave (solo staff).
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
+    cache_key_detail = f"views.decorators.cache.cache_page./api/v1/inventory/products/{prod_pk}/subproducts/{subp_pk}/"
 
-    # --- GET ---
     if request.method == 'GET':
-        
         @cache_page(60 * 5)
         def cached_get(request, prod_pk, subp_pk):
             stock_sq = SubproductStock.objects.filter(subproduct=OuterRef('pk'), status=True).values('quantity')[:1]
@@ -173,19 +164,15 @@ def subproduct_detail(request, prod_pk, subp_pk):
             instance = get_object_or_404(qs, pk=subp_pk, parent=parent)
             ser = SubProductSerializer(instance, context={'request': request, 'parent_product': parent})
             return Response(ser.data)
-        
+
         return cached_get(request, prod_pk, subp_pk)
 
-    # Carga instancia para PUT/DELETE (solo subproductos activos)
     instance = get_object_or_404(Subproduct, pk=subp_pk, parent=parent, status=True)
 
-    # --- PUT ---
     if request.method == 'PUT':
         if not request.user.is_staff:
-            return Response(
-                {"detail": "No tienes permiso para actualizar este subproducto."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"detail": "No tienes permiso para actualizar este subproducto."}, status=status.HTTP_403_FORBIDDEN)
+
         serializer = SubProductSerializer(instance, data=request.data, partial=True, context={'request': request})
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -205,23 +192,25 @@ def subproduct_detail(request, prod_pk, subp_pk):
                     )
         except Exception as e:
             logger.error(f"Error actualizando subproducto {subp_pk}: {e}")
-            detail = getattr(e, 'detail', str(e))
-            return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        cache.delete(f"views.decorators.cache.cache_page./api/v1/inventory/products/{prod_pk}/subproducts/")
+        cache.delete(cache_key_detail)
 
         resp_ser = SubProductSerializer(updated, context={'request': request, 'parent_product': parent})
         return Response(resp_ser.data)
 
-    # --- DELETE (soft delete) ---
     if request.method == 'DELETE':
         if not request.user.is_staff:
-            return Response(
-                {"detail": "No tienes permiso para eliminar este subproducto."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"detail": "No tienes permiso para eliminar este subproducto."}, status=status.HTTP_403_FORBIDDEN)
+        
         try:
             instance.delete(user=request.user)
         except Exception as e:
             logger.error(f"Error eliminando subproducto {subp_pk}: {e}")
             return Response({"detail": "Error interno al eliminar el subproducto."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
+        cache.delete(f"views.decorators.cache.cache_page./api/v1/inventory/products/{prod_pk}/subproducts/")
+        cache.delete(cache_key_detail)
+
         return Response(status=status.HTTP_204_NO_CONTENT)
