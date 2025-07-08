@@ -31,7 +31,7 @@ AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
 if not AWS_STORAGE_BUCKET_NAME:
-    raise ValueError("La variable AWS_STORAGE_BUCKET_NAME no está definida en producción")
+    raise ValueError("La variable de entorno AWS_STORAGE_BUCKET_NAME no está definida en producción")
 AWS_S3_ENDPOINT_URL = os.getenv('AWS_S3_ENDPOINT_URL')
 AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'us-east-1')
 AWS_S3_FILE_OVERWRITE = False
@@ -63,7 +63,7 @@ CORS_ALLOW_CREDENTIALS = True
 # --- Redis y Celery ---
 REDIS_URL = os.getenv('REDIS_URL')
 if not REDIS_URL:
-    raise ValueError("La variable REDIS_URL no está definida en producción")
+    raise ValueError("La variable de entorno REDIS_URL no está definida en producción")
 
 CHANNEL_LAYERS = {
     'default': {
