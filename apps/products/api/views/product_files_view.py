@@ -1,3 +1,5 @@
+from django.core.cache import cache
+from apps.products.api.views.products_view import _product_list_cache_key
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
@@ -5,7 +7,6 @@ from rest_framework import status
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
-from mimetypes import guess_type
 import logging
 
 from apps.products.models import Product
@@ -66,6 +67,9 @@ def product_file_upload_view(request, product_id: str):
             logger.error(f"❌ Error subiendo archivo {file.name}: {e}")
             errors.append({file.name: str(e)})
 
+    if results:
+        cache.delete(_product_list_cache_key())
+
     if errors and not results:
         return Response(
             {"detail": "Ningún archivo pudo subirse.", "errors": errors},
@@ -89,9 +93,6 @@ def product_file_upload_view(request, product_id: str):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def product_file_list_view(request, product_id: str):
-    """
-    Devuelve los archivos multimedia asociados a un producto, con URL presignadas generadas.
-    """
     get_object_or_404(Product, pk=product_id)
 
     try:
@@ -100,7 +101,6 @@ def product_file_list_view(request, product_id: str):
     except Exception as e:
         logger.error(f"❌ Error listando archivos de producto {product_id}: {e}")
         return Response({"detail": f"Error listando archivos: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 
 @extend_schema(
@@ -122,6 +122,7 @@ def product_file_delete_view(request, product_id: str, file_id: str):
     try:
         delete_product_file(file_id)
         ProductFileRepository.delete(file_id)
+        cache.delete(_product_list_cache_key())
         return Response({"detail": "Archivo eliminado correctamente."}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"❌ Error eliminando archivo {file_id} de producto {product_id}: {e}")

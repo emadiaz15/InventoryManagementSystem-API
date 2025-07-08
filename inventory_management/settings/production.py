@@ -1,23 +1,25 @@
-from .base import *
 import os
-from dotenv import load_dotenv
 import dj_database_url
 from datetime import timedelta
+from pathlib import Path
 
-# Cargar variables de entorno
-load_dotenv(BASE_DIR.parent / '.env.production')
+# --- Rutas del Proyecto ---
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- Seguridad ---
-SECRET_KEY = os.environ.get('SECRET_KEY')
+SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY:
-    raise ValueError("No se ha definido la variable de entorno SECRET_KEY")
+    raise ValueError("La variable de entorno SECRET_KEY no está definida en producción")
 
 DEBUG = False
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',')
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '').split(',') or []
 
 # --- Base de datos ---
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    raise ValueError("La variable de entorno DATABASE_URL no está definida en producción")
 DATABASES = {
-    'default': dj_database_url.config(default=os.getenv('DATABASE_URL'))
+    'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600)
 }
 
 # --- Archivos estáticos ---
@@ -28,13 +30,15 @@ DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
+if not AWS_STORAGE_BUCKET_NAME:
+    raise ValueError("La variable AWS_STORAGE_BUCKET_NAME no está definida en producción")
 AWS_S3_ENDPOINT_URL = os.getenv('AWS_S3_ENDPOINT_URL')
 AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'us-east-1')
 AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None
 AWS_QUERYSTRING_AUTH = False
 
-# --- Seguridad producción ---
+# --- Seguridad HTTPS ---
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
@@ -45,8 +49,8 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # --- CSRF y CORS ---
-CSRF_TRUSTED_ORIGINS = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',')
-CORS_ALLOWED_ORIGINS = os.getenv('DJANGO_CORS_ALLOWED_ORIGINS', '').split(',')
+CSRF_TRUSTED_ORIGINS = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') or []
+CORS_ALLOWED_ORIGINS = os.getenv('DJANGO_CORS_ALLOWED_ORIGINS', '').split(',') or []
 CORS_ALLOWED_ORIGIN_REGEXES = []
 CORS_ALLOW_HEADERS = [
     'authorization', 'content-type', 'accept', 'origin',
@@ -57,16 +61,20 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 # --- Redis y Celery ---
+REDIS_URL = os.getenv('REDIS_URL')
+if not REDIS_URL:
+    raise ValueError("La variable REDIS_URL no está definida en producción")
+
 CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [os.getenv("REDIS_URL")],
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [REDIS_URL],
         },
     },
 }
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
-CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', REDIS_URL)
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL)
 
 # --- JWT ---
 SIMPLE_JWT = {
@@ -123,4 +131,6 @@ LOGGING = {
         'level': 'WARNING',
     },
 }
-MINIO_PUBLIC_URL = os.getenv("MINIO_PUBLIC_URL", AWS_S3_ENDPOINT_URL)
+
+# --- URL pública de MinIO (si aplicara) ---
+MINIO_PUBLIC_URL = os.getenv('MINIO_PUBLIC_URL', AWS_S3_ENDPOINT_URL)

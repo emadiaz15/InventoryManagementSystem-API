@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -69,6 +70,9 @@ def subproduct_file_upload_view(request, product_id: str, subproduct_id: str):
         except Exception as e:
             logger.error(f"❌ Error subiendo archivo {file.name}: {e}")
             errors.append({file.name: str(e)})
+
+    if results:
+        cache.delete(f"views.decorators.cache.cache_page./api/v1/inventory/products/{product_id}/subproducts/")
 
     if errors and not results:
         return Response(
@@ -158,6 +162,7 @@ def subproduct_file_delete_view(request, product_id: str, subproduct_id: str, fi
     try:
         delete_subproduct_file(file_id)
         SubproductFileRepository.delete(file_id)
+        cache.delete(f"views.decorators.cache.cache_page./api/v1/inventory/products/{product_id}/subproducts/")
         return Response({"detail": "Archivo eliminado correctamente."}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"❌ Error eliminando archivo {file_id} de subproducto {subproduct_id}: {e}")

@@ -1,3 +1,6 @@
+from django.core.cache import cache
+from django.test.client import RequestFactory
+from django.utils.cache import _generate_cache_key
 from django.core.exceptions import ValidationError
 from decimal import Decimal, InvalidOperation
 import logging
@@ -29,6 +32,20 @@ from apps.products.docs.product_doc import (
 
 logger = logging.getLogger(__name__)
 
+PRODUCT_LIST_CACHE_PREFIX = "product_list"
+PRODUCT_DETAIL_CACHE_PREFIX = "product_detail"
+
+def _product_list_cache_key():
+    rf = RequestFactory()
+    req = rf.get("/api/v1/inventory/products/")
+    return _generate_cache_key(req, "GET", [], PRODUCT_LIST_CACHE_PREFIX)
+
+
+def _product_detail_cache_key(prod_pk):
+    rf = RequestFactory()
+    req = rf.get(f"/api/v1/inventory/products/{prod_pk}/")
+    return _generate_cache_key(req, "GET", [], PRODUCT_DETAIL_CACHE_PREFIX)
+
 # --- Listar productos activos con paginación y stock calculado ---
 @extend_schema(
     summary=list_product_doc["summary"],
@@ -40,13 +57,11 @@ logger = logging.getLogger(__name__)
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-# La caché se invalida automáticamente al crear o modificar productos
-@cache_page(60 * 15)
+@cache_page(60 * 15, key_prefix=PRODUCT_LIST_CACHE_PREFIX)
 def product_list(request):
     """
     Endpoint para listar productos activos con paginación y stock calculado.
     """
-    # Subqueries para stock individual y subproductos
     product_stock_sq = ProductStock.objects.filter(
         product=OuterRef('pk'), status=True
     ).values('quantity')[:1]
@@ -56,7 +71,6 @@ def product_list(request):
         subproduct__status=True
     ).values('subproduct__parent').annotate(total=Sum('quantity')).values('total')
 
-    # Query inicial y anotaciones
     qs = ProductRepository.get_all_active_products().annotate(
         individual_stock_qty=Subquery(product_stock_sq, output_field=DecimalField(max_digits=15, decimal_places=2)),
         subproduct_stock_total=Subquery(subproduct_stock_sum_sq, output_field=DecimalField(max_digits=15, decimal_places=2))
@@ -69,25 +83,24 @@ def product_list(request):
         )
     )
 
-    # Filtrado
     filterset = ProductFilter(request.GET, queryset=qs)
     if not filterset.is_valid():
         return Response(filterset.errors, status=status.HTTP_400_BAD_REQUEST)
     qs = filterset.qs
 
-    # Paginación y serialización
     paginator = Pagination()
     page = paginator.paginate_queryset(qs, request)
     serializer = ProductSerializer(page, many=True, context={'request': request})
     return paginator.get_paginated_response(serializer.data)
 
+
 # --- Crear nuevo producto ---
 @extend_schema(
-    summary=create_product_doc["summary"], 
+    summary=create_product_doc["summary"],
     description=create_product_doc["description"],
     tags=create_product_doc["tags"],
     operation_id=create_product_doc["operation_id"],
-    request=create_product_doc["requestBody"],  # Cambio de 'requestBody' a 'request'
+    request=create_product_doc["requestBody"],
     responses=create_product_doc["responses"]
 )
 @api_view(['POST'])
@@ -100,15 +113,12 @@ def create_product(request):
     data = request.data.copy()
     data['has_subproducts'] = False
 
-
-    # Extraer stock inicial
     qty_str = data.pop('initial_stock_quantity', '0')
     if isinstance(qty_str, list):
         qty_str = qty_str[0]
     location = data.pop('initial_stock_location', None)
-    reason   = data.pop('initial_stock_reason', 'Stock inicial por creación')
+    reason = data.pop('initial_stock_reason', 'Stock inicial por creación')
 
-    # Validar cantidad
     try:
         initial_qty = Decimal(qty_str)
         if initial_qty < 0:
@@ -140,10 +150,13 @@ def create_product(request):
         code = status.HTTP_400_BAD_REQUEST if isinstance(e, serializers.ValidationError) else status.HTTP_500_INTERNAL_SERVER_ERROR
         return Response({"detail": detail}, status=code)
 
+    cache.delete(_product_list_cache_key())
+
     return Response(
         ProductSerializer(product, context={'request': request}).data,
         status=status.HTTP_201_CREATED
     )
+
 
 # --- Obtener, actualizar y eliminar producto por ID ---
 @extend_schema(
@@ -160,7 +173,7 @@ def create_product(request):
     tags=update_product_by_id_doc["tags"],
     operation_id=update_product_by_id_doc["operation_id"],
     parameters=update_product_by_id_doc["parameters"],
-    request=update_product_by_id_doc["requestBody"],  # Cambio de 'requestBody' a 'request'
+    request=update_product_by_id_doc["requestBody"],
     responses=update_product_by_id_doc["responses"]
 )
 @extend_schema(
@@ -176,17 +189,18 @@ def create_product(request):
 def product_detail(request, prod_pk):
     """
     Endpoint para:
-    - GET: consulta (autenticados).  
-    - PUT: actualización stock/opcional (solo staff).  
+    - GET: consulta (autenticados).
+    - PUT: actualización (solo staff).
     - DELETE: baja suave (solo staff).
     """
     product = ProductRepository.get_by_id(prod_pk)
     if not product:
         return Response({"detail": "Producto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
+    cache_key_detail = _product_detail_cache_key(prod_pk)
+
     if request.method == 'GET':
-        # Definir la función y aplicarle el cache dinámicamente
-        @cache_page(60 * 5)
+        @cache_page(60 * 5, key_prefix=PRODUCT_DETAIL_CACHE_PREFIX)
         def cached_get(request, prod_pk):
             product_qs = ProductRepository.get_all_active_products().annotate(
                 individual_stock_qty=Subquery(
@@ -218,7 +232,6 @@ def product_detail(request, prod_pk):
 
         return cached_get(request, prod_pk)
 
-    # --- PUT ---
     if request.method == 'PUT':
         if not request.user.is_staff:
             return Response({"detail": "No tienes permiso para actualizar este producto."}, status=status.HTTP_403_FORBIDDEN)
@@ -230,9 +243,8 @@ def product_detail(request, prod_pk):
         try:
             with transaction.atomic():
                 updated = serializer.save(user=request.user)
-                # Ajuste adicional de stock
                 qty_change = serializer.validated_data.get('quantity_change')
-                reason     = serializer.validated_data.get('reason')
+                reason = serializer.validated_data.get('reason')
                 if qty_change is not None:
                     if not updated.has_subproducts:
                         stock_rec = ProductStock.objects.select_for_update().get(product=updated)
@@ -250,12 +262,16 @@ def product_detail(request, prod_pk):
             code = status.HTTP_400_BAD_REQUEST if isinstance(e, (serializers.ValidationError, ValidationError)) else status.HTTP_500_INTERNAL_SERVER_ERROR
             return Response({"detail": detail}, status=code)
 
+        cache.delete(_product_list_cache_key())
+        cache.delete(cache_key_detail)
+
         return Response(ProductSerializer(updated, context={'request': request}).data)
 
-    # --- DELETE (soft delete) ---
     if request.method == 'DELETE':
         if not request.user.is_staff:
             return Response({"detail": "No tienes permiso para eliminar este producto."}, status=status.HTTP_403_FORBIDDEN)
 
         product.delete(user=request.user)
+        cache.delete(_product_list_cache_key())
+        cache.delete(cache_key_detail)
         return Response(status=status.HTTP_204_NO_CONTENT)
