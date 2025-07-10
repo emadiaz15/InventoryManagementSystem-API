@@ -10,7 +10,6 @@ class UserDetailSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField(read_only=True)
     image_signed_url = serializers.SerializerMethodField(read_only=True)
 
-
     class Meta:
         model = User
         fields = [
@@ -18,6 +17,13 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'dni', 'image', 'image_url', 'image_signed_url', 'is_staff', 'is_active'
         ]
         read_only_fields = fields
+
+    def get_image_url(self, obj):
+        """Retorna la URL completa de la imagen de perfil si existe."""
+        request = self.context.get('request')
+        if obj.image and hasattr(obj.image, 'url'):
+            return request.build_absolute_uri(obj.image.url)
+        return None
 
     def get_image_signed_url(self, obj):
         """Retorna una URL presignada para la imagen de perfil."""
