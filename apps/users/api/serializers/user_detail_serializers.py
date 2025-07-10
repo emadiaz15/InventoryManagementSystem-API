@@ -17,11 +17,15 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     def get_image_url(self, obj):
         """
-        Retorna la URL pública y estable de la imagen de perfil.
-        Por defecto, Django storage hará uso de AWS_S3_CUSTOM_DOMAIN y AWS_QUERYSTRING_AUTH=False,
-        devolviendo algo como:
-          https://bucket-production-c0e7.up.railway.app/img-profiles/profile-images/1_abc123.png
+        Return a fully-qualified public URL for the profile image.
+        If the storage backend returns a relative path, we prepend the
+        current request’s host so browsers can fetch it correctly.
         """
         if not obj.image:
             return None
-        return default_storage.url(obj.image)
+
+        url = default_storage.url(obj.image)
+        request = self.context.get('request')
+        if request and url.startswith('/'):
+            return request.build_absolute_uri(url)
+        return url
