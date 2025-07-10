@@ -47,7 +47,11 @@ def user_list_view(request):
 
     paginator = Pagination()
     page = paginator.paginate_queryset(filterset.qs, request)
-    serializer = UserDetailSerializer(page, many=True, context={"request": request, "include_image_url": True})
+    serializer = UserDetailSerializer(
+        page,
+        many=True,
+        context={"request": request, "include_image_url": True}
+    )
     return paginator.get_paginated_response(serializer.data)
 
 
@@ -59,7 +63,10 @@ def user_create_view(request):
     serializer = UserCreateSerializer(data=request.data, context={"request": request})
     if serializer.is_valid():
         user = serializer.save()
-        response_data = UserDetailSerializer(user, context={"request": request, "include_image_url": True}).data
+        response_data = UserDetailSerializer(
+            user,
+            context={"request": request, "include_image_url": True}
+        ).data
         return Response(response_data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -79,7 +86,10 @@ def user_detail_view(request, pk=None):
     if request.method == 'GET':
         if not (is_admin or is_self):
             return Response({'detail': 'No tienes permiso para ver este perfil.'}, status=status.HTTP_403_FORBIDDEN)
-        serializer = UserDetailSerializer(user_instance, context={"request": request, "include_image_url": True})
+        serializer = UserDetailSerializer(
+            user_instance,
+            context={"request": request, "include_image_url": True}
+        )
         return Response(serializer.data)
 
     if request.method == 'PUT':
@@ -100,7 +110,10 @@ def user_detail_view(request, pk=None):
         )
         if serializer.is_valid():
             updated_user = serializer.save()
-            response_data = UserDetailSerializer(updated_user, context={"request": request, "include_image_url": True}).data
+            response_data = UserDetailSerializer(
+                updated_user,
+                context={"request": request, "include_image_url": True}
+            ).data
             return Response(response_data, headers={"X-Invalidate-Users-Cache": "true"})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -117,7 +130,10 @@ def user_detail_view(request, pk=None):
                 logger.warning(f"⚠️ Error al eliminar imagen de perfil: {e}")
 
         UserRepository.soft_delete(user_instance)
-        return Response({'message': 'Usuario eliminado (soft) correctamente y su imagen también.'}, headers={"X-Invalidate-Users-Cache": "true"})
+        return Response(
+            {'message': 'Usuario eliminado (soft) correctamente y su imagen también.'},
+            headers={"X-Invalidate-Users-Cache": "true"}
+        )
 
 
 @extend_schema(**image_replace_doc)
@@ -149,10 +165,12 @@ def image_replace_view(request, file_id: str):
         result = replace_profile_image(new_file, file_id, target_user.id)
         target_user.image = result.get("key")
         target_user.save(update_fields=["image"])
-        return Response({
-            "message": "Imagen reemplazada correctamente.",
-            "file_id": target_user.image
-        }, headers={"X-Invalidate-Users-Cache": "true"})
+        # devolver la URL actualizada
+        data = UserDetailSerializer(
+            target_user,
+            context={"request": request, "include_image_url": True}
+        ).data
+        return Response(data, headers={"X-Invalidate-Users-Cache": "true"})
     except Exception as e:
         logger.warning(f"Error al reemplazar imagen: {e}")
         return Response({"detail": "Error al reemplazar imagen."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -190,6 +208,9 @@ def image_delete_view(request, file_id: str):
 
     user.image = ""
     user.save(update_fields=["image"])
-
-    serializer = UserDetailSerializer(user, context={"request": request, "include_image_url": True})
-    return Response(serializer.data, headers={"X-Invalidate-Users-Cache": "true"})
+    # devolvemos la nueva representación sin imagen
+    data = UserDetailSerializer(
+        user,
+        context={"request": request, "include_image_url": True}
+    ).data
+    return Response(data, headers={"X-Invalidate-Users-Cache": "true"})
