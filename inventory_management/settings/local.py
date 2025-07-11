@@ -36,6 +36,10 @@ AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None
 AWS_QUERYSTRING_AUTH = False
 
+# ←─ Añadido para forzar HTTP en dev y apuntar al dominio público correcto ─→
+AWS_S3_SECURE_URLS   = False
+AWS_S3_CUSTOM_DOMAIN = os.getenv('MINIO_PUBLIC_URL')
+
 # --- Logging local ---
 LOGGING['loggers']['django']['level'] = os.getenv('DJANGO_LOG_LEVEL', 'INFO')
 LOGGING['loggers']['django.db.backends']['level'] = 'DEBUG'
