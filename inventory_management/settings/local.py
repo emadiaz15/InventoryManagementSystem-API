@@ -3,15 +3,15 @@ import os
 from dotenv import load_dotenv
 from datetime import timedelta
 
-# Cargar variables desde .env.local
+# ── VARIABLES DE ENTORNO LOCAL ────────────────────────────────
 load_dotenv(BASE_DIR.parent / '.env.local')
 
-# --- Seguridad ---
+# ── SEGURIDAD ─────────────────────────────────────────────────
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-for-local-dev-only')
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 
-# --- Base de datos ---
+# ── BASE DE DATOS ──────────────────────────────────────────────
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -19,43 +19,48 @@ DATABASES = {
     }
 }
 
-# --- Archivos estáticos y media ---
+# ── ESTÁTICOS Y MEDIA ──────────────────────────────────────────
 STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR.parent / 'media'
 
-# --- Almacenamiento S3 (MinIO) ---
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+# ── S3 / MINIO LOCAL ───────────────────────────────────────────
+DEFAULT_FILE_STORAGE    = 'storages.backends.s3boto3.S3Boto3Storage'
+AWS_ACCESS_KEY_ID       = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY   = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_PRODUCT_BUCKET_NAME = os.getenv('AWS_PRODUCT_BUCKET_NAME')
 AWS_PROFILE_BUCKET_NAME = os.getenv('AWS_PROFILE_BUCKET_NAME')
-AWS_S3_ENDPOINT_URL = os.getenv('AWS_S3_ENDPOINT_URL')
-AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'us-east-1')
-AWS_S3_FILE_OVERWRITE = False
-AWS_DEFAULT_ACL = None
-AWS_QUERYSTRING_AUTH = False
+AWS_S3_ENDPOINT_URL     = os.getenv('AWS_S3_ENDPOINT_URL')
+AWS_S3_REGION_NAME      = os.getenv('AWS_S3_REGION_NAME', 'us-east-1')
+AWS_S3_FILE_OVERWRITE   = False
+AWS_DEFAULT_ACL         = None
+AWS_QUERYSTRING_AUTH    = False
 
-# ←─ Añadido para forzar HTTP en dev y apuntar al dominio público correcto ─→
-AWS_S3_SECURE_URLS   = False
-AWS_S3_CUSTOM_DOMAIN = os.getenv('MINIO_PUBLIC_URL')
+# Forzar HTTP y dominio en dev
+AWS_S3_SECURE_URLS    = False
+AWS_S3_URL_PROTOCOL   = 'http:'
+minio_public = os.getenv('MINIO_PUBLIC_URL', AWS_S3_ENDPOINT_URL)
+if not minio_public.startswith(('http://', 'https://')):
+    minio_public = f'http://{minio_public}'
+AWS_S3_CUSTOM_DOMAIN = minio_public
+MINIO_PUBLIC_URL     = AWS_S3_CUSTOM_DOMAIN
 
-# --- Logging local ---
-LOGGING['loggers']['django']['level'] = os.getenv('DJANGO_LOG_LEVEL', 'INFO')
-LOGGING['loggers']['django.db.backends']['level'] = 'DEBUG'
-LOGGING['loggers']['apps']['level'] = 'DEBUG'
+# ── Añadido para forzar path-style, firma v4 y desactivar SSL ─────────
+AWS_S3_ADDRESSING_STYLE   = 'path'
+AWS_S3_SIGNATURE_VERSION  = 's3v4'
+AWS_S3_USE_SSL            = False   # boto3 usará http://
+AWS_S3_VERIFY             = False   # no validar certificado
 
-# --- CORS local ---
-CORS_ALLOWED_ORIGINS = os.getenv("DJANGO_CORS_ALLOWED_ORIGINS", "").split(",")
-CORS_ALLOW_HEADERS = ['authorization', 'content-type', 'accept', 'origin', 'x-csrftoken', 'x-requested-with', 'x-api-key']
-CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
-CORS_ALLOW_ALL_ORIGINS = False
+# ── CORS ────────────────────────────────────────────────────────
+CORS_ALLOWED_ORIGINS  = os.getenv("DJANGO_CORS_ALLOWED_ORIGINS", "").split(",")
+CORS_ALLOW_HEADERS     = ['authorization','content-type','accept','origin','x-csrftoken','x-requested-with','x-api-key']
+CORS_ALLOW_METHODS     = ['GET','POST','PUT','PATCH','DELETE','OPTIONS']
 CORS_ALLOW_CREDENTIALS = True
 
-# --- Email local ---
+# ── EMAIL LOCAL ───────────────────────────────────────────────
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# --- JWT ---
+# ── JWT ────────────────────────────────────────────────────────
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=12),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
@@ -70,16 +75,10 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
-# --- Redis & Celery ---
+# ── REDIS & CELERY ─────────────────────────────────────────────
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = os.getenv('REDIS_PORT', '6379')
-REDIS_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
-
+REDIS_URL  = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
 CHANNEL_LAYERS["default"]["CONFIG"]["hosts"] = [REDIS_URL]
-CELERY_BROKER_URL = REDIS_URL
+CELERY_BROKER_URL     = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
-
-# --- API Drive compartido ---
-DRIVE_SHARED_SECRET = os.getenv('DRIVE_SHARED_SECRET', 'fallback_dev_secret')
-
-MINIO_PUBLIC_URL = os.getenv("MINIO_PUBLIC_URL", AWS_S3_ENDPOINT_URL)

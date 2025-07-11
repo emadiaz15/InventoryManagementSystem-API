@@ -2,10 +2,10 @@ from pathlib import Path
 from datetime import timedelta
 import os
 
-# --- Rutas del Proyecto ---
+# ── RUTAS DEL PROYECTO ────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- Definición de Aplicaciones ---
+# ── APLICACIONES INSTALADAS ───────────────────────────────────
 BASE_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -13,9 +13,8 @@ BASE_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django_extensions'
+    'django_extensions',
 ]
-
 THIRD_APPS = [
     'rest_framework',
     'simple_history',
@@ -26,10 +25,9 @@ THIRD_APPS = [
     'corsheaders',
     'csp',
     'sslserver',
-    'storages'
+    'storages',
 ]
-
-LOCAL_APPS = [    
+LOCAL_APPS = [
     'apps.users',
     'apps.products',
     'apps.core',
@@ -37,10 +35,9 @@ LOCAL_APPS = [
     'apps.stocks',
     'apps.storages_client',
 ]
-
 INSTALLED_APPS = BASE_APPS + THIRD_APPS + LOCAL_APPS
 
-# --- Middleware ---
+# ── MIDDLEWARE ────────────────────────────────────────────────
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -54,10 +51,9 @@ MIDDLEWARE = [
     'csp.middleware.CSPMiddleware',
 ]
 
-# --- URLs ---
+# ── URLS Y TEMPLATES ──────────────────────────────────────────
 ROOT_URLCONF = 'inventory_management.urls'
-
-# --- Templates ---
+WSGI_APPLICATION = 'inventory_management.wsgi.application'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -74,27 +70,22 @@ TEMPLATES = [
     },
 ]
 
-# --- Servidor WSGI ---
-WSGI_APPLICATION = 'inventory_management.wsgi.application'
-
-# --- Validación de Contraseñas ---
+# ── AUTENTICACIÓN Y USUARIO ───────────────────────────────────
+AUTH_USER_MODEL = 'users.User'
 AUTH_PASSWORD_VALIDATORS = [
-    { 'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },
-    { 'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', },
-    { 'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator', },
-    { 'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator', },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# --- Modelo de Usuario Personalizado ---
-AUTH_USER_MODEL = 'users.User'
-
-# --- Internacionalización ---
+# ── INTERNACIONALIZACIÓN ───────────────────────────────────────
 LANGUAGE_CODE = 'es-ar'
 TIME_ZONE = 'America/Argentina/Cordoba'
 USE_I18N = True
 USE_TZ = True
 
-# --- Django REST Framework ---
+# ── REST FRAMEWORK ─────────────────────────────────────────────
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
@@ -104,14 +95,12 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
 }
-
-# --- drf-spectacular ---
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Inventory Management API',
     'DESCRIPTION': 'Documentación de la API para el Sistema de Gestión de Inventario',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
-    'SECURITY': [{'jwtAuth': []}],  # Seguridad global para Swagger
+    'SECURITY': [{'jwtAuth': []}],
     'COMPONENT_SPLIT_REQUEST': True,
     'COMPONENT_NO_READ_ONLY_REQUIRED': True,
     'COMPONENTS': {
@@ -126,98 +115,50 @@ SPECTACULAR_SETTINGS = {
     }
 }
 
-# --- Clave Primaria Automática ---
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# --- Comportamiento de URLs ---
-APPEND_SLASH = False
-
-# --- Logging base ---
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
-        },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'ERROR',
-            'propagate': False,
-        },
-        'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'apps': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-    }
-}
-
-# --- Content Security Policy (CSP) ---
-CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "'unsafe-inline'")
-CSP_SCRIPT_SRC = ("'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'")
-CSP_IMG_SRC = ("'self'", "https://cdn.jsdelivr.net", "data:")
-
-# --- Channels ---
-ASGI_APPLICATION = "inventory_management.asgi.application"
-
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [],
-        },
-    },
-}
-
-# --- Celery ---
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_TIMEZONE = "America/Argentina/Buenos_Aires"
-
-# --- Parser Classes ---
-DEFAULT_PARSER_CLASSES = [
-    'rest_framework.parsers.JSONParser',
-    'rest_framework.parsers.MultiPartParser',
-    'rest_framework.parsers.FormParser',
-]
-
-# --- Restricción solo por tipo MIME seguro (imagen/video) ---
-ALLOWED_CONTENT_TYPES = {
-    "image/jpeg", "image/png", "image/webp", "image/jpg",
-    "video/mp4", "video/mpeg", "video/quicktime",
-    "video/webm", "video/x-msvideo", "video/x-matroska",
-    "application/pdf"
-}
-
+# ── CONFIGURACIÓN DE CACHE ────────────────────────────────────
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": os.getenv('REDIS_URL', 'redis://localhost:6379/1'),
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        }
+        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
     }
 }
+
+# ── LOGGING ───────────────────────────────────────────────────
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {'format': '{levelname} {asctime} {module} {message}', 'style': '{'},
+        'simple': {'format': '{levelname} {message}', 'style': '{'},
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'simple'},
+    },
+    'root': {'handlers': ['console'], 'level': 'INFO'},
+    'loggers': {
+        'django': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
+        'django.db.backends': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
+        'apps': {'handlers': ['console'], 'level': 'DEBUG', 'propagate': False},
+    }
+}
+
+# ── CSP ────────────────────────────────────────────────────────
+CSP_STYLE_SRC = ("'self'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net", "'unsafe-inline'")
+CSP_SCRIPT_SRC = ("'self'", "https://cdn.jsdelivr.net", "'unsafe-inline'")
+CSP_IMG_SRC = ("'self'", "https://cdn.jsdelivr.net", "data:")
+
+# ── CANALES Y CELERY ──────────────────────────────────────────
+ASGI_APPLICATION = "inventory_management.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": []},
+    },
+}
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_TIMEZONE = "America/Argentina/Buenos_Aires"
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+APPEND_SLASH = False
