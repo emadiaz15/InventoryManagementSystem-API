@@ -8,6 +8,8 @@ from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 import logging
 
+from django_redis import get_redis_connection
+
 from apps.products.models import Product, Subproduct
 from apps.products.api.repositories.subproduct_file_repository import SubproductFileRepository
 from apps.storages_client.services.subproducts_files import (
@@ -21,9 +23,15 @@ from apps.products.docs.subproduct_image_doc import (
     subproduct_image_download_doc,
     subproduct_image_delete_doc,
 )
+from apps.products.utils.cache_helpers import (
+    SUBPRODUCT_LIST_CACHE_PREFIX,
+    subproduct_list_cache_key,
+    subproduct_detail_cache_key
+)
 
 logger = logging.getLogger(__name__)
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
+
 
 @extend_schema(
     tags=subproduct_image_upload_doc["tags"],
@@ -72,7 +80,11 @@ def subproduct_file_upload_view(request, product_id: str, subproduct_id: str):
             errors.append({file.name: str(e)})
 
     if results:
-        cache.delete(f"views.decorators.cache.cache_page./api/v1/inventory/products/{product_id}/subproducts/")
+        # invalida todas las cachés de lista de subproductos
+        redis = get_redis_connection()
+        redis.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+        # invalida detalle concreto
+        cache.delete(subproduct_detail_cache_key(product_id, subproduct_id))
 
     if errors and not results:
         return Response(
@@ -162,7 +174,11 @@ def subproduct_file_delete_view(request, product_id: str, subproduct_id: str, fi
     try:
         delete_subproduct_file(file_id)
         SubproductFileRepository.delete(file_id)
-        cache.delete(f"views.decorators.cache.cache_page./api/v1/inventory/products/{product_id}/subproducts/")
+        # invalida todas las cachés de lista de subproductos
+        redis = get_redis_connection()
+        redis.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+        # invalida detalle concreto
+        cache.delete(subproduct_detail_cache_key(product_id, subproduct_id))
         return Response({"detail": "Archivo eliminado correctamente."}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"❌ Error eliminando archivo {file_id} de subproducto {subproduct_id}: {e}")

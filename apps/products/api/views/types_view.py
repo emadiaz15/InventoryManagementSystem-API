@@ -1,8 +1,10 @@
 from django.core.cache import cache
+from django_redis import get_redis_connection
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.views.decorators.cache import cache_page
 from drf_spectacular.utils import extend_schema
 
 from apps.core.pagination import Pagination
@@ -17,7 +19,7 @@ from apps.products.docs.type_doc import (
     delete_type_by_id_doc
 )
 
-CACHE_KEY_TYPE_LIST = "views.decorators.cache.cache_page./api/v1/inventory/types/"
+CACHE_KEY_TYPE_LIST = "type_list"
 
 # --- Listar tipos activos con filtros y paginación ---
 @extend_schema(
@@ -30,6 +32,7 @@ CACHE_KEY_TYPE_LIST = "views.decorators.cache.cache_page./api/v1/inventory/types
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cache_page(60 * 5, key_prefix=CACHE_KEY_TYPE_LIST)
 def type_list(request):
     """
     Endpoint para listar los tipos activos, con filtros por nombre y paginación.
@@ -63,7 +66,9 @@ def create_type(request):
     serializer = TypeSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         type_instance = serializer.save(user=request.user)
-        cache.delete(CACHE_KEY_TYPE_LIST)
+        # invalida todas las cachés de lista de tipos
+        redis = get_redis_connection()
+        redis.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
         return Response(
             TypeSerializer(type_instance, context={'request': request}).data,
             status=status.HTTP_201_CREATED
@@ -121,7 +126,9 @@ def type_detail(request, type_pk):
         serializer = TypeSerializer(type_instance, data=request.data, context={'request': request}, partial=True)
         if serializer.is_valid():
             updated = serializer.save(user=request.user)
-            cache.delete(CACHE_KEY_TYPE_LIST)
+            # invalida todas las cachés de lista de tipos
+            redis = get_redis_connection()
+            redis.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
             return Response(TypeSerializer(updated, context={'request': request}).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -132,6 +139,8 @@ def type_detail(request, type_pk):
         serializer = TypeSerializer(type_instance, data={'status': False}, context={'request': request}, partial=True)
         if serializer.is_valid():
             serializer.save(user=request.user)
-            cache.delete(CACHE_KEY_TYPE_LIST)
+            # invalida todas las cachés de lista de tipos
+            redis = get_redis_connection()
+            redis.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

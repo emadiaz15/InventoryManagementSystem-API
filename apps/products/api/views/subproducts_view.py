@@ -30,6 +30,14 @@ from apps.products.models.subproduct_model import Subproduct
 from apps.stocks.models import SubproductStock
 from apps.stocks.services import initialize_subproduct_stock, adjust_subproduct_stock
 
+from django_redis import get_redis_connection
+from apps.products.utils.cache_helpers import (
+    SUBPRODUCT_LIST_CACHE_PREFIX,
+    SUBPRODUCT_DETAIL_CACHE_PREFIX,
+    subproduct_list_cache_key,
+    subproduct_detail_cache_key,
+)
+
 logger = logging.getLogger(__name__)
 
 # --- Listar subproductos activos de un producto ---
@@ -43,7 +51,7 @@ logger = logging.getLogger(__name__)
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@cache_page(60 * 15)
+@cache_page(60 * 15, key_prefix=SUBPRODUCT_LIST_CACHE_PREFIX)
 def subproduct_list(request, prod_pk):
     """
     Endpoint para listar subproductos de un producto padre,
@@ -105,7 +113,11 @@ def create_subproduct(request, prod_pk):
     except Exception as e:
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    cache.delete(f"views.decorators.cache.cache_page./api/v1/inventory/products/{prod_pk}/subproducts/")
+    # 1) Invalido todas las cachés de lista de subproductos
+    redis = get_redis_connection()
+    redis.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+    # 2) (Opcional) Invalido la caché de detalle de este subproducto recién creado
+    cache.delete(subproduct_detail_cache_key(prod_pk, subp.pk))
 
     resp_ser = SubProductSerializer(
         subp,
@@ -150,10 +162,10 @@ def subproduct_detail(request, prod_pk, subp_pk):
     - DELETE: baja suave (solo staff).
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
-    cache_key_detail = f"views.decorators.cache.cache_page./api/v1/inventory/products/{prod_pk}/subproducts/{subp_pk}/"
+    cache_key_detail = subproduct_detail_cache_key(prod_pk, subp_pk)
 
     if request.method == 'GET':
-        @cache_page(60 * 5)
+        @cache_page(60 * 5, key_prefix=SUBPRODUCT_DETAIL_CACHE_PREFIX)
         def cached_get(request, prod_pk, subp_pk):
             stock_sq = SubproductStock.objects.filter(subproduct=OuterRef('pk'), status=True).values('quantity')[:1]
             qs = Subproduct.objects.annotate(
@@ -194,7 +206,10 @@ def subproduct_detail(request, prod_pk, subp_pk):
             logger.error(f"Error actualizando subproducto {subp_pk}: {e}")
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        cache.delete(f"views.decorators.cache.cache_page./api/v1/inventory/products/{prod_pk}/subproducts/")
+        # Invalido todas las cachés de lista de subproductos
+        redis = get_redis_connection()
+        redis.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+        # Invalido caché de detalle concreto
         cache.delete(cache_key_detail)
 
         resp_ser = SubProductSerializer(updated, context={'request': request, 'parent_product': parent})
@@ -210,7 +225,10 @@ def subproduct_detail(request, prod_pk, subp_pk):
             logger.error(f"Error eliminando subproducto {subp_pk}: {e}")
             return Response({"detail": "Error interno al eliminar el subproducto."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        cache.delete(f"views.decorators.cache.cache_page./api/v1/inventory/products/{prod_pk}/subproducts/")
+       # Invalido todas las cachés de lista de subproductos
+        redis = get_redis_connection()
+        redis.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+        # Invalido caché de detalle concreto
         cache.delete(cache_key_detail)
 
         return Response(status=status.HTTP_204_NO_CONTENT)

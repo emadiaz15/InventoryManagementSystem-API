@@ -1,13 +1,19 @@
 from django.core.cache import cache
-from apps.products.api.views.products_view import _product_list_cache_key
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.response import Response
-from rest_framework import status
-from django.http import HttpResponseRedirect
-from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import extend_schema
+from django.core.exceptions import ValidationError
+from decimal import Decimal, InvalidOperation
 import logging
+
+from django.db import transaction
+from django.db.models import Sum, F, Case, When, DecimalField, OuterRef, Subquery
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponseRedirect
+
+from rest_framework import status, serializers
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, permission_classes
+from django.views.decorators.cache import cache_page
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from drf_spectacular.utils import extend_schema
 
 from apps.products.models import Product
 from apps.products.api.repositories.product_file_repository import ProductFileRepository
@@ -22,9 +28,19 @@ from apps.products.docs.product_image_doc import (
     product_image_delete_doc,
     product_image_download_doc
 )
+from django_redis import get_redis_connection
+from apps.products.utils.cache_helpers import (
+    PRODUCT_LIST_CACHE_PREFIX,
+    PRODUCT_DETAIL_CACHE_PREFIX,
+    product_list_cache_key,
+    product_detail_cache_key,
+)
 
 logger = logging.getLogger(__name__)
-ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf", "video/mp4", "video/webm"}
+ALLOWED_CONTENT_TYPES = {
+    "image/jpeg", "image/png", "image/webp",
+    "application/pdf", "video/mp4", "video/webm"
+}
 
 @extend_schema(
     tags=product_image_upload_doc["tags"],
@@ -68,7 +84,12 @@ def product_file_upload_view(request, product_id: str):
             errors.append({file.name: str(e)})
 
     if results:
-        cache.delete(_product_list_cache_key())
+        # 1) Invalida todas las cachés de lista (páginas, filtros...)
+        redis = get_redis_connection()
+        redis.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
+        # 2) Invalida detalle concreto
+        cache.delete(product_detail_cache_key(product_id))
+
 
     if errors and not results:
         return Response(
@@ -122,7 +143,11 @@ def product_file_delete_view(request, product_id: str, file_id: str):
     try:
         delete_product_file(file_id)
         ProductFileRepository.delete(file_id)
-        cache.delete(_product_list_cache_key())
+        # 1) Invalida todas las cachés de lista (páginas, filtros...)
+        redis = get_redis_connection()
+        redis.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
+        # 2) Invalida detalle concreto
+        cache.delete(product_detail_cache_key(product_id))
         return Response({"detail": "Archivo eliminado correctamente."}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"❌ Error eliminando archivo {file_id} de producto {product_id}: {e}")

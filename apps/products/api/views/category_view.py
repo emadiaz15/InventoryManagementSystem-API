@@ -1,8 +1,10 @@
 from django.core.cache import cache
+from django_redis import get_redis_connection
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.views.decorators.cache import cache_page
 from drf_spectacular.utils import extend_schema
 
 from apps.core.pagination import Pagination
@@ -19,7 +21,7 @@ from apps.products.docs.category_doc import (
     delete_category_by_id_doc
 )
 
-CACHE_KEY_CATEGORY_LIST = "views.decorators.cache.cache_page./api/v1/inventory/categories/"
+CACHE_KEY_CATEGORY_LIST = "category_list"
 
 # --- Obtener categorías activas con filtros y paginación ---
 @extend_schema(
@@ -32,6 +34,7 @@ CACHE_KEY_CATEGORY_LIST = "views.decorators.cache.cache_page./api/v1/inventory/c
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+@cache_page(60 * 5, key_prefix=CACHE_KEY_CATEGORY_LIST)
 def category_list(request):
     """
     Endpoint para listar las categorías activas, con filtros por nombre y paginación.
@@ -65,7 +68,9 @@ def create_category(request):
     serializer = CategorySerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         category = serializer.save(user=request.user)
-        cache.delete(CACHE_KEY_CATEGORY_LIST)
+        # invalida todas las cachés de lista de categorías
+        redis = get_redis_connection()
+        redis.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
         return Response(
             CategorySerializer(category, context={'request': request}).data,
             status=status.HTTP_201_CREATED
@@ -128,7 +133,9 @@ def category_detail(request, category_pk):
                 name=serializer.validated_data.get('name'),
                 description=serializer.validated_data.get('description')
             )
-            cache.delete(CACHE_KEY_CATEGORY_LIST)
+            # invalida todas las cachés de lista de categorías
+            redis = get_redis_connection()
+            redis.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
             return Response(CategorySerializer(updated_category, context={'request': request}).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -139,6 +146,8 @@ def category_detail(request, category_pk):
         serializer = CategorySerializer(category, data={'status': False}, context={'request': request}, partial=True)
         if serializer.is_valid():
             serializer.save(user=request.user)
-            cache.delete(CACHE_KEY_CATEGORY_LIST)
+            # invalida todas las cachés de lista de categorías
+            redis = get_redis_connection()
+            redis.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
