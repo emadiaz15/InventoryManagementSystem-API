@@ -81,8 +81,8 @@ def subproduct_file_upload_view(request, product_id: str, subproduct_id: str):
 
     if results:
         # invalida todas las cachés de lista de subproductos
-        redis = get_redis_connection()
-        redis.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+        redis_client = get_redis_connection("default")
+        redis_client.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
         # invalida detalle concreto
         cache.delete(subproduct_detail_cache_key(product_id, subproduct_id))
 
@@ -175,8 +175,8 @@ def subproduct_file_delete_view(request, product_id: str, subproduct_id: str, fi
         delete_subproduct_file(file_id)
         SubproductFileRepository.delete(file_id)
         # invalida todas las cachés de lista de subproductos
-        redis = get_redis_connection()
-        redis.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+        redis_client = get_redis_connection("default")
+        redis_client.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
         # invalida detalle concreto
         cache.delete(subproduct_detail_cache_key(product_id, subproduct_id))
         return Response({"detail": "Archivo eliminado correctamente."}, status=status.HTTP_200_OK)

@@ -67,8 +67,8 @@ def create_type(request):
     if serializer.is_valid():
         type_instance = serializer.save(user=request.user)
         # invalida todas las cachés de lista de tipos
-        redis = get_redis_connection()
-        redis.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
+        redis_client = get_redis_connection("default")
+        redis_client.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
         return Response(
             TypeSerializer(type_instance, context={'request': request}).data,
             status=status.HTTP_201_CREATED
@@ -127,8 +127,8 @@ def type_detail(request, type_pk):
         if serializer.is_valid():
             updated = serializer.save(user=request.user)
             # invalida todas las cachés de lista de tipos
-            redis = get_redis_connection()
-            redis.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
+            redis_client = get_redis_connection("default")
+            redis_client.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
             return Response(TypeSerializer(updated, context={'request': request}).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -140,7 +140,7 @@ def type_detail(request, type_pk):
         if serializer.is_valid():
             serializer.save(user=request.user)
             # invalida todas las cachés de lista de tipos
-            redis = get_redis_connection()
-            redis.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
+            redis_client = get_redis_connection("default")
+            redis_client.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

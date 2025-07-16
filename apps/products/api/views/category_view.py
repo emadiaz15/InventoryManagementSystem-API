@@ -69,8 +69,8 @@ def create_category(request):
     if serializer.is_valid():
         category = serializer.save(user=request.user)
         # invalida todas las cachés de lista de categorías
-        redis = get_redis_connection()
-        redis.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
+        redis_client = get_redis_connection("default")
+        redis_client.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
         return Response(
             CategorySerializer(category, context={'request': request}).data,
             status=status.HTTP_201_CREATED
@@ -134,8 +134,8 @@ def category_detail(request, category_pk):
                 description=serializer.validated_data.get('description')
             )
             # invalida todas las cachés de lista de categorías
-            redis = get_redis_connection()
-            redis.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
+            redis_client = get_redis_connection("default")
+            redis_client.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
             return Response(CategorySerializer(updated_category, context={'request': request}).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -147,7 +147,7 @@ def category_detail(request, category_pk):
         if serializer.is_valid():
             serializer.save(user=request.user)
             # invalida todas las cachés de lista de categorías
-            redis = get_redis_connection()
-            redis.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
+            redis_client = get_redis_connection("default")
+            redis_client.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

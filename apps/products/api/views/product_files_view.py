@@ -85,8 +85,8 @@ def product_file_upload_view(request, product_id: str):
 
     if results:
         # 1) Invalida todas las cachés de lista (páginas, filtros...)
-        redis = get_redis_connection()
-        redis.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
+        redis_client = get_redis_connection("default")
+        redis_client.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
         # 2) Invalida detalle concreto
         cache.delete(product_detail_cache_key(product_id))
 
@@ -144,8 +144,8 @@ def product_file_delete_view(request, product_id: str, file_id: str):
         delete_product_file(file_id)
         ProductFileRepository.delete(file_id)
         # 1) Invalida todas las cachés de lista (páginas, filtros...)
-        redis = get_redis_connection()
-        redis.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
+        redis_client = get_redis_connection("default")
+        redis_client.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
         # 2) Invalida detalle concreto
         cache.delete(product_detail_cache_key(product_id))
         return Response({"detail": "Archivo eliminado correctamente."}, status=status.HTTP_200_OK)
