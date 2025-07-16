@@ -114,8 +114,8 @@ def create_subproduct(request, prod_pk):
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     # 1) Invalido todas las cachés de lista de subproductos
-    redis = get_redis_connection()
-    redis.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+    redis_client = get_redis_connection("default")
+    redis_client.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
     # 2) (Opcional) Invalido la caché de detalle de este subproducto recién creado
     cache.delete(subproduct_detail_cache_key(prod_pk, subp.pk))
 
@@ -207,8 +207,8 @@ def subproduct_detail(request, prod_pk, subp_pk):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         # Invalido todas las cachés de lista de subproductos
-        redis = get_redis_connection()
-        redis.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+        redis_client = get_redis_connection("default")
+        redis_client.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
         # Invalido caché de detalle concreto
         cache.delete(cache_key_detail)
 
@@ -226,8 +226,8 @@ def subproduct_detail(request, prod_pk, subp_pk):
             return Response({"detail": "Error interno al eliminar el subproducto."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
        # Invalido todas las cachés de lista de subproductos
-        redis = get_redis_connection()
-        redis.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+        redis_client = get_redis_connection("default")
+        redis_client.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
         # Invalido caché de detalle concreto
         cache.delete(cache_key_detail)
 
