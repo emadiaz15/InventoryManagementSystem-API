@@ -11,7 +11,6 @@ from apps.products.models.category_model import Category
 from apps.products.api.serializers.category_serializer import CategorySerializer
 from apps.products.api.repositories.category_repository import CategoryRepository
 from apps.products.filters.category_filter import CategoryFilter
-
 from apps.products.docs.category_doc import (
     list_category_doc,
     create_category_doc,
@@ -19,6 +18,7 @@ from apps.products.docs.category_doc import (
     update_category_by_id_doc,
     delete_category_by_id_doc
 )
+from apps.products.utils.redis_utils import delete_keys_by_pattern
 
 CACHE_KEY_CATEGORY_LIST = "category_list"
 
@@ -75,7 +75,7 @@ def create_category(request):
     if serializer.is_valid():
         category = serializer.save(user=request.user)
         # invalida todas las cachés de lista de categorías
-        cache.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
+        delete_keys_by_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
         return Response(
             CategorySerializer(category, context={'request': request}).data,
             status=status.HTTP_201_CREATED
@@ -132,10 +132,12 @@ def category_detail(request, category_pk):
     if not category:
         return Response({"detail": "Categoría no encontrada."}, status=status.HTTP_404_NOT_FOUND)
 
+    # --- GET ---
     if request.method == 'GET':
         serializer = CategorySerializer(category, context={'request': request})
         return Response(serializer.data)
 
+    # --- PUT ---
     if request.method == 'PUT':
         if not request.user.is_staff:
             return Response(
@@ -156,12 +158,13 @@ def category_detail(request, category_pk):
                 description=serializer.validated_data.get('description')
             )
             # invalida todas las cachés de lista de categorías
-            cache.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
+            delete_keys_by_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
             return Response(
                 CategorySerializer(updated_category, context={'request': request}).data
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # --- DELETE ---
     if request.method == 'DELETE':
         if not request.user.is_staff:
             return Response(
@@ -177,6 +180,6 @@ def category_detail(request, category_pk):
         if serializer.is_valid():
             serializer.save(user=request.user)
             # invalida todas las cachés de lista de categorías
-            cache.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
+            delete_keys_by_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

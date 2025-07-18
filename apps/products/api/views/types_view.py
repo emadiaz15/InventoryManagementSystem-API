@@ -17,6 +17,7 @@ from apps.products.docs.type_doc import (
     update_type_by_id_doc,
     delete_type_by_id_doc
 )
+from apps.products.utils.redis_utils import delete_keys_by_pattern
 
 CACHE_KEY_TYPE_LIST = "type_list"
 
@@ -25,7 +26,8 @@ CACHE_KEY_TYPE_LIST = "type_list"
     summary=list_type_doc["summary"],
     description=(
         list_type_doc["description"]
-        + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos). Los cambios recientes pueden no reflejarse de inmediato."
+        + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos). "
+        "Los cambios recientes pueden no reflejarse de inmediato."
     ),
     tags=list_type_doc["tags"],
     operation_id=list_type_doc["operation_id"],
@@ -72,7 +74,7 @@ def create_type(request):
     if serializer.is_valid():
         type_instance = serializer.save(user=request.user)
         # invalida todas las cachés de lista de tipos
-        cache.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
+        delete_keys_by_pattern(f"{CACHE_KEY_TYPE_LIST}*")
         return Response(
             TypeSerializer(type_instance, context={'request': request}).data,
             status=status.HTTP_201_CREATED
@@ -132,6 +134,7 @@ def type_detail(request, type_pk):
         serializer = TypeSerializer(type_instance, context={'request': request})
         return Response(serializer.data)
 
+    # --- PUT: actualizar ---
     if request.method == 'PUT':
         if not request.user.is_staff:
             return Response(
@@ -147,10 +150,11 @@ def type_detail(request, type_pk):
         if serializer.is_valid():
             updated = serializer.save(user=request.user)
             # invalida todas las cachés de lista de tipos
-            cache.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
+            delete_keys_by_pattern(f"{CACHE_KEY_TYPE_LIST}*")
             return Response(TypeSerializer(updated, context={'request': request}).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # --- DELETE: baja suave ---
     if request.method == 'DELETE':
         if not request.user.is_staff:
             return Response(
@@ -166,6 +170,6 @@ def type_detail(request, type_pk):
         if serializer.is_valid():
             serializer.save(user=request.user)
             # invalida todas las cachés de lista de tipos
-            cache.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
+            delete_keys_by_pattern(f"{CACHE_KEY_TYPE_LIST}*")
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -1,8 +1,7 @@
 from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponseRedirect
-from django.views.decorators.cache import cache_page
-from rest_framework import status, serializers
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -26,6 +25,7 @@ from apps.products.utils.cache_helpers import (
     PRODUCT_LIST_CACHE_PREFIX,
     product_detail_cache_key
 )
+from apps.products.utils.redis_utils import delete_keys_by_pattern  # <-- importamos la utilidad
 
 logger = logging.getLogger(__name__)
 ALLOWED_CONTENT_TYPES = {
@@ -76,9 +76,9 @@ def product_file_upload_view(request, product_id: str):
             errors.append({f.name: str(e)})
 
     if results:
-        # Invalida todas las páginas cacheadas de lista
-        cache.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
-        # Invalida caché de detalle concreto
+        # invalidar TODAS las páginas cacheadas de lista
+        delete_keys_by_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
+        # invalidar caché de detalle concreto
         cache.delete(product_detail_cache_key(product_id))
 
     if errors and not results:
@@ -136,8 +136,9 @@ def product_file_delete_view(request, product_id: str, file_id: str):
     try:
         delete_product_file(file_id)
         ProductFileRepository.delete(file_id)
-        # Invalida cache lista y detalle
-        cache.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
+        # invalidar TODAS las páginas cacheadas de lista
+        delete_keys_by_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
+        # invalidar caché de detalle concreto
         cache.delete(product_detail_cache_key(product_id))
         return Response({"detail": "Archivo eliminado correctamente."}, status=status.HTTP_200_OK)
     except Exception as e:

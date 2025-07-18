@@ -35,6 +35,7 @@ from apps.products.utils.cache_helpers import (
     SUBPRODUCT_DETAIL_CACHE_PREFIX,
     subproduct_detail_cache_key,
 )
+from apps.products.utils.redis_utils import delete_keys_by_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +119,9 @@ def create_subproduct(request, prod_pk):
     except Exception as e:
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # 1) Invalido todas las cachés de lista de subproductos
-    cache.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
-    # 2) Invalido la caché de detalle de este subproducto recién creado
+    # Invalidar cache de lista de subproductos
+    delete_keys_by_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+    # Invalidar cache de detalle concreto
     cache.delete(subproduct_detail_cache_key(prod_pk, subp.pk))
 
     resp_ser = SubProductSerializer(
@@ -232,9 +233,9 @@ def subproduct_detail(request, prod_pk, subp_pk):
             logger.error(f"Error actualizando subproducto {subp_pk}: {e}")
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Invalido todas las cachés de lista de subproductos
-        cache.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
-        # Invalido caché de detalle concreto
+        # Invalidar cache de lista de subproductos
+        delete_keys_by_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+        # Invalidar cache de detalle concreto
         cache.delete(cache_key_detail)
 
         resp_ser = SubProductSerializer(
@@ -258,9 +259,9 @@ def subproduct_detail(request, prod_pk, subp_pk):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        # Invalido todas las cachés de lista de subproductos
-        cache.delete_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
-        # Invalido caché de detalle concreto
+        # Invalidar cache de lista de subproductos
+        delete_keys_by_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+        # Invalidar cache de detalle concreto
         cache.delete(cache_key_detail)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
