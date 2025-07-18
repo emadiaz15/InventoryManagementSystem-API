@@ -28,15 +28,12 @@ from apps.products.docs.product_doc import (
     delete_product_by_id_doc
 )
 
-from django_redis import get_redis_connection
 from apps.products.utils.cache_helpers import (
     PRODUCT_LIST_CACHE_PREFIX,
     PRODUCT_DETAIL_CACHE_PREFIX,
     product_list_cache_key,
     product_detail_cache_key,
 )
-
-from apps.products.utils.redis_utils import delete_keys_by_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +53,7 @@ def product_list(request):
     """
     Endpoint para listar productos activos con paginación y stock calculado.
     """
+    # subqueries para stock individual y total de subproductos
     product_stock_sq = ProductStock.objects.filter(
         product=OuterRef('pk'), status=True
     ).values('quantity')[:1]
@@ -77,11 +75,13 @@ def product_list(request):
         )
     )
 
+    # aplicamos filtros
     filterset = ProductFilter(request.GET, queryset=qs)
     if not filterset.is_valid():
         return Response(filterset.errors, status=status.HTTP_400_BAD_REQUEST)
     qs = filterset.qs
 
+    # paginación y serialización
     paginator = Pagination()
     page = paginator.paginate_queryset(qs, request)
     serializer = ProductSerializer(page, many=True, context={'request': request})
@@ -107,10 +107,10 @@ def create_product(request):
     data = request.data.copy()
     data['has_subproducts'] = False
 
+    # parseo de stock inicial
     qty_str = data.pop('initial_stock_quantity', '0')
     if isinstance(qty_str, list):
         qty_str = qty_str[0]
-    location = data.pop('initial_stock_location', None)
     reason = data.pop('initial_stock_reason', 'Stock inicial por creación')
 
     try:
@@ -124,10 +124,12 @@ def create_product(request):
             "initial_stock_quantity": f"Valor inválido ('{qty_str}') para cantidad inicial."
         })
 
+    # validación del serializer
     serializer = ProductSerializer(data=data, context={'request': request})
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # guardado con transacción y stock
     try:
         with transaction.atomic():
             product = serializer.save(user=request.user)
@@ -144,8 +146,8 @@ def create_product(request):
         code = status.HTTP_400_BAD_REQUEST if isinstance(e, serializers.ValidationError) else status.HTTP_500_INTERNAL_SERVER_ERROR
         return Response({"detail": detail}, status=code)
 
-    # Invalido caché de lista de productos
-    cache.delete(product_list_cache_key())
+    # 1) invalidamos TODAS las páginas cacheadas de product_list
+    cache.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
 
     return Response(
         ProductSerializer(product, context={'request': request}).data,
@@ -188,19 +190,19 @@ def product_detail(request, prod_pk):
 
     cache_key_detail = product_detail_cache_key(prod_pk)
 
+    # GET con cache específico de detalle
     if request.method == 'GET':
         @cache_page(60 * 5, key_prefix=PRODUCT_DETAIL_CACHE_PREFIX)
         def cached_get(request, prod_pk):
-            # ... lógica de GET ...
             product_qs = ProductRepository.get_all_active_products().annotate(
-                # ... tus subqueries ...
+                # … mismas subqueries de arriba …
             )
-            product = get_object_or_404(product_qs, pk=prod_pk)
-            serializer = ProductSerializer(product, context={'request': request})
-            return Response(serializer.data)
-
+            obj = get_object_or_404(product_qs, pk=prod_pk)
+            ser = ProductSerializer(obj, context={'request': request})
+            return Response(ser.data)
         return cached_get(request, prod_pk)
 
+    # PUT → actualizar + stock
     if request.method == 'PUT':
         if not request.user.is_staff:
             return Response({"detail": "No tienes permiso para actualizar este producto."},
@@ -229,25 +231,25 @@ def product_detail(request, prod_pk):
         except Exception as e:
             logger.error(f"Error actualizando producto {prod_pk}: {e}")
             detail = getattr(e, 'detail', str(e))
-            code = status.HTTP_400_BAD_REQUEST if isinstance(e, (serializers.ValidationError, ValidationError)) \
-                   else status.HTTP_500_INTERNAL_SERVER_ERROR
+            code = status.HTTP_400_BAD_REQUEST if isinstance(e, (serializers.ValidationError, ValidationError)) else status.HTTP_500_INTERNAL_SERVER_ERROR
             return Response({"detail": detail}, status=code)
 
-        # 1) Invalido todas las cachés de lista (páginas, filtros...)
-        delete_keys_by_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
-        # 2) Invalido caché de detalle de este producto
+        # 1) invalidar todas las páginas cacheadas
+        cache.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
+        # 2) invalidar detalle cacheado
         cache.delete(cache_key_detail)
 
         return Response(ProductSerializer(updated, context={'request': request}).data)
 
+    # DELETE → borrado suave
     if request.method == 'DELETE':
         if not request.user.is_staff:
             return Response({"detail": "No tienes permiso para eliminar este producto."},
                             status=status.HTTP_403_FORBIDDEN)
 
         product.delete(user=request.user)
-        # Invalido caché de lista y detalle
-        delete_keys_by_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
+        # invalidar lista y detalle
+        cache.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
         cache.delete(product_list_cache_key())
         cache.delete(cache_key_detail)
 

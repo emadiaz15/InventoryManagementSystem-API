@@ -1,19 +1,13 @@
 from django.core.cache import cache
-from django.core.exceptions import ValidationError
-from decimal import Decimal, InvalidOperation
-import logging
-
-from django.db import transaction
-from django.db.models import Sum, F, Case, When, DecimalField, OuterRef, Subquery
 from django.shortcuts import get_object_or_404
 from django.http import HttpResponseRedirect
-
+from django.views.decorators.cache import cache_page
 from rest_framework import status, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from django.views.decorators.cache import cache_page
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from drf_spectacular.utils import extend_schema
+import logging
 
 from apps.products.models import Product
 from apps.products.api.repositories.product_file_repository import ProductFileRepository
@@ -28,12 +22,9 @@ from apps.products.docs.product_image_doc import (
     product_image_delete_doc,
     product_image_download_doc
 )
-from django_redis import get_redis_connection
 from apps.products.utils.cache_helpers import (
     PRODUCT_LIST_CACHE_PREFIX,
-    PRODUCT_DETAIL_CACHE_PREFIX,
-    product_list_cache_key,
-    product_detail_cache_key,
+    product_detail_cache_key
 )
 
 logger = logging.getLogger(__name__)
@@ -41,6 +32,7 @@ ALLOWED_CONTENT_TYPES = {
     "image/jpeg", "image/png", "image/webp",
     "application/pdf", "video/mp4", "video/webm"
 }
+
 
 @extend_schema(
     tags=product_image_upload_doc["tags"],
@@ -60,36 +52,34 @@ def product_file_upload_view(request, product_id: str):
     if not files:
         return Response({"detail": "No se proporcionaron archivos."}, status=status.HTTP_400_BAD_REQUEST)
 
-    invalid_files = [f.name for f in files if f.content_type not in ALLOWED_CONTENT_TYPES]
-    if invalid_files:
+    invalid = [f.name for f in files if f.content_type not in ALLOWED_CONTENT_TYPES]
+    if invalid:
         return Response(
-            {"detail": f"Tipo de archivo no permitido en: {', '.join(invalid_files)}"},
+            {"detail": f"Tipo de archivo no permitido en: {', '.join(invalid)}"},
             status=status.HTTP_400_BAD_REQUEST
         )
 
     results, errors = [], []
-    for file in files:
+    for f in files:
         try:
-            result = upload_product_file(file=file, product_id=int(product_id))
+            res = upload_product_file(file=f, product_id=int(product_id))
             ProductFileRepository.create(
                 product_id=int(product_id),
-                key=result["key"],
-                url=result["url"],
-                name=result["name"],
-                mime_type=result["mimeType"]
+                key=res["key"],
+                url=res["url"],
+                name=res["name"],
+                mime_type=res["mimeType"]
             )
-            results.append(result["key"])
+            results.append(res["key"])
         except Exception as e:
-            logger.error(f"❌ Error subiendo archivo {file.name}: {e}")
-            errors.append({file.name: str(e)})
+            logger.error(f"❌ Error subiendo archivo {f.name}: {e}")
+            errors.append({f.name: str(e)})
 
     if results:
-        # 1) Invalida todas las cachés de lista (páginas, filtros...)
-        redis_client = get_redis_connection("default")
-        redis_client.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
-        # 2) Invalida detalle concreto
+        # Invalida todas las páginas cacheadas de lista
+        cache.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
+        # Invalida caché de detalle concreto
         cache.delete(product_detail_cache_key(product_id))
-
 
     if errors and not results:
         return Response(
@@ -98,7 +88,7 @@ def product_file_upload_view(request, product_id: str):
         )
 
     return Response(
-        {"uploaded": results, "errors": errors if errors else None},
+        {"uploaded": results, "errors": errors or None},
         status=status.HTTP_207_MULTI_STATUS if errors else status.HTTP_201_CREATED
     )
 
@@ -115,13 +105,15 @@ def product_file_upload_view(request, product_id: str):
 @permission_classes([IsAuthenticated])
 def product_file_list_view(request, product_id: str):
     get_object_or_404(Product, pk=product_id)
-
     try:
         files = ProductFileRepository.get_all_by_product(int(product_id))
         return Response({"files": files}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"❌ Error listando archivos de producto {product_id}: {e}")
-        return Response({"detail": f"Error listando archivos: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"detail": f"Error listando archivos: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @extend_schema(
@@ -136,22 +128,24 @@ def product_file_list_view(request, product_id: str):
 @permission_classes([IsAdminUser])
 def product_file_delete_view(request, product_id: str, file_id: str):
     get_object_or_404(Product, pk=product_id)
-
     if not ProductFileRepository.exists(int(product_id), file_id):
-        return Response({"detail": "El archivo no está asociado a este producto."}, status=status.HTTP_404_NOT_FOUND)
-
+        return Response(
+            {"detail": "El archivo no está asociado a este producto."},
+            status=status.HTTP_404_NOT_FOUND
+        )
     try:
         delete_product_file(file_id)
         ProductFileRepository.delete(file_id)
-        # 1) Invalida todas las cachés de lista (páginas, filtros...)
-        redis_client = get_redis_connection("default")
-        redis_client.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
-        # 2) Invalida detalle concreto
+        # Invalida cache lista y detalle
+        cache.delete_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
         cache.delete(product_detail_cache_key(product_id))
         return Response({"detail": "Archivo eliminado correctamente."}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"❌ Error eliminando archivo {file_id} de producto {product_id}: {e}")
-        return Response({"detail": f"Error eliminando archivo: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"detail": f"Error eliminando archivo: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @extend_schema(
@@ -166,13 +160,17 @@ def product_file_delete_view(request, product_id: str, file_id: str):
 @permission_classes([IsAuthenticated])
 def product_file_download_view(request, product_id: str, file_id: str):
     get_object_or_404(Product, pk=product_id)
-
     if not ProductFileRepository.exists(int(product_id), file_id):
-        return Response({"detail": "El archivo no está asociado al producto."}, status=status.HTTP_404_NOT_FOUND)
-
+        return Response(
+            {"detail": "El archivo no está asociado al producto."},
+            status=status.HTTP_404_NOT_FOUND
+        )
     try:
         url = get_product_file_url(file_id)
         return HttpResponseRedirect(url)
     except Exception as e:
         logger.error(f"❌ Error generando URL presignada para {file_id}: {e}")
-        return Response({"detail": "Error generando acceso al archivo."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"detail": "Error generando acceso al archivo."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

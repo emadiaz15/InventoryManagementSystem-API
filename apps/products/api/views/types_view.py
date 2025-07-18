@@ -1,5 +1,4 @@
 from django.core.cache import cache
-from django_redis import get_redis_connection
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -24,7 +23,10 @@ CACHE_KEY_TYPE_LIST = "type_list"
 # --- Listar tipos activos con filtros y paginación ---
 @extend_schema(
     summary=list_type_doc["summary"],
-    description=list_type_doc["description"] + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos). Los cambios recientes pueden no reflejarse de inmediato.",
+    description=(
+        list_type_doc["description"]
+        + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos). Los cambios recientes pueden no reflejarse de inmediato."
+    ),
     tags=list_type_doc["tags"],
     operation_id=list_type_doc["operation_id"],
     parameters=list_type_doc["parameters"],
@@ -50,7 +52,10 @@ def type_list(request):
 # --- Crear nuevo tipo de producto (solo admins) ---
 @extend_schema(
     summary=create_type_doc["summary"],
-    description=create_type_doc["description"] + "\n\nEsta acción invalidará automáticamente la cache de tipos.",
+    description=(
+        create_type_doc["description"]
+        + "\n\nEsta acción invalidará automáticamente la cache de tipos."
+    ),
     tags=create_type_doc["tags"],
     operation_id=create_type_doc["operation_id"],
     request=create_type_doc["requestBody"],
@@ -67,8 +72,7 @@ def create_type(request):
     if serializer.is_valid():
         type_instance = serializer.save(user=request.user)
         # invalida todas las cachés de lista de tipos
-        redis_client = get_redis_connection("default")
-        redis_client.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
+        cache.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
         return Response(
             TypeSerializer(type_instance, context={'request': request}).data,
             status=status.HTTP_201_CREATED
@@ -79,7 +83,10 @@ def create_type(request):
 # --- Obtener, actualizar y eliminar tipo por ID ---
 @extend_schema(
     summary=get_type_by_id_doc["summary"],
-    description=get_type_by_id_doc["description"] + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante 5 minutos. Los cambios recientes pueden no reflejarse de inmediato.",
+    description=(
+        get_type_by_id_doc["description"]
+        + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante 5 minutos. Los cambios recientes pueden no reflejarse de inmediato."
+    ),
     tags=get_type_by_id_doc["tags"],
     operation_id=get_type_by_id_doc["operation_id"],
     parameters=get_type_by_id_doc["parameters"],
@@ -87,7 +94,10 @@ def create_type(request):
 )
 @extend_schema(
     summary=update_type_by_id_doc["summary"],
-    description=update_type_by_id_doc["description"] + "\n\nEsta acción invalidará automáticamente la cache relacionada a los tipos.",
+    description=(
+        update_type_by_id_doc["description"]
+        + "\n\nEsta acción invalidará automáticamente la cache relacionada a los tipos."
+    ),
     tags=update_type_by_id_doc["tags"],
     operation_id=update_type_by_id_doc["operation_id"],
     parameters=update_type_by_id_doc["parameters"],
@@ -96,7 +106,10 @@ def create_type(request):
 )
 @extend_schema(
     summary=delete_type_by_id_doc["summary"],
-    description=delete_type_by_id_doc["description"] + "\n\nEsta acción invalidará automáticamente la cache de tipos.",
+    description=(
+        delete_type_by_id_doc["description"]
+        + "\n\nEsta acción invalidará automáticamente la cache de tipos."
+    ),
     tags=delete_type_by_id_doc["tags"],
     operation_id=delete_type_by_id_doc["operation_id"],
     parameters=delete_type_by_id_doc["parameters"],
@@ -121,26 +134,38 @@ def type_detail(request, type_pk):
 
     if request.method == 'PUT':
         if not request.user.is_staff:
-            return Response({"detail": "No tienes permiso para actualizar este tipo."}, status=status.HTTP_403_FORBIDDEN)
-
-        serializer = TypeSerializer(type_instance, data=request.data, context={'request': request}, partial=True)
+            return Response(
+                {"detail": "No tienes permiso para actualizar este tipo."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        serializer = TypeSerializer(
+            type_instance,
+            data=request.data,
+            context={'request': request},
+            partial=True
+        )
         if serializer.is_valid():
             updated = serializer.save(user=request.user)
             # invalida todas las cachés de lista de tipos
-            redis_client = get_redis_connection("default")
-            redis_client.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
+            cache.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
             return Response(TypeSerializer(updated, context={'request': request}).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == 'DELETE':
         if not request.user.is_staff:
-            return Response({"detail": "No tienes permiso para eliminar este tipo."}, status=status.HTTP_403_FORBIDDEN)
-
-        serializer = TypeSerializer(type_instance, data={'status': False}, context={'request': request}, partial=True)
+            return Response(
+                {"detail": "No tienes permiso para eliminar este tipo."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        serializer = TypeSerializer(
+            type_instance,
+            data={'status': False},
+            context={'request': request},
+            partial=True
+        )
         if serializer.is_valid():
             serializer.save(user=request.user)
             # invalida todas las cachés de lista de tipos
-            redis_client = get_redis_connection("default")
-            redis_client.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
+            cache.delete_pattern(f"{CACHE_KEY_TYPE_LIST}*")
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

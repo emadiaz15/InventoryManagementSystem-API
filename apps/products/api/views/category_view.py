@@ -1,5 +1,4 @@
 from django.core.cache import cache
-from django_redis import get_redis_connection
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -26,7 +25,11 @@ CACHE_KEY_CATEGORY_LIST = "category_list"
 # --- Obtener categorías activas con filtros y paginación ---
 @extend_schema(
     summary=list_category_doc["summary"],
-    description=list_category_doc["description"] + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos). Los cambios recientes pueden no reflejarse de inmediato.",
+    description=(
+        list_category_doc["description"]
+        + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos). "
+        "Los cambios recientes pueden no reflejarse de inmediato."
+    ),
     tags=list_category_doc["tags"],
     operation_id=list_category_doc["operation_id"],
     parameters=list_category_doc["parameters"],
@@ -52,7 +55,10 @@ def category_list(request):
 # --- Crear nueva categoría (solo admins) ---
 @extend_schema(
     summary=create_category_doc["summary"],
-    description=create_category_doc["description"] + "\n\nEsta acción invalidará automáticamente la cache de categorías.",
+    description=(
+        create_category_doc["description"]
+        + "\n\nEsta acción invalidará automáticamente la cache de categorías."
+    ),
     tags=create_category_doc["tags"],
     operation_id=create_category_doc["operation_id"],
     request=create_category_doc["requestBody"],
@@ -69,8 +75,7 @@ def create_category(request):
     if serializer.is_valid():
         category = serializer.save(user=request.user)
         # invalida todas las cachés de lista de categorías
-        redis_client = get_redis_connection("default")
-        redis_client.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
+        cache.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
         return Response(
             CategorySerializer(category, context={'request': request}).data,
             status=status.HTTP_201_CREATED
@@ -81,7 +86,11 @@ def create_category(request):
 # --- Obtener, actualizar y eliminar categoría por ID ---
 @extend_schema(
     summary=get_category_by_id_doc["summary"],
-    description=get_category_by_id_doc["description"] + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante 5 minutos. Los cambios recientes pueden no reflejarse de inmediato.",
+    description=(
+        get_category_by_id_doc["description"]
+        + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante 5 minutos. "
+        "Los cambios recientes pueden no reflejarse de inmediato."
+    ),
     tags=get_category_by_id_doc["tags"],
     operation_id=get_category_by_id_doc["operation_id"],
     parameters=get_category_by_id_doc["parameters"],
@@ -89,7 +98,10 @@ def create_category(request):
 )
 @extend_schema(
     summary=update_category_by_id_doc["summary"],
-    description=update_category_by_id_doc["description"] + "\n\nEsta acción invalidará automáticamente la cache relacionada a la categoría.",
+    description=(
+        update_category_by_id_doc["description"]
+        + "\n\nEsta acción invalidará automáticamente la cache relacionada a la categoría."
+    ),
     tags=update_category_by_id_doc["tags"],
     operation_id=update_category_by_id_doc["operation_id"],
     parameters=update_category_by_id_doc["parameters"],
@@ -98,7 +110,10 @@ def create_category(request):
 )
 @extend_schema(
     summary=delete_category_by_id_doc["summary"],
-    description=delete_category_by_id_doc["description"] + "\n\nEsta acción invalidará automáticamente la cache de categorías.",
+    description=(
+        delete_category_by_id_doc["description"]
+        + "\n\nEsta acción invalidará automáticamente la cache de categorías."
+    ),
     tags=delete_category_by_id_doc["tags"],
     operation_id=delete_category_by_id_doc["operation_id"],
     parameters=delete_category_by_id_doc["parameters"],
@@ -123,9 +138,16 @@ def category_detail(request, category_pk):
 
     if request.method == 'PUT':
         if not request.user.is_staff:
-            return Response({"detail": "No tienes permiso para actualizar esta categoría."}, status=status.HTTP_403_FORBIDDEN)
-
-        serializer = CategorySerializer(category, data=request.data, context={'request': request}, partial=True)
+            return Response(
+                {"detail": "No tienes permiso para actualizar esta categoría."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        serializer = CategorySerializer(
+            category,
+            data=request.data,
+            context={'request': request},
+            partial=True
+        )
         if serializer.is_valid():
             updated_category = CategoryRepository.update(
                 category_instance=category,
@@ -134,20 +156,27 @@ def category_detail(request, category_pk):
                 description=serializer.validated_data.get('description')
             )
             # invalida todas las cachés de lista de categorías
-            redis_client = get_redis_connection("default")
-            redis_client.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
-            return Response(CategorySerializer(updated_category, context={'request': request}).data)
+            cache.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
+            return Response(
+                CategorySerializer(updated_category, context={'request': request}).data
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     if request.method == 'DELETE':
         if not request.user.is_staff:
-            return Response({"detail": "No tienes permiso para eliminar esta categoría."}, status=status.HTTP_403_FORBIDDEN)
-
-        serializer = CategorySerializer(category, data={'status': False}, context={'request': request}, partial=True)
+            return Response(
+                {"detail": "No tienes permiso para eliminar esta categoría."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        serializer = CategorySerializer(
+            category,
+            data={'status': False},
+            context={'request': request},
+            partial=True
+        )
         if serializer.is_valid():
             serializer.save(user=request.user)
             # invalida todas las cachés de lista de categorías
-            redis_client = get_redis_connection("default")
-            redis_client.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
+            cache.delete_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
