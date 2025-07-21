@@ -11,7 +11,19 @@ class ProductFilter(django_filters.FilterSet):
         lookup_expr='icontains',  # ahora permite búsqueda parcial
         label='Filtrar por código'
     )
+    
+    category = django_filters.NumberFilter(
+    field_name='category_id',
+    lookup_expr='exact',
+    label='Filtrar por categoría'
+    )
+
+    type = django_filters.NumberFilter(
+    field_name='type_id',
+    lookup_expr='exact',
+    label='Filtrar por tipo'
+    )
 
     class Meta:
         model = Product
-        fields = ['code']
+        fields = ['code', 'category', 'type']

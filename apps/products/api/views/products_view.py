@@ -1,6 +1,4 @@
 from django.core.cache import cache
-from django.test.client import RequestFactory
-from django.utils.cache import _generate_cache_key
 from django.core.exceptions import ValidationError
 from decimal import Decimal, InvalidOperation
 import logging
@@ -30,21 +28,15 @@ from apps.products.docs.product_doc import (
     delete_product_by_id_doc
 )
 
+from apps.products.utils.cache_helpers import (
+    PRODUCT_LIST_CACHE_PREFIX,
+    PRODUCT_DETAIL_CACHE_PREFIX,
+    product_list_cache_key,
+    product_detail_cache_key,
+)
+from apps.products.utils.redis_utils import delete_keys_by_pattern
+
 logger = logging.getLogger(__name__)
-
-PRODUCT_LIST_CACHE_PREFIX = "product_list"
-PRODUCT_DETAIL_CACHE_PREFIX = "product_detail"
-
-def _product_list_cache_key():
-    rf = RequestFactory()
-    req = rf.get("/api/v1/inventory/products/")
-    return _generate_cache_key(req, "GET", [], PRODUCT_LIST_CACHE_PREFIX)
-
-
-def _product_detail_cache_key(prod_pk):
-    rf = RequestFactory()
-    req = rf.get(f"/api/v1/inventory/products/{prod_pk}/")
-    return _generate_cache_key(req, "GET", [], PRODUCT_DETAIL_CACHE_PREFIX)
 
 # --- Listar productos activos con paginación y stock calculado ---
 @extend_schema(
@@ -116,7 +108,6 @@ def create_product(request):
     qty_str = data.pop('initial_stock_quantity', '0')
     if isinstance(qty_str, list):
         qty_str = qty_str[0]
-    location = data.pop('initial_stock_location', None)
     reason = data.pop('initial_stock_reason', 'Stock inicial por creación')
 
     try:
@@ -150,7 +141,8 @@ def create_product(request):
         code = status.HTTP_400_BAD_REQUEST if isinstance(e, serializers.ValidationError) else status.HTTP_500_INTERNAL_SERVER_ERROR
         return Response({"detail": detail}, status=code)
 
-    cache.delete(_product_list_cache_key())
+    # Invalidar todas las páginas cacheadas de product_list
+    delete_keys_by_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
 
     return Response(
         ProductSerializer(product, context={'request': request}).data,
@@ -187,25 +179,21 @@ def create_product(request):
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def product_detail(request, prod_pk):
-    """
-    Endpoint para:
-    - GET: consulta (autenticados).
-    - PUT: actualización (solo staff).
-    - DELETE: baja suave (solo staff).
-    """
     product = ProductRepository.get_by_id(prod_pk)
     if not product:
         return Response({"detail": "Producto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
-    cache_key_detail = _product_detail_cache_key(prod_pk)
+    cache_key_detail = product_detail_cache_key(prod_pk)
 
+    # GET con cache específico de detalle
     if request.method == 'GET':
         @cache_page(60 * 5, key_prefix=PRODUCT_DETAIL_CACHE_PREFIX)
         def cached_get(request, prod_pk):
             product_qs = ProductRepository.get_all_active_products().annotate(
                 individual_stock_qty=Subquery(
-                    ProductStock.objects.filter(product=OuterRef('pk'), status=True)
-                    .values('quantity')[:1],
+                    ProductStock.objects.filter(
+                        product=OuterRef('pk'), status=True
+                    ).values('quantity')[:1],
                     output_field=DecimalField(max_digits=15, decimal_places=2)
                 ),
                 subproduct_stock_total=Subquery(
@@ -214,8 +202,8 @@ def product_detail(request, prod_pk):
                         status=True,
                         subproduct__status=True
                     ).values('subproduct__parent')
-                    .annotate(total=Sum('quantity'))
-                    .values('total'),
+                     .annotate(total=Sum('quantity'))
+                     .values('total'),
                     output_field=DecimalField(max_digits=15, decimal_places=2)
                 )
             ).annotate(
@@ -226,17 +214,23 @@ def product_detail(request, prod_pk):
                     output_field=DecimalField(max_digits=15, decimal_places=2)
                 )
             )
-            product = get_object_or_404(product_qs, pk=prod_pk)
-            serializer = ProductSerializer(product, context={'request': request})
-            return Response(serializer.data)
+            obj = get_object_or_404(product_qs, pk=prod_pk)
+            ser = ProductSerializer(obj, context={'request': request})
+            return Response(ser.data)
 
         return cached_get(request, prod_pk)
 
+    # PUT → actualizar + stock
     if request.method == 'PUT':
         if not request.user.is_staff:
-            return Response({"detail": "No tienes permiso para actualizar este producto."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "No tienes permiso para actualizar este producto."},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
-        serializer = ProductSerializer(product, data=request.data, partial=True, context={'request': request})
+        serializer = ProductSerializer(
+            product, data=request.data, partial=True, context={'request': request}
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -262,16 +256,24 @@ def product_detail(request, prod_pk):
             code = status.HTTP_400_BAD_REQUEST if isinstance(e, (serializers.ValidationError, ValidationError)) else status.HTTP_500_INTERNAL_SERVER_ERROR
             return Response({"detail": detail}, status=code)
 
-        cache.delete(_product_list_cache_key())
+        # Invalidar todas las páginas cacheadas
+        delete_keys_by_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
+        # Invalidar detalle cacheado
         cache.delete(cache_key_detail)
 
         return Response(ProductSerializer(updated, context={'request': request}).data)
 
+    # DELETE → borrado suave
     if request.method == 'DELETE':
         if not request.user.is_staff:
-            return Response({"detail": "No tienes permiso para eliminar este producto."}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "No tienes permiso para eliminar este producto."},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         product.delete(user=request.user)
-        cache.delete(_product_list_cache_key())
+        # Invalidar lista y detalle
+        delete_keys_by_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
         cache.delete(cache_key_detail)
+
         return Response(status=status.HTTP_204_NO_CONTENT)

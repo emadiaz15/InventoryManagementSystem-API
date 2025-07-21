@@ -26,6 +26,7 @@ THIRD_APPS = [
     'csp',
     'sslserver',
     'storages',
+    'django_filters',
 ]
 LOCAL_APPS = [
     'apps.users',
