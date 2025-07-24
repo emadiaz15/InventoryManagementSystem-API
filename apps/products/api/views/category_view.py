@@ -3,7 +3,6 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from django.views.decorators.cache import cache_page
 from drf_spectacular.utils import extend_schema
 
 from apps.core.pagination import Pagination
@@ -18,9 +17,8 @@ from apps.products.docs.category_doc import (
     update_category_by_id_doc,
     delete_category_by_id_doc
 )
-from apps.products.utils.redis_utils import delete_keys_by_pattern
 
-CACHE_KEY_CATEGORY_LIST = "category_list"
+CACHE_KEY_CATEGORY_LIST = "categories:list"
 
 # --- Obtener categorías activas con filtros y paginación ---
 @extend_schema(
@@ -37,11 +35,14 @@ CACHE_KEY_CATEGORY_LIST = "category_list"
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@cache_page(60 * 5, key_prefix=CACHE_KEY_CATEGORY_LIST)
 def category_list(request):
     """
     Endpoint para listar las categorías activas, con filtros por nombre y paginación.
     """
+    cached = cache.get(CACHE_KEY_CATEGORY_LIST)
+    if cached:
+        return Response(cached)
+
     queryset = Category.objects.filter(status=True).select_related('created_by')
     filterset = CategoryFilter(request.GET, queryset=queryset)
     qs = filterset.qs
@@ -49,7 +50,10 @@ def category_list(request):
     paginator = Pagination()
     page = paginator.paginate_queryset(qs, request)
     serializer = CategorySerializer(page, many=True, context={'request': request})
-    return paginator.get_paginated_response(serializer.data)
+    response = paginator.get_paginated_response(serializer.data)
+
+    cache.set(CACHE_KEY_CATEGORY_LIST, response.data, 60 * 5)
+    return response
 
 
 # --- Crear nueva categoría (solo admins) ---
@@ -75,7 +79,7 @@ def create_category(request):
     if serializer.is_valid():
         category = serializer.save(user=request.user)
         # invalida todas las cachés de lista de categorías
-        delete_keys_by_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
+        cache.delete(CACHE_KEY_CATEGORY_LIST)
         return Response(
             CategorySerializer(category, context={'request': request}).data,
             status=status.HTTP_201_CREATED
@@ -158,7 +162,7 @@ def category_detail(request, category_pk):
                 description=serializer.validated_data.get('description')
             )
             # invalida todas las cachés de lista de categorías
-            delete_keys_by_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
+            cache.delete(CACHE_KEY_CATEGORY_LIST)
             return Response(
                 CategorySerializer(updated_category, context={'request': request}).data
             )
@@ -180,6 +184,6 @@ def category_detail(request, category_pk):
         if serializer.is_valid():
             serializer.save(user=request.user)
             # invalida todas las cachés de lista de categorías
-            delete_keys_by_pattern(f"{CACHE_KEY_CATEGORY_LIST}*")
+            cache.delete(CACHE_KEY_CATEGORY_LIST)
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
