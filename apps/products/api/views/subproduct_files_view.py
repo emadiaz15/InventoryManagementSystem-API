@@ -1,3 +1,5 @@
+# apps/products/api/views/subproduct_files_view.py
+
 from django.core.cache import cache
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -21,11 +23,11 @@ from apps.products.docs.subproduct_image_doc import (
     subproduct_image_download_doc,
     subproduct_image_delete_doc,
 )
-from apps.products.utils.cache_helpers import (
+from apps.products.utils.cache_helpers_subproducts import (
     SUBPRODUCT_LIST_CACHE_PREFIX,
     subproduct_detail_cache_key
 )
-from apps.products.utils.redis_utils import delete_keys_by_pattern  # <— añadimos la utilidad
+from apps.products.utils.redis_utils import delete_keys_by_pattern  # añadimos la utilidad
 
 logger = logging.getLogger(__name__)
 ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}

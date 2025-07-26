@@ -21,7 +21,7 @@ from apps.products.docs.product_image_doc import (
     product_image_delete_doc,
     product_image_download_doc
 )
-from apps.products.utils.cache_helpers import (
+from apps.products.utils.cache_helpers_products import (
     PRODUCT_LIST_CACHE_PREFIX,
     product_detail_cache_key
 )
