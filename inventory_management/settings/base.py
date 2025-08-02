@@ -1,3 +1,4 @@
+# settings/base.py
 from pathlib import Path
 from datetime import timedelta
 import os
@@ -117,13 +118,8 @@ SPECTACULAR_SETTINGS = {
 }
 
 # ── CONFIGURACIÓN DE CACHE ────────────────────────────────────
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.getenv('REDIS_URL', 'redis://localhost:6379/1'),
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
-    }
-}
+# ── LECTURA DE DEBUG DESDE ENV (por defecto False) ─────────────────────────
+DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
 
 # ── LOGGING ───────────────────────────────────────────────────
 LOGGING = {

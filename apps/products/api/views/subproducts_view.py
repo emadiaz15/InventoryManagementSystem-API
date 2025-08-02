@@ -1,7 +1,9 @@
-from django.core.cache import cache
-from decimal import Decimal
-import logging
+# apps/products/api/views/subproducts_view.py
 
+import logging
+from decimal import Decimal
+
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import OuterRef, Subquery, DecimalField
 from django.db.models.functions import Coalesce
@@ -30,12 +32,12 @@ from apps.products.models.subproduct_model import Subproduct
 from apps.stocks.models import SubproductStock
 from apps.stocks.services import initialize_subproduct_stock, adjust_subproduct_stock
 
-from apps.products.utils.cache_helpers import (
+from apps.products.utils.cache_helpers_subproducts import (
     SUBPRODUCT_LIST_CACHE_PREFIX,
     SUBPRODUCT_DETAIL_CACHE_PREFIX,
+    subproduct_list_cache_key,
     subproduct_detail_cache_key,
 )
-from apps.products.utils.redis_utils import delete_keys_by_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -119,10 +121,15 @@ def create_subproduct(request, prod_pk):
     except Exception as e:
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # Invalidar cache de lista de subproductos
-    delete_keys_by_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+    # Invalidar cache de lista de subproductos (página 1)
+    cache_key_list = subproduct_list_cache_key(prod_pk, page=1, page_size=request.GET.get('page_size', 10), status=True)
+    cache.delete(cache_key_list)
+    logger.debug(f"[Cache] Deleted list key: {cache_key_list}")
+
     # Invalidar cache de detalle concreto
-    cache.delete(subproduct_detail_cache_key(prod_pk, subp.pk))
+    cache_key_detail = subproduct_detail_cache_key(prod_pk, subp.pk)
+    cache.delete(cache_key_detail)
+    logger.debug(f"[Cache] Deleted detail key: {cache_key_detail}")
 
     resp_ser = SubProductSerializer(
         subp,
@@ -233,10 +240,13 @@ def subproduct_detail(request, prod_pk, subp_pk):
             logger.error(f"Error actualizando subproducto {subp_pk}: {e}")
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Invalidar cache de lista de subproductos
-        delete_keys_by_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+        # Invalidar cache de lista de subproductos (página 1)
+        cache_key_list = subproduct_list_cache_key(prod_pk, page=1, page_size=request.GET.get('page_size', 10), status=True)
+        cache.delete(cache_key_list)
+        logger.debug(f"[Cache] Deleted list key: {cache_key_list}")
         # Invalidar cache de detalle concreto
         cache.delete(cache_key_detail)
+        logger.debug(f"[Cache] Deleted detail key: {cache_key_detail}")
 
         resp_ser = SubProductSerializer(
             updated,
@@ -259,9 +269,12 @@ def subproduct_detail(request, prod_pk, subp_pk):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        # Invalidar cache de lista de subproductos
-        delete_keys_by_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+        # Invalidar cache de lista de subproductos (página 1)
+        cache_key_list = subproduct_list_cache_key(prod_pk, page=1, page_size=request.GET.get('page_size', 10), status=True)
+        cache.delete(cache_key_list)
+        logger.debug(f"[Cache] Deleted list key: {cache_key_list}")
         # Invalidar cache de detalle concreto
         cache.delete(cache_key_detail)
+        logger.debug(f"[Cache] Deleted detail key: {cache_key_detail}")
 
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -1,3 +1,5 @@
+# settings/local.py
+
 from .base import *
 import os
 from dotenv import load_dotenv
@@ -8,7 +10,8 @@ load_dotenv(BASE_DIR.parent / '.env.local')
 
 # ── SEGURIDAD ─────────────────────────────────────────────────
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key-for-local-dev-only')
-DEBUG = True
+# En local forzamos DEBUG, pero ahora puedes cambiarlo con la var de entorno DJANGO_DEBUG
+DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
 ALLOWED_HOSTS = ['*']
 
 # ── BASE DE DATOS ──────────────────────────────────────────────
