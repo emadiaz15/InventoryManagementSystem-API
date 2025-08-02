@@ -7,6 +7,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+class ProductNotFound(Exception):
+    """Se lanza cuando no existe el producto o subproducto esperado."""
+    pass
+
 class SubproductFileRepository:
     """
     Repositorio para archivos de Subproduct adaptado para MinIO/S3.

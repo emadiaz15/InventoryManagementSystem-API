@@ -1,21 +1,23 @@
 # apps/products/api/views/subproduct_files_view.py
 
 from django.core.cache import cache
+from django.http import HttpResponseRedirect, Http404
 from rest_framework import status
+from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.response import Response
-from django.http import HttpResponseRedirect, Http404
-from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 import logging
 
 from apps.products.models import Product, Subproduct
-from apps.products.api.repositories.subproduct_file_repository import SubproductFileRepository
+from apps.products.api.repositories.subproduct_file_repository import (
+    SubproductFileRepository,
+    ProductNotFound,
+)
 from apps.storages_client.services.subproducts_files import (
     upload_subproduct_file,
     delete_subproduct_file,
-    get_subproduct_file_url
+    get_subproduct_file_url,
 )
 from apps.products.docs.subproduct_image_doc import (
     subproduct_image_upload_doc,
@@ -25,12 +27,11 @@ from apps.products.docs.subproduct_image_doc import (
 )
 from apps.products.utils.cache_helpers_subproducts import (
     SUBPRODUCT_LIST_CACHE_PREFIX,
-    subproduct_detail_cache_key
+    subproduct_detail_cache_key,
 )
-from apps.products.utils.redis_utils import delete_keys_by_pattern  # añadimos la utilidad
+from apps.products.utils.redis_utils import delete_keys_by_pattern
 
 logger = logging.getLogger(__name__)
-ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 
 
 @extend_schema(
@@ -45,55 +46,73 @@ ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "application/p
 @api_view(["POST"])
 @permission_classes([IsAdminUser])
 def subproduct_file_upload_view(request, product_id: str, subproduct_id: str):
-    get_object_or_404(Product, pk=product_id, status=True)
-    get_object_or_404(Subproduct, pk=subproduct_id, parent_id=product_id, status=True)
+    """
+    Sube uno o varios archivos para un subproducto. La validación de extensiones
+    se realiza en SubproductFileRepository.create(), lanzando ValidationError
+    si la extensión no está permitida.
+    """
+    # 1) Verificar existencia de producto y subproducto
+    try:
+        product = Product.objects.get(pk=product_id, status=True)
+    except Product.DoesNotExist:
+        raise ProductNotFound(f"Producto con ID {product_id} no existe.")
+    try:
+        subproduct = Subproduct.objects.get(
+            pk=subproduct_id, parent_id=product.id, status=True
+        )
+    except Subproduct.DoesNotExist:
+        raise Http404(f"Subproducto con ID {subproduct_id} no existe para el producto {product_id}.")
 
     files = request.FILES.getlist("file")
     if not files:
-        return Response({"detail": "No se proporcionaron archivos."}, status=status.HTTP_400_BAD_REQUEST)
-
-    invalid_files = [f.name for f in files if f.content_type not in ALLOWED_CONTENT_TYPES]
-    if invalid_files:
         return Response(
-            {"detail": f"Tipo de archivo no permitido en: {', '.join(invalid_files)}"},
-            status=status.HTTP_400_BAD_REQUEST
+            {"detail": "No se proporcionaron archivos."},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
     results, errors = [], []
     for f in files:
         try:
+            # 2) Subida a MinIO / S3
             res = upload_subproduct_file(
-                file=f,
-                product_id=int(product_id),
-                subproduct_id=int(subproduct_id),
+                file=f, product_id=product.id, subproduct_id=subproduct.id
             )
+
+            # 3) Registro en BD + validación de extensión en repo
             SubproductFileRepository.create(
-                subproduct_id=int(subproduct_id),
+                subproduct_id=subproduct.id,
                 key=res["key"],
                 url=res["url"],
                 name=res["name"],
-                mime_type=res["mimeType"]
+                mime_type=res["mimeType"],
             )
             results.append(res["key"])
         except Exception as e:
-            logger.error(f"❌ Error subiendo archivo {f.name}: {e}")
+            logger.exception(f"❌ Error subiendo archivo {f.name}: {e}")
             errors.append({f.name: str(e)})
 
+    # 4) Invalidar cachés si algo subió
     if results:
-        # 1) invalidar TODAS las páginas cacheadas de lista de subproductos
         delete_keys_by_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
-        # 2) invalidar caché de detalle concreto
         cache.delete(subproduct_detail_cache_key(product_id, subproduct_id))
 
+    # 5) Manejo de errores: 400 si sólo validación de extensión, 500 si no
     if errors and not results:
-        return Response(
-            {"detail": "Ningún archivo pudo subirse.", "errors": errors},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        all_validation = all(
+            "Extensión de archivo no permitida" in list(err.values())[0] for err in errors
         )
+        code = (
+            status.HTTP_400_BAD_REQUEST
+            if all_validation
+            else status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+        detail = "Archivos inválidos." if all_validation else "Ningún archivo pudo subirse."
+        return Response({"detail": detail, "errors": errors}, status=code)
 
+    # 6) Respuesta parcial o total exitosa
     return Response(
         {"uploaded": results, "errors": errors or None},
-        status=status.HTTP_207_MULTI_STATUS if errors else status.HTTP_201_CREATED
+        status=status.HTTP_207_MULTI_STATUS if errors else status.HTTP_201_CREATED,
     )
 
 
@@ -108,20 +127,27 @@ def subproduct_file_upload_view(request, product_id: str, subproduct_id: str):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def subproduct_file_list_view(request, product_id: str, subproduct_id: str):
-    get_object_or_404(Product, pk=product_id, status=True)
-    get_object_or_404(Subproduct, pk=subproduct_id, parent_id=product_id, status=True)
+    # Verificar existencia
+    try:
+        product = Product.objects.get(pk=product_id, status=True)
+    except Product.DoesNotExist:
+        raise ProductNotFound(f"Producto con ID {product_id} no existe.")
+    try:
+        subproduct = Subproduct.objects.get(
+            pk=subproduct_id, parent_id=product.id, status=True
+        )
+    except Subproduct.DoesNotExist:
+        raise Http404(f"Subproducto con ID {subproduct_id} no existe para el producto {product_id}.")
 
     try:
-        files = SubproductFileRepository.get_all_by_subproduct(int(subproduct_id))
-        return Response({
-            "files": [
-                {"key": f.key, "name": f.name, "mimeType": f.mime_type, "url": f.get_presigned_url()}
-                for f in files
-            ]
-        }, status=status.HTTP_200_OK)
+        files = SubproductFileRepository.get_all_by_subproduct(subproduct.id)
+        return Response({"files": files}, status=status.HTTP_200_OK)
     except Exception as e:
-        logger.error(f"❌ Error listando archivos de subproducto {subproduct_id}: {e}")
-        return Response({"detail": f"Error listando archivos: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.exception(f"❌ Error listando archivos de subproducto {subproduct_id}: {e}")
+        return Response(
+            {"detail": f"Error listando archivos: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @extend_schema(
@@ -135,18 +161,30 @@ def subproduct_file_list_view(request, product_id: str, subproduct_id: str):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def subproduct_file_download_view(request, product_id: str, subproduct_id: str, file_id: str):
-    get_object_or_404(Product, pk=product_id, status=True)
-    get_object_or_404(Subproduct, pk=subproduct_id, parent_id=product_id, status=True)
+    # Verificar existencia
+    try:
+        product = Product.objects.get(pk=product_id, status=True)
+    except Product.DoesNotExist:
+        raise ProductNotFound(f"Producto con ID {product_id} no existe.")
+    try:
+        subproduct = Subproduct.objects.get(
+            pk=subproduct_id, parent_id=product.id, status=True
+        )
+    except Subproduct.DoesNotExist:
+        raise Http404(f"Subproducto con ID {subproduct_id} no existe para el producto {product_id}.")
 
-    if not SubproductFileRepository.exists(int(subproduct_id), file_id):
-        raise Http404(f"🛑 Archivo {file_id} no está vinculado al subproducto {subproduct_id}")
+    if not SubproductFileRepository.exists(subproduct.id, file_id):
+        raise Http404(f"Archivo {file_id} no está vinculado al subproducto {subproduct_id}.")
 
     try:
         url = get_subproduct_file_url(file_id)
         return HttpResponseRedirect(url)
     except Exception as e:
-        logger.error(f"❌ Error generando URL presignada para archivo {file_id} del subproducto {subproduct_id}: {e}")
-        return Response({"detail": "Error generando acceso al archivo."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.exception(f"❌ Error generando URL presignada para archivo {file_id} del subproducto {subproduct_id}: {e}")
+        return Response(
+            {"detail": "Error generando acceso al archivo."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @extend_schema(
@@ -160,20 +198,36 @@ def subproduct_file_download_view(request, product_id: str, subproduct_id: str, 
 @api_view(["DELETE"])
 @permission_classes([IsAdminUser])
 def subproduct_file_delete_view(request, product_id: str, subproduct_id: str, file_id: str):
-    get_object_or_404(Product, pk=product_id, status=True)
-    get_object_or_404(Subproduct, pk=subproduct_id, parent_id=product_id, status=True)
+    # Verificar existencia
+    try:
+        product = Product.objects.get(pk=product_id, status=True)
+    except Product.DoesNotExist:
+        raise ProductNotFound(f"Producto con ID {product_id} no existe.")
+    try:
+        subproduct = Subproduct.objects.get(
+            pk=subproduct_id, parent_id=product.id, status=True
+        )
+    except Subproduct.DoesNotExist:
+        raise Http404(f"Subproducto con ID {subproduct_id} no existe para el producto {product_id}.")
 
-    if not SubproductFileRepository.exists(int(subproduct_id), file_id):
-        return Response({"detail": "El archivo no está vinculado a este subproducto."}, status=status.HTTP_404_NOT_FOUND)
+    if not SubproductFileRepository.exists(subproduct.id, file_id):
+        return Response(
+            {"detail": "El archivo no está vinculado a este subproducto."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
 
     try:
         delete_subproduct_file(file_id)
         SubproductFileRepository.delete(file_id)
-        # 1) invalidar TODAS las páginas cacheadas de lista de subproductos
         delete_keys_by_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
-        # 2) invalidar caché de detalle concreto
         cache.delete(subproduct_detail_cache_key(product_id, subproduct_id))
-        return Response({"detail": "Archivo eliminado correctamente."}, status=status.HTTP_200_OK)
+        return Response(
+            {"detail": "Archivo eliminado correctamente."},
+            status=status.HTTP_200_OK,
+        )
     except Exception as e:
-        logger.error(f"❌ Error eliminando archivo {file_id} de subproducto {subproduct_id}: {e}")
-        return Response({"detail": f"Error eliminando archivo: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.exception(f"❌ Error eliminando archivo {file_id} de subproducto {subproduct_id}: {e}")
+        return Response(
+            {"detail": f"Error eliminando archivo: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
