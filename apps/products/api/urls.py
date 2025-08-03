@@ -40,7 +40,7 @@ urlpatterns = [
     # --- 🎞️ Archivos Multimedia de Productos ---
     path('products/<str:product_id>/files/', product_file_list_view, name='product-file-list'),
     path('products/<str:product_id>/files/upload/', product_file_upload_view, name='product-file-upload'),
-    path('products/<str:product_id>/files/<str:file_id>/delete/', product_file_delete_view, name='product-file-delete'),
+    path('products/<str:product_id>/files/<path:file_id>/delete/',product_file_delete_view,name='product-file-delete'),
     path('products/<str:product_id>/files/<str:file_id>/download/', product_file_download_view, name='product-file-download'),
 
     # --- 🎞️ Archivos Multimedia de Subproductos ---
