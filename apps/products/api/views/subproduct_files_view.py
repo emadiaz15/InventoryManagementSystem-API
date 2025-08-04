@@ -1,5 +1,3 @@
-# apps/products/api/views/subproduct_files_view.py
-
 from django.core.cache import cache
 from django.http import HttpResponseRedirect, Http404
 from rest_framework import status
@@ -61,7 +59,9 @@ def subproduct_file_upload_view(request, product_id: str, subproduct_id: str):
             pk=subproduct_id, parent_id=product.id, status=True
         )
     except Subproduct.DoesNotExist:
-        raise Http404(f"Subproducto con ID {subproduct_id} no existe para el producto {product_id}.")
+        raise Http404(
+            f"Subproducto con ID {subproduct_id} no existe para el producto {product_id}."
+        )
 
     files = request.FILES.getlist("file")
     if not files:
@@ -93,8 +93,11 @@ def subproduct_file_upload_view(request, product_id: str, subproduct_id: str):
 
     # 4) Invalidar cachés si algo subió
     if results:
-        delete_keys_by_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
-        cache.delete(subproduct_detail_cache_key(product_id, subproduct_id))
+        try:
+            delete_keys_by_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+            cache.delete(subproduct_detail_cache_key(product_id, subproduct_id))
+        except NotImplementedError as nie:
+            logger.warning(f"Redis no soporta eliminación por patrón, se omite: {nie}")
 
     # 5) Manejo de errores: 400 si sólo validación de extensión, 500 si no
     if errors and not results:
@@ -106,7 +109,9 @@ def subproduct_file_upload_view(request, product_id: str, subproduct_id: str):
             if all_validation
             else status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-        detail = "Archivos inválidos." if all_validation else "Ningún archivo pudo subirse."
+        detail = (
+            "Archivos inválidos." if all_validation else "Ningún archivo pudo subirse."
+        )
         return Response({"detail": detail, "errors": errors}, status=code)
 
     # 6) Respuesta parcial o total exitosa
@@ -137,7 +142,9 @@ def subproduct_file_list_view(request, product_id: str, subproduct_id: str):
             pk=subproduct_id, parent_id=product.id, status=True
         )
     except Subproduct.DoesNotExist:
-        raise Http404(f"Subproducto con ID {subproduct_id} no existe para el producto {product_id}.")
+        raise Http404(
+            f"Subproducto con ID {subproduct_id} no existe para el producto {product_id}."
+        )
 
     try:
         files = SubproductFileRepository.get_all_by_subproduct(subproduct.id)
@@ -171,16 +178,22 @@ def subproduct_file_download_view(request, product_id: str, subproduct_id: str, 
             pk=subproduct_id, parent_id=product.id, status=True
         )
     except Subproduct.DoesNotExist:
-        raise Http404(f"Subproducto con ID {subproduct_id} no existe para el producto {product_id}.")
+        raise Http404(
+            f"Subproducto con ID {subproduct_id} no existe para el producto {product_id}."
+        )
 
     if not SubproductFileRepository.exists(subproduct.id, file_id):
-        raise Http404(f"Archivo {file_id} no está vinculado al subproducto {subproduct_id}.")
+        raise Http404(
+            f"Archivo {file_id} no está vinculado al subproducto {subproduct_id}."
+        )
 
     try:
         url = get_subproduct_file_url(file_id)
         return HttpResponseRedirect(url)
     except Exception as e:
-        logger.exception(f"❌ Error generando URL presignada para archivo {file_id} del subproducto {subproduct_id}: {e}")
+        logger.exception(
+            f"❌ Error generando URL presignada para archivo {file_id} del subproducto {subproduct_id}: {e}"
+        )
         return Response(
             {"detail": "Error generando acceso al archivo."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -208,7 +221,9 @@ def subproduct_file_delete_view(request, product_id: str, subproduct_id: str, fi
             pk=subproduct_id, parent_id=product.id, status=True
         )
     except Subproduct.DoesNotExist:
-        raise Http404(f"Subproducto con ID {subproduct_id} no existe para el producto {product_id}.")
+        raise Http404(
+            f"Subproducto con ID {subproduct_id} no existe para el producto {product_id}."
+        )
 
     if not SubproductFileRepository.exists(subproduct.id, file_id):
         return Response(
@@ -219,8 +234,11 @@ def subproduct_file_delete_view(request, product_id: str, subproduct_id: str, fi
     try:
         delete_subproduct_file(file_id)
         SubproductFileRepository.delete(file_id)
-        delete_keys_by_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
-        cache.delete(subproduct_detail_cache_key(product_id, subproduct_id))
+        try:
+            delete_keys_by_pattern(f"{SUBPRODUCT_LIST_CACHE_PREFIX}*")
+            cache.delete(subproduct_detail_cache_key(product_id, subproduct_id))
+        except NotImplementedError as nie:
+            logger.warning(f"Redis no soporta eliminación por patrón, se omite: {nie}")
         return Response(
             {"detail": "Archivo eliminado correctamente."},
             status=status.HTTP_200_OK,
