@@ -1,11 +1,13 @@
-# ✅ Imagen base oficial y segura
-FROM python:3.10.13-alpine
+# ✅ Imagen base con SQLite moderno (Alpine 3.17 trae SQLite 3.38+)
+FROM python:3.10-alpine3.17
 
 # 📁 Directorio de trabajo
 WORKDIR /app
 
 # 🔧 Dependencias del sistema necesarias para compilar y ejecutar (Postgres, Pillow, etc.)
 RUN apk add --no-cache \
+    sqlite \
+    sqlite-dev \
     gcc \
     musl-dev \
     libffi-dev \
