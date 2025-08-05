@@ -4,7 +4,6 @@ import logging
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
-from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.views.decorators.cache import cache_page
@@ -31,7 +30,6 @@ from apps.products.docs.product_doc import (
 from apps.products.utils.cache_helpers_products import (
     PRODUCT_LIST_CACHE_PREFIX,
     PRODUCT_DETAIL_CACHE_PREFIX,
-    product_list_cache_key,
     product_detail_cache_key,
 )
 from apps.products.utils.redis_utils import delete_keys_by_pattern
@@ -78,7 +76,9 @@ def product_list(request):
         subproduct__parent_id=OuterRef('pk'),
         status=True,
         subproduct__status=True
-    ).values('subproduct__parent').annotate(total=Sum('quantity')).values('total')
+    ).values('subproduct__parent').annotate(
+        total=Sum('quantity')
+    ).values('total')
 
     qs = ProductRepository.get_all_active_products().annotate(
         individual_stock_qty=Subquery(product_stock_sq, output_field=DecimalField()),
@@ -159,14 +159,10 @@ def create_product(request):
         code = status.HTTP_400_BAD_REQUEST if isinstance(e, serializers.ValidationError) else status.HTTP_500_INTERNAL_SERVER_ERROR
         return Response({"detail": detail}, status=code)
 
-    # invalidamos SOLO la página 1 de la lista
-    # extraemos filtros actuales (si los hay)
-    page_size   = int(request.GET.get('page_size', 10))
-    # cualquier otro filtro: por ejemplo 'name', 'category', etc.
-    filters     = {k: v for k, v in request.GET.items() if k not in ('page','page_size')}
-    key1 = product_list_cache_key(page=1, page_size=page_size, **filters)
-    cache.delete(key1)
-    logger.debug(f"[Cache] Deleted list key: {key1}")
+    # Invalidar caché de lista (todas las páginas y headers)
+    delete_keys_by_pattern("views.decorators.cache.cache_page.product_list.GET.*")
+    delete_keys_by_pattern("views.decorators.cache.cache_header.product_list.*")
+    logger.debug("[Cache] Cache_product_list invalidada (pattern aplicado)")
 
     return Response(
         ProductSerializer(product, context={'request': request}).data,
@@ -258,14 +254,12 @@ def product_detail(request, prod_pk):
             code   = status.HTTP_400_BAD_REQUEST if isinstance(e, (serializers.ValidationError, ValidationError)) else status.HTTP_500_INTERNAL_SERVER_ERROR
             return Response({"detail": detail}, status=code)
 
-        # invalidar lista (página 1) y detalle
-        page_size = int(request.GET.get('page_size', 10))
-        filters   = {k: v for k, v in request.GET.items() if k not in ('page','page_size')}
-        list_key  = product_list_cache_key(page=1, page_size=page_size, **filters)
-        cache.delete(list_key)
-        cache.delete(detail_key)
-        logger.debug(f"[Cache] Deleted list key:   {list_key}")
-        logger.debug(f"[Cache] Deleted detail key: {detail_key}")
+        # Invalidar caché de lista y detalle
+        delete_keys_by_pattern("views.decorators.cache.cache_page.product_list.GET.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_header.product_list.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_page.product_detail.GET.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_header.product_detail.*")
+        logger.debug(f"[Cache] Cache_product_list y Cache_product_detail invalidadas tras UPDATE")
 
         return Response(ProductSerializer(updated, context={'request': request}).data)
 
@@ -276,13 +270,11 @@ def product_detail(request, prod_pk):
 
         product.delete(user=request.user)
 
-        # invalidar lista y detalle
-        page_size = int(request.GET.get('page_size', 10))
-        filters   = {k: v for k, v in request.GET.items() if k not in ('page','page_size')}
-        list_key  = product_list_cache_key(page=1, page_size=page_size, **filters)
-        cache.delete(list_key)
-        cache.delete(detail_key)
-        logger.debug(f"[Cache] Deleted list key:   {list_key}")
-        logger.debug(f"[Cache] Deleted detail key: {detail_key}")
+        # Invalidar caché de lista y detalle
+        delete_keys_by_pattern("views.decorators.cache.cache_page.product_list.GET.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_header.product_list.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_page.product_detail.GET.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_header.product_detail.*")
+        logger.debug(f"[Cache] Cache_product_list y Cache_product_detail invalidadas tras DELETE")
 
         return Response(status=status.HTTP_204_NO_CONTENT)
