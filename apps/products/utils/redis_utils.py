@@ -1,16 +1,24 @@
 import os
 import redis
 from django_redis import get_redis_connection
-from typing import Union, Optional, List
+from typing import Any, List, Optional
 
 def get_redis_client(use_django: bool = True) -> redis.Redis:
     """
     Devuelve una instancia de cliente Redis.
-    - Si use_django=True, usa la configuración de django-redis ("default" en settings).
-    - En caso contrario, crea un cliente redis.Redis a partir de la URL en REDIS_URL.
+    - Si use_django=True, intenta usar django-redis ("default").
+      Si ese backend falla (por configuración o porque no soporta SCAN), 
+      hace fallback a conexión directa usando REDIS_URL.
+    - En caso contrario, crea un cliente redis.Redis a partir de REDIS_URL.
     """
     if use_django:
-        return get_redis_connection("default")
+        try:
+            return get_redis_connection("default")
+        except Exception:
+            # Cae al cliente directo si django-redis no sirve
+            url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+            return redis.from_url(url, decode_responses=True)
+
     url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     return redis.from_url(url, decode_responses=True)
 
@@ -18,83 +26,87 @@ def get_redis_client(use_django: bool = True) -> redis.Redis:
 def delete_keys_by_pattern(
     pattern: str,
     use_django: bool = True,
-    batch_size: int = 1000
+    batch_size: int = 500
 ) -> int:
     """
-    Elimina todas las claves que coincidan con el patrón dado.
-    - pattern: patrón compatible con SCAN, e.g. "prefix:*"
-    - batch_size: tamaño de lote para pipeline.
-    Devuelve el número total de claves eliminadas.
+    Elimina todas las claves que coincidan con un patrón usando SCAN + pipeline.
+    Si el cliente django-redis no soporta SCAN, hace fallback a conexión directa.
+    Retorna el número total de claves borradas.
     """
-    r = get_redis_client(use_django)
-    cursor = 0
-    total_deleted = 0
-
-    try:
+    def _scan_delete(client):
+        cursor = 0
+        total_deleted = 0
         while True:
-            cursor, keys = r.scan(cursor=cursor, match=pattern, count=batch_size)
+            cursor, keys = client.scan(cursor=cursor, match=pattern, count=batch_size)
             if keys:
-                # borrado en bloque para eficiencia
-                with r.pipeline() as pipe:
-                    for k in keys:
-                        pipe.delete(k)
-                    deleted_counts = pipe.execute()
-                total_deleted += sum(deleted_counts)
+                with client.pipeline() as pipe:
+                    for key in keys:
+                        pipe.delete(key)
+                    deleted = pipe.execute()
+                total_deleted += sum(deleted)
             if cursor == 0:
                 break
-    except Exception as e:
-        # evita que un fallo interrumpa el proceso completo
-        print(f"Error borrando claves Redis con patrón {pattern}: {e}")
-    return total_deleted
+        return total_deleted
+
+    # Intentamos primero con django-redis (o el cliente pasado)
+    client = get_redis_client(use_django)
+    try:
+        return _scan_delete(client)
+    except NotImplementedError:
+        # Fallback : usamos conexión directa a Redis
+        client_direct = get_redis_client(False)
+        return _scan_delete(client_direct)
 
 
 def get_keys_by_pattern(
     pattern: str,
     use_django: bool = True,
-    batch_size: int = 1000
+    batch_size: int = 500
 ) -> List[str]:
     """
-    Devuelve la lista de claves que coinciden con el patrón.
+    Devuelve lista de claves que casan con el patrón.
     """
-    r = get_redis_client(use_django)
+    client = get_redis_client(use_django)
     cursor = 0
-    keys: List[str] = []
+    results: List[str] = []
     while True:
-        cursor, batch = r.scan(cursor=cursor, match=pattern, count=batch_size)
-        keys.extend(batch)
+        cursor, batch = client.scan(cursor=cursor, match=pattern, count=batch_size)
+        results.extend(batch)
         if cursor == 0:
             break
-    return keys
+    return results
 
 
 def set_value(
     key: str,
-    value: Union[str, bytes, int, float],
+    value: Any,
     ex: Optional[int] = None,
     use_django: bool = True
 ) -> bool:
     """
-    Guarda un valor en Redis.
-    - key: clave
-    - value: puede ser str, bytes, número
-    - ex: tiempo de expiración en segundos (opcional)
+    Guarda un valor en Redis con expiración opcional.
     """
-    r = get_redis_client(use_django)
-    return r.set(key, value, ex=ex)
+    client = get_redis_client(use_django)
+    return client.set(key, value, ex=ex)
 
 
-def get_value(key: str, use_django: bool = True) -> Optional[str]:
+def get_value(
+    key: str,
+    use_django: bool = True
+) -> Optional[str]:
     """
-    Recupera un valor de Redis. Devuelve None si no existe.
+    Recupera el valor de una clave o None.
     """
-    r = get_redis_client(use_django)
-    return r.get(key)
+    client = get_redis_client(use_django)
+    return client.get(key)
 
 
-def delete_key(key: str, use_django: bool = True) -> int:
+def delete_key(
+    key: str,
+    use_django: bool = True
+) -> int:
     """
-    Elimina una clave concreta de Redis.
-    Devuelve el número de claves eliminadas (0 o 1).
+    Elimina una clave específica. Retorna 1 si se borró.
     """
-    r = get_redis_client(use_django)
-    return r.delete(key)
+    client = get_redis_client(use_django)
+    return client.delete(key)

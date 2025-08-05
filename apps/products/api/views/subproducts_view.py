@@ -3,7 +3,7 @@
 import logging
 from decimal import Decimal
 
-from django.core.cache import cache
+from django.conf import settings
 from django.db import transaction
 from django.db.models import OuterRef, Subquery, DecimalField
 from django.db.models.functions import Coalesce
@@ -34,12 +34,23 @@ from apps.stocks.services import initialize_subproduct_stock, adjust_subproduct_
 
 from apps.products.utils.cache_helpers_subproducts import (
     SUBPRODUCT_LIST_CACHE_PREFIX,
-    SUBPRODUCT_DETAIL_CACHE_PREFIX,
-    subproduct_list_cache_key,
-    subproduct_detail_cache_key,
+    SUBPRODUCT_DETAIL_CACHE_PREFIX
 )
+from apps.products.utils.redis_utils import delete_keys_by_pattern
 
 logger = logging.getLogger(__name__)
+
+# Decoradores condicionales para caching
+list_cache = (
+    cache_page(60 * 15, key_prefix=SUBPRODUCT_LIST_CACHE_PREFIX)
+    if not settings.DEBUG
+    else (lambda fn: fn)
+)
+detail_cache = (
+    cache_page(60 * 5, key_prefix=SUBPRODUCT_DETAIL_CACHE_PREFIX)
+    if not settings.DEBUG
+    else (lambda fn: fn)
+)
 
 # --- Listar subproductos activos de un producto ---
 @extend_schema(
@@ -52,7 +63,7 @@ logger = logging.getLogger(__name__)
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-@cache_page(60 * 15, key_prefix=SUBPRODUCT_LIST_CACHE_PREFIX)
+@list_cache
 def subproduct_list(request, prod_pk):
     """
     Endpoint para listar subproductos de un producto padre,
@@ -85,7 +96,7 @@ def subproduct_list(request, prod_pk):
     paginator = Pagination()
     paginator.page_size = 10
     page = paginator.paginate_queryset(qs, request)
-    serializer = SubProductSerializer(page, many=True, context={'request': request})
+    serializer = SubProductSerializer(page, many=True, context={'request': request, 'parent_product': parent})
     return paginator.get_paginated_response(serializer.data)
 
 
@@ -116,20 +127,20 @@ def create_subproduct(request, prod_pk):
     try:
         with transaction.atomic():
             subp = serializer.save(user=request.user)
-    except serializers.ValidationError as e:
-        return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            initialize_subproduct_stock(subp, request.user)
     except Exception as e:
+        logger.error(f"Error creando subproducto: {e}")
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # Invalidar cache de lista de subproductos (página 1)
-    cache_key_list = subproduct_list_cache_key(prod_pk, page=1, page_size=request.GET.get('page_size', 10), status=True)
-    cache.delete(cache_key_list)
-    logger.debug(f"[Cache] Deleted list key: {cache_key_list}")
+    # Invalidar caché de lista de subproductos (body y headers)
+    delete_keys_by_pattern("views.decorators.cache.cache_page.subproduct_list.GET.*")
+    delete_keys_by_pattern("views.decorators.cache.cache_header.subproduct_list.*")
+    logger.debug("[Cache] Cache_subproduct_list invalidada (pattern aplicado)")
 
-    # Invalidar cache de detalle concreto
-    cache_key_detail = subproduct_detail_cache_key(prod_pk, subp.pk)
-    cache.delete(cache_key_detail)
-    logger.debug(f"[Cache] Deleted detail key: {cache_key_detail}")
+    # Invalidar caché de detalle concreto
+    delete_keys_by_pattern("views.decorators.cache.cache_page.subproduct_detail.GET.*")
+    delete_keys_by_pattern("views.decorators.cache.cache_header.subproduct_detail.*")
+    logger.debug("[Cache] Cache_subproduct_detail invalidada (pattern aplicado)")
 
     resp_ser = SubProductSerializer(
         subp,
@@ -154,7 +165,7 @@ def create_subproduct(request, prod_pk):
     operation_id=update_subproduct_by_id_doc["operation_id"],
     parameters=update_subproduct_by_id_doc["parameters"],
     request=create_subproduct_doc["request"], 
-    responses=update_subproduct_by_id_doc["responses"]
+    responses=update_subproduct_by_id_doc["responses"],
 )
 @extend_schema(
     summary=delete_subproduct_by_id_doc["summary"],
@@ -174,10 +185,9 @@ def subproduct_detail(request, prod_pk, subp_pk):
     - DELETE: baja suave (solo staff).
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
-    cache_key_detail = subproduct_detail_cache_key(prod_pk, subp_pk)
 
     if request.method == 'GET':
-        @cache_page(60 * 5, key_prefix=SUBPRODUCT_DETAIL_CACHE_PREFIX)
+        @detail_cache
         def cached_get(request, prod_pk, subp_pk):
             stock_sq = SubproductStock.objects.filter(
                 subproduct=OuterRef('pk'), status=True
@@ -240,13 +250,12 @@ def subproduct_detail(request, prod_pk, subp_pk):
             logger.error(f"Error actualizando subproducto {subp_pk}: {e}")
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Invalidar cache de lista de subproductos (página 1)
-        cache_key_list = subproduct_list_cache_key(prod_pk, page=1, page_size=request.GET.get('page_size', 10), status=True)
-        cache.delete(cache_key_list)
-        logger.debug(f"[Cache] Deleted list key: {cache_key_list}")
-        # Invalidar cache de detalle concreto
-        cache.delete(cache_key_detail)
-        logger.debug(f"[Cache] Deleted detail key: {cache_key_detail}")
+        # Invalidar caché de lista y detalle
+        delete_keys_by_pattern("views.decorators.cache.cache_page.subproduct_list.GET.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_header.subproduct_list.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_page.subproduct_detail.GET.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_header.subproduct_detail.*")
+        logger.debug("[Cache] Cache_subproduct_list y Cache_subproduct_detail invalidadas tras UPDATE")
 
         resp_ser = SubProductSerializer(
             updated,
@@ -269,12 +278,11 @@ def subproduct_detail(request, prod_pk, subp_pk):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        # Invalidar cache de lista de subproductos (página 1)
-        cache_key_list = subproduct_list_cache_key(prod_pk, page=1, page_size=request.GET.get('page_size', 10), status=True)
-        cache.delete(cache_key_list)
-        logger.debug(f"[Cache] Deleted list key: {cache_key_list}")
-        # Invalidar cache de detalle concreto
-        cache.delete(cache_key_detail)
-        logger.debug(f"[Cache] Deleted detail key: {cache_key_detail}")
+        # Invalidar caché de lista y detalle
+        delete_keys_by_pattern("views.decorators.cache.cache_page.subproduct_list.GET.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_header.subproduct_list.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_page.subproduct_detail.GET.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_header.subproduct_detail.*")
+        logger.debug("[Cache] Cache_subproduct_list y Cache_subproduct_detail invalidadas tras DELETE")
 
         return Response(status=status.HTTP_204_NO_CONTENT)

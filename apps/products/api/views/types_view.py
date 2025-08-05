@@ -2,7 +2,6 @@
 
 import logging
 from django.conf import settings
-from django.core.cache import cache
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -22,9 +21,9 @@ from apps.products.docs.type_doc import (
     delete_type_by_id_doc
 )
 from apps.products.utils.cache_helpers_types import (
-    CACHE_KEY_TYPE_LIST,
-    type_list_cache_key,
+    CACHE_KEY_TYPE_LIST
 )
+from apps.products.utils.redis_utils import delete_keys_by_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +33,6 @@ cache_decorator = (
     if not settings.DEBUG
     else (lambda fn: fn)
 )
-
 
 @extend_schema(
     summary=list_type_doc["summary"],
@@ -63,12 +61,11 @@ def type_list(request):
     serializer = TypeSerializer(page, many=True, context={'request': request})
     return paginator.get_paginated_response(serializer.data)
 
-
 @extend_schema(
     summary=create_type_doc["summary"],
     description=(
         create_type_doc["description"]
-        + "\n\nEsta acción invalidará la caché de la página 1 de tipos."
+        + "\n\nEsta acción invalidará la caché de la lista de tipos."
     ),
     tags=create_type_doc["tags"],
     operation_id=create_type_doc["operation_id"],
@@ -87,18 +84,15 @@ def create_type(request):
 
     type_instance = serializer.save(user=request.user)
 
-    # invalidamos solo la página 1 de la lista cacheada
-    page_size   = int(request.GET.get('page_size', 10))
-    name_filter = request.GET.get('name', '')
-    key1 = type_list_cache_key(page=1, page_size=page_size, name=name_filter)
-    cache.delete(key1)
-    logger.debug(f"[Cache] Deleted key: {key1}")
+    # Invalidar caché de lista de tipos (body y headers)
+    delete_keys_by_pattern("views.decorators.cache.cache_page.type_list.GET.*")
+    delete_keys_by_pattern("views.decorators.cache.cache_header.type_list.*")
+    logger.debug("[Cache] Cache_type_list invalidada (pattern aplicado)")
 
     return Response(
         TypeSerializer(type_instance, context={'request': request}).data,
         status=status.HTTP_201_CREATED
     )
-
 
 @extend_schema(
     summary=get_type_by_id_doc["summary"],
@@ -115,7 +109,7 @@ def create_type(request):
     summary=update_type_by_id_doc["summary"],
     description=(
         update_type_by_id_doc["description"]
-        + "\n\nEsta acción invalidará la caché de la página 1 de tipos."
+        + "\n\nEsta acción invalidará la caché de la lista de tipos."
     ),
     tags=update_type_by_id_doc["tags"],
     operation_id=update_type_by_id_doc["operation_id"],
@@ -127,7 +121,7 @@ def create_type(request):
     summary=delete_type_by_id_doc["summary"],
     description=(
         delete_type_by_id_doc["description"]
-        + "\n\nEsta acción invalidará la caché de la página 1 de tipos."
+        + "\n\nEsta acción invalidará la caché de la lista de tipos."
     ),
     tags=delete_type_by_id_doc["tags"],
     operation_id=delete_type_by_id_doc["operation_id"],
@@ -145,10 +139,6 @@ def type_detail(request, type_pk):
     type_instance = TypeRepository.get_by_id(type_pk)
     if not type_instance:
         return Response({"detail": "Tipo no encontrado."}, status=status.HTTP_404_NOT_FOUND)
-
-    # parámetros usados para invalidar
-    page_size   = int(request.GET.get('page_size', 10))
-    name_filter = request.GET.get('name', '')
 
     # --- GET ---
     if request.method == 'GET':
@@ -173,9 +163,10 @@ def type_detail(request, type_pk):
 
         updated = ser.save(user=request.user)
 
-        key1 = type_list_cache_key(page=1, page_size=page_size, name=name_filter)
-        cache.delete(key1)
-        logger.debug(f"[Cache] Deleted key: {key1}")
+        # Invalidar caché de lista de tipos
+        delete_keys_by_pattern("views.decorators.cache.cache_page.type_list.GET.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_header.type_list.*")
+        logger.debug("[Cache] Cache_type_list invalidada tras UPDATE")
 
         return Response(TypeSerializer(updated, context={'request': request}).data)
 
@@ -186,11 +177,11 @@ def type_detail(request, type_pk):
                 {"detail": "No tienes permiso para eliminar este tipo."},
                 status=status.HTTP_403_FORBIDDEN
             )
-        # baja suave
         updated = TypeRepository.soft_delete(type_instance, user=request.user)
 
-        key1 = type_list_cache_key(page=1, page_size=page_size, name=name_filter)
-        cache.delete(key1)
-        logger.debug(f"[Cache] Deleted key: {key1}")
+        # Invalidar caché de lista de tipos
+        delete_keys_by_pattern("views.decorators.cache.cache_page.type_list.GET.*")
+        delete_keys_by_pattern("views.decorators.cache.cache_header.type_list.*")
+        logger.debug("[Cache] Cache_type_list invalidada tras DELETE")
 
         return Response(status=status.HTTP_204_NO_CONTENT)

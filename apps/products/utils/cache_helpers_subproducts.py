@@ -1,38 +1,25 @@
 # apps/products/utils/cache_helpers_subproducts.py
 
-from urllib.parse import urlencode
+from typing import Any, Dict, Optional
+from .cache_helpers_core import generate_cache_key, generate_detail_key
 
-# Prefijos de caché (key_prefix en @cache_page)
 SUBPRODUCT_LIST_CACHE_PREFIX = "subproduct_list"
 SUBPRODUCT_DETAIL_CACHE_PREFIX = "subproduct_detail"
-
 
 def subproduct_list_cache_key(
     prod_pk: int,
     page: int = 1,
     page_size: int = 10,
     status: bool = True,
-    extra_filters: dict | None = None
+    **extra_filters: Any
 ) -> str:
     """
-    Genera la clave de caché que usa @cache_page para:
-      GET /api/v1/inventory/products/{prod_pk}/subproducts/?...
-    Incluye página, tamaño, status y cualquier filtro adicional.
+    Clave para listar subproductos de un producto padre,
+    incluye IDs, paginación, estado y filtros adicionales.
     """
-    # Construimos parámetros y los ordenamos para consistencia
-    params = {
-        "prod_pk": prod_pk,
-        "page": page,
-        "page_size": page_size,
-        "status": str(status).lower(),
-    }
-    if extra_filters:
-        params.update(extra_filters)
-
-    sorted_items = sorted(params.items())
-    query_string = urlencode(sorted_items)
-    # Key sencilla: prefix + parámetros serializados
-    return f"{SUBPRODUCT_LIST_CACHE_PREFIX}:{query_string}"
+    params: Dict[str, Any] = {"prod_pk": prod_pk, "page": page, "page_size": page_size, "status": status}
+    params.update(extra_filters)
+    return generate_cache_key(SUBPRODUCT_LIST_CACHE_PREFIX, **params)
 
 
 def subproduct_detail_cache_key(
@@ -40,8 +27,6 @@ def subproduct_detail_cache_key(
     subp_pk: int
 ) -> str:
     """
-    Genera la clave de caché para el detalle de un subproducto:
-      GET /api/v1/inventory/products/{prod_pk}/subproducts/{subp_pk}/
+    Clave para detalle de subproducto específico.
     """
-    # Clave basada en IDs de producto y subproducto
-    return f"{SUBPRODUCT_DETAIL_CACHE_PREFIX}:{prod_pk}:{subp_pk}"
+    return generate_detail_key(SUBPRODUCT_DETAIL_CACHE_PREFIX, prod_pk, subp_pk)
