@@ -12,8 +12,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
-from django.views.decorators.cache import cache_page
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.views.decorators.cache import cache_page
 from drf_spectacular.utils import extend_schema
 
 from apps.core.pagination import Pagination
@@ -40,22 +40,20 @@ from apps.products.utils.redis_utils import delete_keys_by_pattern
 
 logger = logging.getLogger(__name__)
 
-# Decoradores condicionales para caching
+# ── CACHE DECORATORS ──────────────────────────────────────────
 list_cache = (
     cache_page(60 * 15, key_prefix=SUBPRODUCT_LIST_CACHE_PREFIX)
-    if not settings.DEBUG
-    else (lambda fn: fn)
+    if not settings.DEBUG else (lambda fn: fn)
 )
 detail_cache = (
     cache_page(60 * 5, key_prefix=SUBPRODUCT_DETAIL_CACHE_PREFIX)
-    if not settings.DEBUG
-    else (lambda fn: fn)
+    if not settings.DEBUG else (lambda fn: fn)
 )
 
-# --- Listar subproductos activos de un producto ---
+
 @extend_schema(
-    summary=list_subproducts_doc["summary"], 
-    description=list_subproducts_doc["description"],
+    summary=list_subproducts_doc["summary"],
+    description=list_subproducts_doc["description"] + "\n\nTTL=15min.",
     tags=list_subproducts_doc["tags"],
     operation_id=list_subproducts_doc["operation_id"],
     parameters=list_subproducts_doc["parameters"],
@@ -66,8 +64,7 @@ detail_cache = (
 @list_cache
 def subproduct_list(request, prod_pk):
     """
-    Endpoint para listar subproductos de un producto padre,
-    filtrables por status, con paginación e incluyendo el stock actual.
+    Lista subproductos activos de un producto padre, con paginación y stock.
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
 
@@ -88,35 +85,36 @@ def subproduct_list(request, prod_pk):
         )
     )
 
-    filterset = SubproductFilter(request.GET, queryset=qs)
-    if not filterset.is_valid():
-        return Response(filterset.errors, status=status.HTTP_400_BAD_REQUEST)
-    qs = filterset.qs
+    filt = SubproductFilter(request.GET, queryset=qs)
+    if not filt.is_valid():
+        return Response(filt.errors, status=status.HTTP_400_BAD_REQUEST)
+    qs = filt.qs
 
     paginator = Pagination()
     paginator.page_size = 10
     page = paginator.paginate_queryset(qs, request)
-    serializer = SubProductSerializer(page, many=True, context={'request': request, 'parent_product': parent})
-    return paginator.get_paginated_response(serializer.data)
+    data = SubProductSerializer(
+        page, many=True,
+        context={'request': request, 'parent_product': parent}
+    ).data
+    return paginator.get_paginated_response(data)
 
 
-# --- Crear nuevo subproducto ---
 @extend_schema(
-    summary=create_subproduct_doc["summary"], 
-    description=create_subproduct_doc["description"],
+    summary=create_subproduct_doc["summary"],
+    description=create_subproduct_doc["description"] + "\n\nInvalidará caché de lista y detalle tras CREATE.",
     tags=create_subproduct_doc["tags"],
     operation_id=create_subproduct_doc["operation_id"],
-    request=create_subproduct_doc["request"], 
+    request=create_subproduct_doc["request"],
     responses=create_subproduct_doc["responses"]
 )
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def create_subproduct(request, prod_pk):
     """
-    Crea un nuevo subproducto asignándole el producto padre.
+    Crea un nuevo subproducto bajo un producto padre (solo admins).
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
-
     serializer = SubProductSerializer(
         data=request.data,
         context={'request': request, 'parent_product': parent}
@@ -132,27 +130,24 @@ def create_subproduct(request, prod_pk):
         logger.error(f"Error creando subproducto: {e}")
         return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # Invalidar caché de lista de subproductos (body y headers)
-    delete_keys_by_pattern("views.decorators.cache.cache_page.subproduct_list.GET.*")
-    delete_keys_by_pattern("views.decorators.cache.cache_header.subproduct_list.*")
-    logger.debug("[Cache] Cache_subproduct_list invalidada (pattern aplicado)")
+    # Invalidar caché de lista y detalle
+    deleted_list   = delete_keys_by_pattern(SUBPRODUCT_LIST_CACHE_PREFIX)
+    deleted_detail = delete_keys_by_pattern(SUBPRODUCT_DETAIL_CACHE_PREFIX)
+    logger.debug(
+        "[Cache] subproduct_list invalidada (%d claves) y subproduct_detail invalidada (%d claves) tras CREATE",
+        deleted_list, deleted_detail
+    )
 
-    # Invalidar caché de detalle concreto
-    delete_keys_by_pattern("views.decorators.cache.cache_page.subproduct_detail.GET.*")
-    delete_keys_by_pattern("views.decorators.cache.cache_header.subproduct_detail.*")
-    logger.debug("[Cache] Cache_subproduct_detail invalidada (pattern aplicado)")
-
-    resp_ser = SubProductSerializer(
+    data = SubProductSerializer(
         subp,
         context={'request': request, 'parent_product': parent}
-    )
-    return Response(resp_ser.data, status=status.HTTP_201_CREATED)
+    ).data
+    return Response(data, status=status.HTTP_201_CREATED)
 
 
-# --- Obtener, actualizar y eliminar subproducto por ID ---
 @extend_schema(
     summary=get_subproduct_by_id_doc["summary"],
-    description=get_subproduct_by_id_doc["description"],
+    description=get_subproduct_by_id_doc["description"] + "\n\nTTL=5min.",
     tags=get_subproduct_by_id_doc["tags"],
     operation_id=get_subproduct_by_id_doc["operation_id"],
     parameters=get_subproduct_by_id_doc["parameters"],
@@ -160,16 +155,16 @@ def create_subproduct(request, prod_pk):
 )
 @extend_schema(
     summary=update_subproduct_by_id_doc["summary"],
-    description=update_subproduct_by_id_doc["description"],
+    description=update_subproduct_by_id_doc["description"] + "\n\nInvalidará caché de lista y detalle tras UPDATE.",
     tags=update_subproduct_by_id_doc["tags"],
     operation_id=update_subproduct_by_id_doc["operation_id"],
     parameters=update_subproduct_by_id_doc["parameters"],
-    request=create_subproduct_doc["request"], 
-    responses=update_subproduct_by_id_doc["responses"],
+    request=create_subproduct_doc["request"],
+    responses=update_subproduct_by_id_doc["responses"]
 )
 @extend_schema(
     summary=delete_subproduct_by_id_doc["summary"],
-    description=delete_subproduct_by_id_doc["description"],
+    description=delete_subproduct_by_id_doc["description"] + "\n\nInvalidará caché de lista y detalle tras DELETE.",
     tags=delete_subproduct_by_id_doc["tags"],
     operation_id=delete_subproduct_by_id_doc["operation_id"],
     parameters=delete_subproduct_by_id_doc["parameters"],
@@ -179,16 +174,16 @@ def create_subproduct(request, prod_pk):
 @permission_classes([IsAuthenticated])
 def subproduct_detail(request, prod_pk, subp_pk):
     """
-    Endpoint para:
-    - GET: consulta (cacheada).
-    - PUT: actualización (solo staff).
-    - DELETE: baja suave (solo staff).
+    GET: detalle cacheado (TTL=5min).
+    PUT: actualiza subproducto (solo admins) + stock + invalidación.
+    DELETE: baja suave (solo admins) + invalidación.
     """
     parent = get_object_or_404(Product, pk=prod_pk, status=True)
 
+    # GET con cache_page
     if request.method == 'GET':
         @detail_cache
-        def cached_get(request, prod_pk, subp_pk):
+        def cached_get(req, prod_id, subp_id):
             stock_sq = SubproductStock.objects.filter(
                 subproduct=OuterRef('pk'), status=True
             ).values('quantity')[:1]
@@ -204,23 +199,21 @@ def subproduct_detail(request, prod_pk, subp_pk):
                     output_field=DecimalField(max_digits=15, decimal_places=2)
                 )
             )
-            instance = get_object_or_404(qs, pk=subp_pk, parent=parent)
+            inst = get_object_or_404(qs, pk=subp_id, parent=parent)
             ser = SubProductSerializer(
-                instance,
-                context={'request': request, 'parent_product': parent}
+                inst,
+                context={'request': req, 'parent_product': parent}
             )
             return Response(ser.data)
 
         return cached_get(request, prod_pk, subp_pk)
 
+    # PUT / DELETE: obtenemos la instancia validada
     instance = get_object_or_404(Subproduct, pk=subp_pk, parent=parent, status=True)
 
     if request.method == 'PUT':
         if not request.user.is_staff:
-            return Response(
-                {"detail": "No tienes permiso para actualizar este subproducto."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"detail": "Sin permiso."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = SubProductSerializer(
             instance,
@@ -235,7 +228,7 @@ def subproduct_detail(request, prod_pk, subp_pk):
             with transaction.atomic():
                 updated = serializer.save(user=request.user)
                 qty_change = serializer.validated_data.get('quantity_change')
-                reason = serializer.validated_data.get('reason')
+                reason     = serializer.validated_data.get('reason')
                 if qty_change is not None:
                     stock_rec = SubproductStock.objects.select_for_update().get(
                         subproduct=updated, status=True
@@ -251,38 +244,36 @@ def subproduct_detail(request, prod_pk, subp_pk):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         # Invalidar caché de lista y detalle
-        delete_keys_by_pattern("views.decorators.cache.cache_page.subproduct_list.GET.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_header.subproduct_list.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_page.subproduct_detail.GET.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_header.subproduct_detail.*")
-        logger.debug("[Cache] Cache_subproduct_list y Cache_subproduct_detail invalidadas tras UPDATE")
+        deleted_list   = delete_keys_by_pattern(SUBPRODUCT_LIST_CACHE_PREFIX)
+        deleted_detail = delete_keys_by_pattern(SUBPRODUCT_DETAIL_CACHE_PREFIX)
+        logger.debug(
+            "[Cache] subproduct_list invalidada (%d) y subproduct_detail invalidada (%d) tras UPDATE",
+            deleted_list, deleted_detail
+        )
 
-        resp_ser = SubProductSerializer(
+        data = SubProductSerializer(
             updated,
             context={'request': request, 'parent_product': parent}
-        )
-        return Response(resp_ser.data)
+        ).data
+        return Response(data)
 
     if request.method == 'DELETE':
         if not request.user.is_staff:
-            return Response(
-                {"detail": "No tienes permiso para eliminar este subproducto."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"detail": "Sin permiso."}, status=status.HTTP_403_FORBIDDEN)
+
         try:
             instance.delete(user=request.user)
         except Exception as e:
             logger.error(f"Error eliminando subproducto {subp_pk}: {e}")
-            return Response(
-                {"detail": "Error interno al eliminar el subproducto."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            return Response({"detail": "Error interno al eliminar."},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # Invalidar caché de lista y detalle
-        delete_keys_by_pattern("views.decorators.cache.cache_page.subproduct_list.GET.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_header.subproduct_list.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_page.subproduct_detail.GET.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_header.subproduct_detail.*")
-        logger.debug("[Cache] Cache_subproduct_list y Cache_subproduct_detail invalidadas tras DELETE")
+        deleted_list   = delete_keys_by_pattern(SUBPRODUCT_LIST_CACHE_PREFIX)
+        deleted_detail = delete_keys_by_pattern(SUBPRODUCT_DETAIL_CACHE_PREFIX)
+        logger.debug(
+            "[Cache] subproduct_list invalidada (%d) y subproduct_detail invalidada (%d) tras DELETE",
+            deleted_list, deleted_detail
+        )
 
         return Response(status=status.HTTP_204_NO_CONTENT)

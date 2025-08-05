@@ -2,83 +2,47 @@
 
 import logging
 
-from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from drf_spectacular.utils import extend_schema
 from django.views.decorators.cache import cache_page
 
-from apps.core.pagination import Pagination
 from apps.products.models.category_model import Category
 from apps.products.api.serializers.category_serializer import CategorySerializer
 from apps.products.api.repositories.category_repository import CategoryRepository
 from apps.products.filters.category_filter import CategoryFilter
-from apps.products.docs.category_doc import (
-    list_category_doc,
-    create_category_doc,
-    get_category_by_id_doc,
-    update_category_by_id_doc,
-    delete_category_by_id_doc,
-)
+from apps.core.pagination import Pagination
+
 from apps.products.utils.cache_helpers_categories import CACHE_KEY_CATEGORY_LIST
 from apps.products.utils.redis_utils import delete_keys_by_pattern
 
-# Decorador de caché condicional (5min en producción)
-cache_decorator = (
-    cache_page(60 * 5, key_prefix=CACHE_KEY_CATEGORY_LIST)
-    if not settings.DEBUG
-    else (lambda fn: fn)
-)
-
 logger = logging.getLogger(__name__)
 
+# ── CACHE DE LISTADO (TTL 5min) ────────────────────────────────
+cache_decorator = cache_page(60 * 5, key_prefix=CACHE_KEY_CATEGORY_LIST)
 
-@extend_schema(
-    summary=list_category_doc["summary"],
-    description=(
-        list_category_doc["description"]
-        + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante un breve período (TTL: 5 minutos). "
-        "Los cambios recientes pueden no reflejarse de inmediato."
-    ),
-    tags=list_category_doc["tags"],
-    operation_id=list_category_doc["operation_id"],
-    parameters=list_category_doc["parameters"],
-    responses=list_category_doc["responses"],
-)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @cache_decorator
 def category_list(request):
     """
-    Endpoint para listar las categorías activas, con filtros por nombre y paginación.
+    Lista categorías activas (TTL 5min).
     """
-    queryset = Category.objects.filter(status=True).select_related('created_by')
-    filtered_qs = CategoryFilter(request.GET, queryset=queryset).qs
-
+    qs = Category.objects.filter(status=True).select_related('created_by')
+    qs = CategoryFilter(request.GET, queryset=qs).qs
     paginator = Pagination()
-    page = paginator.paginate_queryset(filtered_qs, request)
-    serializer = CategorySerializer(page, many=True, context={'request': request})
-    return paginator.get_paginated_response(serializer.data)
+    page = paginator.paginate_queryset(qs, request)
+    data = CategorySerializer(page, many=True, context={'request': request}).data
+    return paginator.get_paginated_response(data)
 
 
-@extend_schema(
-    summary=create_category_doc["summary"],
-    description=(
-        create_category_doc["description"]
-        + "\n\nEsta acción invalidará la caché de la lista de categorías."
-    ),
-    tags=create_category_doc["tags"],
-    operation_id=create_category_doc["operation_id"],
-    request=create_category_doc["requestBody"],
-    responses=create_category_doc["responses"],
-)
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def create_category(request):
     """
-    Endpoint para crear una nueva categoría (solo admins).
+    Crea una nueva categoría (solo admins) e invalida caché de lista.
     """
     serializer = CategorySerializer(data=request.data, context={'request': request})
     if not serializer.is_valid():
@@ -86,10 +50,9 @@ def create_category(request):
 
     category = serializer.save(user=request.user)
 
-    # Invalidar caché de listas de categorías (body y headers)
-    delete_keys_by_pattern("views.decorators.cache.cache_page.category_list.GET.*")
-    delete_keys_by_pattern("views.decorators.cache.cache_header.category_list.*")
-    logger.debug("[Cache] Cache_category_list invalidada (pattern aplicado)")
+    # Invalidar caché de lista
+    deleted = delete_keys_by_pattern(CACHE_KEY_CATEGORY_LIST)
+    logger.debug("Cache de category_list invalidada tras CREATE (borradas %d claves)", deleted)
 
     return Response(
         CategorySerializer(category, context={'request': request}).data,
@@ -97,100 +60,55 @@ def create_category(request):
     )
 
 
-@extend_schema(
-    summary=get_category_by_id_doc["summary"],
-    description=(
-        get_category_by_id_doc["description"]
-        + "\n\n⚠️ Nota: Este endpoint puede entregar datos cacheados durante 5 minutos."
-    ),
-    tags=get_category_by_id_doc["tags"],
-    operation_id=get_category_by_id_doc["operation_id"],
-    parameters=get_category_by_id_doc["parameters"],
-    responses=get_category_by_id_doc["responses"],
-)
-@extend_schema(
-    summary=update_category_by_id_doc["summary"],
-    description=(
-        update_category_by_id_doc["description"]
-        + "\n\nEsta acción invalidará la caché de la lista de categorías."
-    ),
-    tags=update_category_by_id_doc["tags"],
-    operation_id=update_category_by_id_doc["operation_id"],
-    parameters=update_category_by_id_doc["parameters"],
-    request=update_category_by_id_doc["requestBody"],
-    responses=update_category_by_id_doc["responses"],
-)
-@extend_schema(
-    summary=delete_category_by_id_doc["summary"],
-    description=(
-        delete_category_by_id_doc["description"]
-        + "\n\nEsta acción invalidará la caché de la lista de categorías."
-    ),
-    tags=delete_category_by_id_doc["tags"],
-    operation_id=delete_category_by_id_doc["operation_id"],
-    parameters=delete_category_by_id_doc["parameters"],
-    responses=delete_category_by_id_doc["responses"],
-)
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def category_detail(request, category_pk):
     """
-    GET: Detalle de categoría.
-    PUT: Actualiza categoría (solo admins).
-    DELETE: Soft-delete categoría (solo admins).
+    GET: obtiene detalle de categoría.
+    PUT: actualiza categoría (solo admins) e invalida caché de lista.
+    DELETE: soft-delete de categoría (solo admins) e invalida caché de lista.
     """
     category = CategoryRepository.get_by_id(category_pk)
     if not category:
         return Response({"detail": "Categoría no encontrada."}, status=status.HTTP_404_NOT_FOUND)
 
-    # --- GET ---
+    # GET (sin cache_page)
     if request.method == 'GET':
-        serializer = CategorySerializer(category, context={'request': request})
-        return Response(serializer.data)
+        return Response(CategorySerializer(category, context={'request': request}).data)
 
-    # --- PUT ---
+    # PUT
     if request.method == 'PUT':
         if not request.user.is_staff:
-            return Response(
-                {"detail": "No tienes permiso para actualizar esta categoría."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        ser = CategorySerializer(
+            return Response({"detail": "Sin permiso."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = CategorySerializer(
             category,
             data=request.data,
             context={'request': request},
             partial=True
         )
-        if not ser.is_valid():
-            return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         updated = CategoryRepository.update(
             category_instance=category,
             user=request.user,
-            name=ser.validated_data.get('name'),
-            description=ser.validated_data.get('description')
+            **serializer.validated_data
         )
 
-        # Invalidar caché de listas de categorías
-        delete_keys_by_pattern("views.decorators.cache.cache_page.category_list.GET.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_header.category_list.*")
-        logger.debug("[Cache] Cache_category_list invalidada tras UPDATE")
+        deleted = delete_keys_by_pattern(CACHE_KEY_CATEGORY_LIST)
+        logger.debug("Cache de category_list invalidada tras UPDATE (borradas %d claves)", deleted)
 
         return Response(CategorySerializer(updated, context={'request': request}).data)
 
-    # --- DELETE ---
+    # DELETE
     if request.method == 'DELETE':
         if not request.user.is_staff:
-            return Response(
-                {"detail": "No tienes permiso para eliminar esta categoría."},
-                status=status.HTTP_403_FORBIDDEN
-            )
+            return Response({"detail": "Sin permiso."}, status=status.HTTP_403_FORBIDDEN)
 
         CategoryRepository.soft_delete(category, user=request.user)
 
-        # Invalidar caché de listas de categorías
-        delete_keys_by_pattern("views.decorators.cache.cache_page.category_list.GET.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_header.category_list.*")
-        logger.debug("[Cache] Cache_category_list invalidada tras DELETE")
+        deleted = delete_keys_by_pattern(CACHE_KEY_CATEGORY_LIST)
+        logger.debug("Cache de category_list invalidada tras DELETE (borradas %d claves)", deleted)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
