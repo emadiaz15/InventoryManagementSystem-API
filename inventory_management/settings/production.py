@@ -1,6 +1,6 @@
 # settings/production.py
-
 import os
+from .base import *
 from pathlib import Path
 from datetime import timedelta
 import dj_database_url
@@ -53,7 +53,6 @@ CHANNEL_LAYERS = {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
             'hosts': [REDIS_URL],
-            # opcional: 'symmetric_encryption_keys': [SECRET_KEY.encode()]
         },
     },
 }
@@ -72,6 +71,7 @@ CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": REDIS_URL,
+        "TIMEOUT": CACHE_TTL,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             # Ignorar errores de conexión en READ-ONLY para no tumbar la app:
@@ -79,15 +79,14 @@ CACHES = {
             # Máximo de conexiones en el pool (ajustar según carga):
             # "MAX_CONNECTIONS": 50,
         },
-        # Prefix para evitar colisiones si compartes instancia:
-        # "KEY_PREFIX": "inventory_prod",
+        "KEY_PREFIX": "inventory_prod",
     }
 }
 
 # ── JWT Simple ─────────────────────────────────────────────────
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME':  timedelta(minutes=15),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=12),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS':  False,
     'BLACKLIST_AFTER_ROTATION': True,
     'ALGORITHM':              'HS256',

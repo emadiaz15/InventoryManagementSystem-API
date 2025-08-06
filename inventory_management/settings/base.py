@@ -118,6 +118,9 @@ SPECTACULAR_SETTINGS = {
 }
 
 # ── CONFIGURACIÓN DE CACHE ────────────────────────────────────
+# TTL por defecto para cache_page y cacheops
+CACHE_TTL = 60 * 15  # 15 minutos
+
 # ── LECTURA DE DEBUG DESDE ENV (por defecto False) ─────────────────────────
 DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
 
