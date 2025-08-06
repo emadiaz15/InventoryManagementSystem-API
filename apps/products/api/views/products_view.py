@@ -15,6 +15,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from drf_spectacular.utils import extend_schema
 
+from django.db.models import Sum, F, Case, When, DecimalField, OuterRef, Subquery
+
 from apps.core.pagination import Pagination
 from apps.products.api.serializers.product_serializer import ProductSerializer
 from apps.products.api.repositories.product_repository import ProductRepository
@@ -26,7 +28,6 @@ from apps.products.docs.product_doc import (
     update_product_by_id_doc,
     delete_product_by_id_doc
 )
-
 from apps.products.utils.cache_helpers_products import (
     PRODUCT_LIST_CACHE_PREFIX,
     PRODUCT_DETAIL_CACHE_PREFIX,
@@ -36,20 +37,16 @@ from apps.products.utils.redis_utils import delete_keys_by_pattern
 from apps.stocks.models import ProductStock, SubproductStock
 from apps.stocks.services import initialize_product_stock, adjust_product_stock
 
-from django.db.models import Sum, F, Case, When, DecimalField, OuterRef, Subquery
-
 logger = logging.getLogger(__name__)
 
-# Decoradores condicionales
+# ── CACHE DECORATORS ──────────────────────────────────────────
 list_cache = (
     cache_page(60 * 15, key_prefix=PRODUCT_LIST_CACHE_PREFIX)
-    if not settings.DEBUG
-    else (lambda fn: fn)
+    if not settings.DEBUG else (lambda fn: fn)
 )
 detail_cache = (
-    cache_page(60 *  5, key_prefix=PRODUCT_DETAIL_CACHE_PREFIX)
-    if not settings.DEBUG
-    else (lambda fn: fn)
+    cache_page(60 * 5, key_prefix=PRODUCT_DETAIL_CACHE_PREFIX)
+    if not settings.DEBUG else (lambda fn: fn)
 )
 
 
@@ -67,8 +64,9 @@ detail_cache = (
 def product_list(request):
     """
     Listar productos activos con paginación y stock calculado.
+    TTL de cache: 15 minutos.
     """
-    # construimos el queryset con subqueries de stock
+    # Subqueries para stock
     product_stock_sq = ProductStock.objects.filter(
         product=OuterRef('pk'), status=True
     ).values('quantity')[:1]
@@ -76,33 +74,33 @@ def product_list(request):
         subproduct__parent_id=OuterRef('pk'),
         status=True,
         subproduct__status=True
-    ).values('subproduct__parent').annotate(
-        total=Sum('quantity')
-    ).values('total')
+    ).values('subproduct__parent').annotate(total=Sum('quantity')).values('total')
 
     qs = ProductRepository.get_all_active_products().annotate(
         individual_stock_qty=Subquery(product_stock_sq, output_field=DecimalField()),
         subproduct_stock_total=Subquery(subp_stock_sq, output_field=DecimalField())
     ).annotate(
         current_stock=Case(
-            When(has_subproducts=False, individual_stock_qty__isnull=False, then=F('individual_stock_qty')),
-            When(has_subproducts=True,  subproduct_stock_total__isnull=False, then=F('subproduct_stock_total')),
+            When(has_subproducts=False, individual_stock_qty__isnull=False,
+                 then=F('individual_stock_qty')),
+            When(has_subproducts=True, subproduct_stock_total__isnull=False,
+                 then=F('subproduct_stock_total')),
             default=Decimal('0.00'),
             output_field=DecimalField()
         )
     )
 
-    # filtrado
+    # Filtrado
     f = ProductFilter(request.GET, queryset=qs)
     if not f.is_valid():
         return Response(f.errors, status=status.HTTP_400_BAD_REQUEST)
     qs = f.qs
 
-    # paginación
+    # Paginación y serialización
     paginator = Pagination()
     page = paginator.paginate_queryset(qs, request)
-    serializer = ProductSerializer(page, many=True, context={'request': request})
-    return paginator.get_paginated_response(serializer.data)
+    data = ProductSerializer(page, many=True, context={'request': request}).data
+    return paginator.get_paginated_response(data)
 
 
 @extend_schema(
@@ -118,13 +116,14 @@ def product_list(request):
 def create_product(request):
     """
     Crear un nuevo producto (solo admins), con opción de inicializar stock.
+    Invalida cache de lista tras CREATE.
     """
     payload = request.data.copy()
     payload['has_subproducts'] = False
 
-    # parsear initial_stock_quantity
+    # Parsear initial_stock_quantity
     qty_str = payload.pop('initial_stock_quantity', '0')
-    if isinstance(qty_str, list):
+    if isinstance(qty_str, list):  # formulario multipart
         qty_str = qty_str[0]
     reason = payload.pop('initial_stock_reason', 'Stock inicial por creación')
 
@@ -156,13 +155,17 @@ def create_product(request):
     except Exception as e:
         logger.error(f"Error creando producto: {e}")
         detail = getattr(e, 'detail', str(e))
-        code = status.HTTP_400_BAD_REQUEST if isinstance(e, serializers.ValidationError) else status.HTTP_500_INTERNAL_SERVER_ERROR
+        code = (status.HTTP_400_BAD_REQUEST
+                if isinstance(e, (serializers.ValidationError, ValidationError))
+                else status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response({"detail": detail}, status=code)
 
-    # Invalidar caché de lista (todas las páginas y headers)
-    delete_keys_by_pattern("views.decorators.cache.cache_page.product_list.GET.*")
-    delete_keys_by_pattern("views.decorators.cache.cache_header.product_list.*")
-    logger.debug("[Cache] Cache_product_list invalidada (pattern aplicado)")
+    # Invalidar cache de lista
+    deleted = delete_keys_by_pattern(PRODUCT_LIST_CACHE_PREFIX)
+    logger.debug(
+        "[Cache] '%s' invalidado tras CREATE (%d claves borradas)",
+        PRODUCT_LIST_CACHE_PREFIX, deleted
+    )
 
     return Response(
         ProductSerializer(product, context={'request': request}).data,
@@ -199,44 +202,41 @@ def create_product(request):
 @permission_classes([IsAuthenticated])
 def product_detail(request, prod_pk):
     """
-    GET: detalle cacheado
-    PUT: actualizar + stock
-    DELETE: baja suave
+    GET: detalle cacheado (TTL 5min).
+    PUT: actualizar + stock + invalidar caches.
+    DELETE: baja suave + invalidar caches.
     """
     product = ProductRepository.get_by_id(prod_pk)
     if not product:
         return Response({"detail": "Producto no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 
-    # GENERAR cache key de detalle
-    detail_key = product_detail_cache_key(prod_pk)
-
+    # GET con cache_page
     if request.method == 'GET':
         @detail_cache
         def cached_get(req, pk):
             obj = get_object_or_404(
                 ProductRepository.get_all_active_products(), pk=pk
             )
-            ser = ProductSerializer(obj, context={'request': req})
-            return Response(ser.data)
+            return Response(ProductSerializer(obj, context={'request': req}).data)
 
         return cached_get(request, prod_pk)
 
-    # PUT → actualización
+    # PUT → actualización y ajuste de stock
     if request.method == 'PUT':
         if not request.user.is_staff:
             return Response({"detail": "Permiso denegado."}, status=status.HTTP_403_FORBIDDEN)
 
-        ser = ProductSerializer(
+        serializer = ProductSerializer(
             product, data=request.data, partial=True, context={'request': request}
         )
-        if not ser.is_valid():
-            return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             with transaction.atomic():
-                updated = ser.save(user=request.user)
-                qty_change = ser.validated_data.get('quantity_change')
-                reason     = ser.validated_data.get('reason')
+                updated = serializer.save(user=request.user)
+                qty_change = serializer.validated_data.get('quantity_change')
+                reason     = serializer.validated_data.get('reason')
                 if qty_change is not None:
                     if not updated.has_subproducts:
                         stock_rec = ProductStock.objects.select_for_update().get(product=updated)
@@ -251,15 +251,19 @@ def product_detail(request, prod_pk):
         except Exception as e:
             logger.error(f"Error actualizando producto {prod_pk}: {e}")
             detail = getattr(e, 'detail', str(e))
-            code   = status.HTTP_400_BAD_REQUEST if isinstance(e, (serializers.ValidationError, ValidationError)) else status.HTTP_500_INTERNAL_SERVER_ERROR
+            code = (status.HTTP_400_BAD_REQUEST
+                    if isinstance(e, (serializers.ValidationError, ValidationError))
+                    else status.HTTP_500_INTERNAL_SERVER_ERROR)
             return Response({"detail": detail}, status=code)
 
-        # Invalidar caché de lista y detalle
-        delete_keys_by_pattern("views.decorators.cache.cache_page.product_list.GET.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_header.product_list.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_page.product_detail.GET.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_header.product_detail.*")
-        logger.debug(f"[Cache] Cache_product_list y Cache_product_detail invalidadas tras UPDATE")
+        # Invalidar cache de lista y detalle
+        deleted_list   = delete_keys_by_pattern(PRODUCT_LIST_CACHE_PREFIX)
+        deleted_detail = delete_keys_by_pattern(PRODUCT_DETAIL_CACHE_PREFIX)
+        logger.debug(
+            "[Cache] '%s' (%d) y '%s' (%d) invalidos tras UPDATE",
+            PRODUCT_LIST_CACHE_PREFIX, deleted_list,
+            PRODUCT_DETAIL_CACHE_PREFIX, deleted_detail
+        )
 
         return Response(ProductSerializer(updated, context={'request': request}).data)
 
@@ -270,11 +274,13 @@ def product_detail(request, prod_pk):
 
         product.delete(user=request.user)
 
-        # Invalidar caché de lista y detalle
-        delete_keys_by_pattern("views.decorators.cache.cache_page.product_list.GET.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_header.product_list.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_page.product_detail.GET.*")
-        delete_keys_by_pattern("views.decorators.cache.cache_header.product_detail.*")
-        logger.debug(f"[Cache] Cache_product_list y Cache_product_detail invalidadas tras DELETE")
+        # Invalidar cache de lista y detalle
+        deleted_list   = delete_keys_by_pattern(PRODUCT_LIST_CACHE_PREFIX)
+        deleted_detail = delete_keys_by_pattern(PRODUCT_DETAIL_CACHE_PREFIX)
+        logger.debug(
+            "[Cache] '%s' (%d) y '%s' (%d) invalidos tras DELETE",
+            PRODUCT_LIST_CACHE_PREFIX, deleted_list,
+            PRODUCT_DETAIL_CACHE_PREFIX, deleted_detail
+        )
 
         return Response(status=status.HTTP_204_NO_CONTENT)

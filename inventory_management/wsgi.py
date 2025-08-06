@@ -1,4 +1,4 @@
-import os
+import os, logging
 from pathlib import Path
 from dotenv import load_dotenv
 from django.core.wsgi import get_wsgi_application
@@ -14,3 +14,6 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'inventory_management.settings.l
 
 # Obtiene la aplicación WSGI de Django
 application = get_wsgi_application()
+
+logger = logging.getLogger(__name__)
+logger.info("🚀 REDIS_URL en producción: %r", os.getenv("REDIS_URL"))

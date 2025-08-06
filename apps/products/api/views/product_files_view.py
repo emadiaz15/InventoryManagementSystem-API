@@ -1,7 +1,6 @@
 # apps/products/api/views/product_files_view.py
 
 import logging
-from django.core.cache import cache
 from django.http import HttpResponseRedirect, Http404
 from rest_framework import status
 from rest_framework.response import Response
@@ -27,7 +26,7 @@ from apps.products.docs.product_image_doc import (
 )
 from apps.products.utils.cache_helpers_products import (
     PRODUCT_LIST_CACHE_PREFIX,
-    product_detail_cache_key,
+    PRODUCT_DETAIL_CACHE_PREFIX,
 )
 from apps.products.utils.redis_utils import delete_keys_by_pattern
 
@@ -75,20 +74,24 @@ def product_file_upload_view(request, product_id: str):
             errors.append({f.name: str(e)})
 
     if results:
-        try:
-            delete_keys_by_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
-            cache.delete(product_detail_cache_key(product.id))
-        except NotImplementedError as nie:
-            logger.warning(f"Redis no soporta eliminación por patrón, se omite: {nie}")
+        # Invalidar caché de lista y detalle
+        deleted_list   = delete_keys_by_pattern(PRODUCT_LIST_CACHE_PREFIX)
+        deleted_detail = delete_keys_by_pattern(PRODUCT_DETAIL_CACHE_PREFIX)
+        logger.debug(
+            "[Cache] product_list invalidada (%d) y product_detail invalidada (%d) tras UPLOAD",
+            deleted_list, deleted_detail
+        )
 
     if errors and not results:
-        all_val = all("Extensión de archivo no permitida" in list(err.values())[0] for err in errors)
-        code = status.HTTP_400_BAD_REQUEST if all_val else status.HTTP_500_INTERNAL_SERVER_ERROR
-        detail = "Archivos inválidos." if all_val else "Ningún archivo pudo subirse."
+        only_ext_errors = all("Extensión de archivo no permitida" in list(err.values())[0] for err in errors)
+        code = status.HTTP_400_BAD_REQUEST if only_ext_errors else status.HTTP_500_INTERNAL_SERVER_ERROR
+        detail = "Archivos inválidos." if only_ext_errors else "Ningún archivo pudo subirse."
         return Response({"detail": detail, "errors": errors}, status=code)
 
-    return Response({"uploaded": results, "errors": errors or None},
-                    status=status.HTTP_207_MULTI_STATUS if errors else status.HTTP_201_CREATED)
+    return Response(
+        {"uploaded": results, "errors": errors or None},
+        status=status.HTTP_207_MULTI_STATUS if errors else status.HTTP_201_CREATED
+    )
 
 
 @extend_schema(
@@ -159,8 +162,13 @@ def product_file_delete_view(request, product_id: str, file_id: str):
     try:
         delete_product_file(file_id)
         ProductFileRepository.delete(file_id)
-        delete_keys_by_pattern(f"{PRODUCT_LIST_CACHE_PREFIX}*")
-        cache.delete(product_detail_cache_key(product_id))
+        # Invalidar caché de lista y detalle
+        deleted_list   = delete_keys_by_pattern(PRODUCT_LIST_CACHE_PREFIX)
+        deleted_detail = delete_keys_by_pattern(PRODUCT_DETAIL_CACHE_PREFIX)
+        logger.debug(
+            "[Cache] product_list invalidada (%d) y product_detail invalidada (%d) tras DELETE",
+            deleted_list, deleted_detail
+        )
         return Response({"detail": "Archivo eliminado correctamente."}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.exception(f"❌ Error eliminando archivo {file_id}: {e}")

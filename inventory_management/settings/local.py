@@ -1,5 +1,4 @@
 # settings/local.py
-
 from .base import *
 import os
 from dotenv import load_dotenv
@@ -85,3 +84,19 @@ REDIS_URL  = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
 CHANNEL_LAYERS["default"]["CONFIG"]["hosts"] = [REDIS_URL]
 CELERY_BROKER_URL     = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
+
+# ── CACHE: Redis con django-redis ─────────────────────────────
+from .base import CACHE_TTL
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "TIMEOUT": CACHE_TTL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "IGNORE_EXCEPTIONS": True,
+        },
+        "KEY_PREFIX": "inventory_local",
+    }
+}

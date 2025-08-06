@@ -3,7 +3,7 @@
 from typing import Any, Dict, Optional
 from .cache_helpers_core import generate_cache_key, generate_detail_key
 
-SUBPRODUCT_LIST_CACHE_PREFIX = "subproduct_list"
+SUBPRODUCT_LIST_CACHE_PREFIX   = "subproduct_list"
 SUBPRODUCT_DETAIL_CACHE_PREFIX = "subproduct_detail"
 
 def subproduct_list_cache_key(
@@ -14,11 +14,16 @@ def subproduct_list_cache_key(
     **extra_filters: Any
 ) -> str:
     """
-    Clave para listar subproductos de un producto padre,
-    incluye IDs, paginación, estado y filtros adicionales.
+    (Opcional) Genera una clave para listar subproductos:
+    incluye prod_pk, página, tamaño y otros filtros.
     """
-    params: Dict[str, Any] = {"prod_pk": prod_pk, "page": page, "page_size": page_size, "status": status}
-    params.update(extra_filters)
+    params: Dict[str, Any] = {
+        "prod_pk": prod_pk,
+        "page": page,
+        "page_size": page_size,
+        "status": status,
+        **extra_filters
+    }
     return generate_cache_key(SUBPRODUCT_LIST_CACHE_PREFIX, **params)
 
 
@@ -27,6 +32,6 @@ def subproduct_detail_cache_key(
     subp_pk: int
 ) -> str:
     """
-    Clave para detalle de subproducto específico.
+    (Opcional) Genera la clave de detalle de subproducto.
     """
     return generate_detail_key(SUBPRODUCT_DETAIL_CACHE_PREFIX, prod_pk, subp_pk)
