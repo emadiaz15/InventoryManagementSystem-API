@@ -38,9 +38,11 @@ SECURE_HSTS_PRELOAD            = True
 # ── CSRF Y CORS ────────────────────────────────────────────────
 CSRF_TRUSTED_ORIGINS = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') or []
 CORS_ALLOWED_ORIGINS = os.getenv('DJANGO_CORS_ALLOWED_ORIGINS', '').split(',') or []
-CORS_ALLOW_HEADERS    = ['authorization', 'content-type', 'accept', 'origin',
-                         'x-csrftoken', 'x-requested-with', 'x-api-key']
-CORS_ALLOW_METHODS    = ['GET','POST','PUT','PATCH','DELETE','OPTIONS']
+CORS_ALLOW_HEADERS    = [
+    'authorization', 'content-type', 'accept', 'origin',
+    'x-csrftoken', 'x-requested-with', 'x-api-key'
+]
+CORS_ALLOW_METHODS    = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 CORS_ALLOW_CREDENTIALS = True
 
 # ── REDIS & CELERY & CHANNELS ──────────────────────────────────
@@ -55,13 +57,13 @@ CHANNEL_LAYERS = {
     },
 }
 
-CELERY_BROKER_URL    = os.getenv('CELERY_BROKER_URL', REDIS_URL)
-CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL)
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE       = 'America/Argentina/Buenos_Aires'
-CELERY_ENABLE_UTC     = False
+CELERY_BROKER_URL       = os.getenv('CELERY_BROKER_URL', REDIS_URL)
+CELERY_RESULT_BACKEND   = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL)
+CELERY_ACCEPT_CONTENT   = ['json']
+CELERY_TASK_SERIALIZER  = 'json'
+CELERY_RESULT_SERIALIZER= 'json'
+CELERY_TIMEZONE         = 'America/Argentina/Buenos_Aires'
+CELERY_ENABLE_UTC       = False
 
 # ── S3 / MinIO ────────────────────────────────────────────────
 AWS_ACCESS_KEY_ID       = os.getenv('AWS_ACCESS_KEY_ID')
@@ -78,6 +80,16 @@ AWS_S3_SECURE_URLS       = True
 AWS_S3_FILE_OVERWRITE    = False
 AWS_DEFAULT_ACL          = None
 AWS_QUERYSTRING_AUTH     = True
+
+# ── URL PÚBLICA DE MINIO ───────────────────────────────────────
+# Para generar correctamente las URLs pre-firmadas de perfil/imágenes
+minio_public = os.getenv(
+    'MINIO_PUBLIC_ENDPOINT',
+    AWS_S3_CUSTOM_DOMAIN or AWS_S3_ENDPOINT_URL
+)
+if minio_public and not minio_public.startswith(('http://', 'https://')):
+    minio_public = f'https://{minio_public}'
+MINIO_PUBLIC_URL = minio_public
 
 # ── CACHE: Redis con django-redis ─────────────────────────────
 from .base import CACHE_TTL
@@ -135,7 +147,7 @@ LOGGING = {
     },
     'loggers': {
         'django': {'handlers': ['file_errors', 'console_prod'], 'level': 'INFO', 'propagate': False},
-        'apps': {'handlers': ['file_errors', 'console_prod'], 'level': 'INFO', 'propagate': False},
+        'apps':   {'handlers': ['file_errors', 'console_prod'], 'level': 'INFO', 'propagate': False},
     },
     'root': {'handlers': ['console_prod'], 'level': 'WARNING'},
 }
