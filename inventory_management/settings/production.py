@@ -1,4 +1,6 @@
 # settings/production.py
+
+from .base import *  # incluye INSTALLED_APPS, MIDDLEWARE, ROOT_URLCONF, WSGI_APPLICATION, TIME_ZONE, etc.
 import os
 from pathlib import Path
 from datetime import timedelta
@@ -7,9 +9,6 @@ from django.core.exceptions import ImproperlyConfigured
 
 # ── BASE_DIR ───────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# ── BASE CONFIGURACIÓN COMÚN ────────────────────────────────────
-from .base import CACHE_TTL
 
 # ── SEGURIDAD ──────────────────────────────────────────────────
 SECRET_KEY = os.getenv('SECRET_KEY')
@@ -39,9 +38,9 @@ SECURE_HSTS_PRELOAD            = True
 # ── CSRF Y CORS ────────────────────────────────────────────────
 CSRF_TRUSTED_ORIGINS = os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') or []
 CORS_ALLOWED_ORIGINS = os.getenv('DJANGO_CORS_ALLOWED_ORIGINS', '').split(',') or []
-CORS_ALLOW_HEADERS     = ['authorization', 'content-type', 'accept', 'origin',
-                          'x-csrftoken', 'x-requested-with', 'x-api-key']
-CORS_ALLOW_METHODS     = ['GET','POST','PUT','PATCH','DELETE','OPTIONS']
+CORS_ALLOW_HEADERS    = ['authorization', 'content-type', 'accept', 'origin',
+                         'x-csrftoken', 'x-requested-with', 'x-api-key']
+CORS_ALLOW_METHODS    = ['GET','POST','PUT','PATCH','DELETE','OPTIONS']
 CORS_ALLOW_CREDENTIALS = True
 
 # ── REDIS & CELERY & CHANNELS ──────────────────────────────────
@@ -52,19 +51,17 @@ if not REDIS_URL:
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [REDIS_URL],
-        },
+        'CONFIG': {'hosts': [REDIS_URL]},
     },
 }
 
-CELERY_BROKER_URL        = os.getenv('CELERY_BROKER_URL', REDIS_URL)
-CELERY_RESULT_BACKEND     = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL)
-CELERY_ACCEPT_CONTENT     = ['json']
-CELERY_TASK_SERIALIZER    = 'json'
-CELERY_RESULT_SERIALIZER  = 'json'
-CELERY_TIMEZONE           = 'America/Argentina/Buenos_Aires'
-CELERY_ENABLE_UTC         = False
+CELERY_BROKER_URL    = os.getenv('CELERY_BROKER_URL', REDIS_URL)
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL)
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE       = 'America/Argentina/Buenos_Aires'
+CELERY_ENABLE_UTC     = False
 
 # ── S3 / MinIO ────────────────────────────────────────────────
 AWS_ACCESS_KEY_ID       = os.getenv('AWS_ACCESS_KEY_ID')
@@ -75,7 +72,6 @@ AWS_PRODUCT_BUCKET_NAME = os.getenv('AWS_PRODUCT_BUCKET_NAME')
 AWS_PROFILE_BUCKET_NAME = os.getenv('AWS_PROFILE_BUCKET_NAME')
 AWS_S3_CUSTOM_DOMAIN    = os.getenv('AWS_S3_CUSTOM_DOMAIN', None)
 
-# Opcionales: ajustes de Boto3
 AWS_S3_ADDRESSING_STYLE  = 'path'
 AWS_S3_SIGNATURE_VERSION = 's3v4'
 AWS_S3_SECURE_URLS       = True
@@ -84,16 +80,18 @@ AWS_DEFAULT_ACL          = None
 AWS_QUERYSTRING_AUTH     = True
 
 # ── CACHE: Redis con django-redis ─────────────────────────────
+from .base import CACHE_TTL
+
 CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_URL,
-        "TIMEOUT": CACHE_TTL,
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "IGNORE_EXCEPTIONS": True,
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': REDIS_URL,
+        'TIMEOUT': CACHE_TTL,
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'IGNORE_EXCEPTIONS': True,
         },
-        "KEY_PREFIX": "inventory_prod",
+        'KEY_PREFIX': 'inventory_prod',
     }
 }
 
