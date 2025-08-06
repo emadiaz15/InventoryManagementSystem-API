@@ -1,6 +1,5 @@
 # settings/production.py
 import os
-from .base import *
 from pathlib import Path
 from datetime import timedelta
 import dj_database_url
@@ -8,6 +7,9 @@ from django.core.exceptions import ImproperlyConfigured
 
 # ── BASE_DIR ───────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# ── BASE CONFIGURACIÓN COMÚN ────────────────────────────────────
+from .base import CACHE_TTL
 
 # ── SEGURIDAD ──────────────────────────────────────────────────
 SECRET_KEY = os.getenv('SECRET_KEY')
@@ -47,7 +49,6 @@ REDIS_URL = os.getenv('REDIS_URL')
 if not REDIS_URL:
     raise ImproperlyConfigured("La variable REDIS_URL no está definida en producción")
 
-# Channels
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
@@ -57,7 +58,6 @@ CHANNEL_LAYERS = {
     },
 }
 
-# Celery
 CELERY_BROKER_URL        = os.getenv('CELERY_BROKER_URL', REDIS_URL)
 CELERY_RESULT_BACKEND     = os.getenv('CELERY_RESULT_BACKEND', REDIS_URL)
 CELERY_ACCEPT_CONTENT     = ['json']
@@ -65,6 +65,23 @@ CELERY_TASK_SERIALIZER    = 'json'
 CELERY_RESULT_SERIALIZER  = 'json'
 CELERY_TIMEZONE           = 'America/Argentina/Buenos_Aires'
 CELERY_ENABLE_UTC         = False
+
+# ── S3 / MinIO ────────────────────────────────────────────────
+AWS_ACCESS_KEY_ID       = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY   = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_S3_ENDPOINT_URL     = os.getenv('AWS_S3_ENDPOINT_URL')
+AWS_S3_REGION_NAME      = os.getenv('AWS_S3_REGION_NAME', 'us-east-1')
+AWS_PRODUCT_BUCKET_NAME = os.getenv('AWS_PRODUCT_BUCKET_NAME')
+AWS_PROFILE_BUCKET_NAME = os.getenv('AWS_PROFILE_BUCKET_NAME')
+AWS_S3_CUSTOM_DOMAIN    = os.getenv('AWS_S3_CUSTOM_DOMAIN', None)
+
+# Opcionales: ajustes de Boto3
+AWS_S3_ADDRESSING_STYLE  = 'path'
+AWS_S3_SIGNATURE_VERSION = 's3v4'
+AWS_S3_SECURE_URLS       = True
+AWS_S3_FILE_OVERWRITE    = False
+AWS_DEFAULT_ACL          = None
+AWS_QUERYSTRING_AUTH     = True
 
 # ── CACHE: Redis con django-redis ─────────────────────────────
 CACHES = {
@@ -74,10 +91,7 @@ CACHES = {
         "TIMEOUT": CACHE_TTL,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            # Ignorar errores de conexión en READ-ONLY para no tumbar la app:
             "IGNORE_EXCEPTIONS": True,
-            # Máximo de conexiones en el pool (ajustar según carga):
-            # "MAX_CONNECTIONS": 50,
         },
         "KEY_PREFIX": "inventory_prod",
     }
@@ -87,15 +101,15 @@ CACHES = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=12),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS':  False,
+    'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
-    'ALGORITHM':              'HS256',
-    'SIGNING_KEY':            SECRET_KEY,
-    'AUTH_HEADER_TYPES':      ('Bearer',),
-    'USER_ID_FIELD':          'id',
-    'USER_ID_CLAIM':          'user_id',
-    'AUTH_TOKEN_CLASSES':     ('rest_framework_simplejwt.tokens.AccessToken',),
-    'TOKEN_TYPE_CLAIM':       'token_type',
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
 # ── LOGGING PRODUCCIÓN ─────────────────────────────────────────
@@ -123,7 +137,7 @@ LOGGING = {
     },
     'loggers': {
         'django': {'handlers': ['file_errors', 'console_prod'], 'level': 'INFO', 'propagate': False},
-        'apps':   {'handlers': ['file_errors', 'console_prod'], 'level': 'INFO', 'propagate': False},
+        'apps': {'handlers': ['file_errors', 'console_prod'], 'level': 'INFO', 'propagate': False},
     },
     'root': {'handlers': ['console_prod'], 'level': 'WARNING'},
 }
