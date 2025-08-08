@@ -41,11 +41,11 @@ logger = logging.getLogger(__name__)
 
 # ── CACHE DECORATORS ──────────────────────────────────────────
 list_cache = (
-    cache_page(60 * 15, key_prefix=PRODUCT_LIST_CACHE_PREFIX)
+    cache_page(None, key_prefix=PRODUCT_LIST_CACHE_PREFIX)
     if not settings.DEBUG else (lambda fn: fn)
 )
 detail_cache = (
-    cache_page(60 * 5, key_prefix=PRODUCT_DETAIL_CACHE_PREFIX)
+    cache_page(None, key_prefix=PRODUCT_DETAIL_CACHE_PREFIX)
     if not settings.DEBUG else (lambda fn: fn)
 )
 
@@ -64,7 +64,7 @@ detail_cache = (
 def product_list(request):
     """
     Listar productos activos con paginación y stock calculado.
-    TTL de cache: 15 minutos.
+    TTL de cache: 
     """
     # Subqueries para stock
     product_stock_sq = ProductStock.objects.filter(

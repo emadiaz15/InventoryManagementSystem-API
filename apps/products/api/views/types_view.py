@@ -26,9 +26,9 @@ from apps.products.utils.redis_utils import delete_keys_by_pattern
 
 logger = logging.getLogger(__name__)
 
-# ── CACHE DE LISTADO (5 min) ───────────────────────────────────
+# ── CACHE DE LISTADO () ───────────────────────────────────
 cache_decorator = (
-    cache_page(60 * 5, key_prefix=CACHE_KEY_TYPE_LIST)
+    cache_page(None, key_prefix=CACHE_KEY_TYPE_LIST)
     if not settings.DEBUG
     else (lambda fn: fn)
 )
