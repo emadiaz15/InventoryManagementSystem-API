@@ -20,7 +20,7 @@ from apps.products.utils.redis_utils import delete_keys_by_pattern
 logger = logging.getLogger(__name__)
 
 # ── CACHE DE LISTADO (TTL 5min) ────────────────────────────────
-cache_decorator = cache_page(60 * 5, key_prefix=CACHE_KEY_CATEGORY_LIST)
+cache_decorator = cache_page(None, key_prefix=CACHE_KEY_CATEGORY_LIST)
 
 
 @api_view(['GET'])

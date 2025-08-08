@@ -42,11 +42,11 @@ logger = logging.getLogger(__name__)
 
 # ── CACHE DECORATORS ──────────────────────────────────────────
 list_cache = (
-    cache_page(60 * 15, key_prefix=SUBPRODUCT_LIST_CACHE_PREFIX)
+    cache_page(None, key_prefix=SUBPRODUCT_LIST_CACHE_PREFIX)
     if not settings.DEBUG else (lambda fn: fn)
 )
 detail_cache = (
-    cache_page(60 * 5, key_prefix=SUBPRODUCT_DETAIL_CACHE_PREFIX)
+    cache_page(None, key_prefix=SUBPRODUCT_DETAIL_CACHE_PREFIX)
     if not settings.DEBUG else (lambda fn: fn)
 )
 
